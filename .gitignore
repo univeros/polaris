@@ -1,0 +1,12 @@
+/vendor/
+/.phpunit.cache/
+/.phpunit.result.cache
+/.php-cs-fixer.cache
+/var/
+.DS_Store
+/.idea/
+/.vscode/
+
+# CI workflow: committed once the GitHub token has the `workflow` scope
+# (`gh auth refresh -s workflow`). Untracked until then so pushes aren't rejected.
+/.github/workflows/ci.yml
