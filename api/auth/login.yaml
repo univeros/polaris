@@ -1,0 +1,58 @@
+# POST /auth/login — password login. Returns a full token pair, OR an
+# mfa_required ticket when the user has confirmed MFA factors / MFA is enforced.
+endpoint:
+  method: POST
+  path: /auth/login
+  summary: Authenticate with email + password
+  tags: [auth]
+  auth: none
+  rate_limit:
+    keys: [ip, "body.email"]
+    budget: "10/5min"
+
+input:
+  class: Univeros\Polaris\Http\Inputs\LoginInput
+  source: body
+  fields:
+    email:
+      type: string
+      rules: [required, email, lowercase, trim]
+    password:
+      type: string
+      rules: [required, string]
+      sensitive: true
+
+domain:
+  class: Univeros\Polaris\Domain\LoginService
+  description: >
+    Constant-time password verification (with dummy-verify on missing user for
+    timing parity), status/lockout checks, failed-attempt accounting. On success
+    either mints access+refresh (no MFA) or returns a short-lived mfa_token plus
+    the masked factor list (MFA required). Emits user.logged_in / user.login_failed.
+
+output:
+  status: 200
+  responder: Univeros\Polaris\Http\Responders\LoginResponder
+  oneOf:
+    - name: tokens
+      example:
+        data:
+          access_token: "<jwt>"
+          token_type: Bearer
+          expires_in: 900
+          refresh_token: "<opaque>"
+          user: { id: "018f…", email: "ada@example.com", email_verified: true }
+          active_org: { id: "018f…", slug: acme, roles: [owner] }
+    - name: mfa_required
+      example:
+        data:
+          mfa_required: true
+          mfa_token: "<jwt purpose=login_mfa>"
+          factors:
+            - { id: "…", type: totp, label: Authenticator, default: true }
+            - { id: "…", type: sms,  destination: "+1 *** *** 0101" }
+
+errors:
+  - { status: 401, code: invalid_credentials }   # generic
+  - { status: 403, code: email_unverified }
+  - { status: 429, code: too_many_requests }

@@ -1,0 +1,52 @@
+# POST /orgs — create an organization; the creator becomes its owner.
+# Demonstrates a multi-tenant write seeding org-scoped roles from system templates.
+endpoint:
+  method: POST
+  path: /orgs
+  summary: Create an organization
+  tags: [orgs]
+  auth: bearer                     # any authenticated, verified user
+  requires_verified_email: true
+
+input:
+  class: Univeros\Polaris\Http\Inputs\CreateOrganizationInput
+  source: body
+  fields:
+    name:
+      type: string
+      rules: [required, string, "max:160"]
+    slug:
+      type: ?string
+      rules: ["max:160", "regex:/^[a-z0-9-]+$/"]   # auto-derived from name if omitted
+
+domain:
+  class: Univeros\Polaris\Domain\OrganizationService
+  method: create
+  description: >
+    Create the organization (unique slug, auto-derived if absent), clone the
+    system role templates (owner/admin/member) into org-scoped roles, create an
+    active membership for the caller granting the owner role, and emit org.created.
+    Transactional: all-or-nothing.
+
+output:
+  status: 201
+  responder: Univeros\Polaris\Http\Responders\OrganizationResponder
+  example:
+    data:
+      id: "018f…"
+      name: "Acme Inc"
+      slug: acme
+      role: owner
+
+persistence:
+  entities:
+    - { entity: Univeros\Polaris\Entity\Organization, table: auth_organizations }
+    - { entity: Univeros\Polaris\Entity\Membership,   table: auth_memberships }
+    - { entity: Univeros\Polaris\Entity\Role,         table: auth_roles }
+  repository: Univeros\Polaris\Repository\OrganizationRepository
+
+errors:
+  - { status: 401, code: invalid_token }
+  - { status: 403, code: email_unverified }
+  - { status: 409, code: conflict }            # slug already taken
+  - { status: 422, code: validation_failed }

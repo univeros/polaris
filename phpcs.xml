@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<ruleset name="Polaris">
+    <description>Polaris coding standard (PSR-12).</description>
+
+    <file>src</file>
+    <file>tests</file>
+
+    <arg name="colors"/>
+    <arg name="warning-severity" value="0"/>
+    <arg value="np"/>
+
+    <rule ref="PSR12"/>
+</ruleset>

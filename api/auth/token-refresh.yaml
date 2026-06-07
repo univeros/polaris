@@ -1,0 +1,44 @@
+# POST /auth/token/refresh — rotate a refresh token for a new access+refresh pair.
+# Replaying an already-rotated token revokes the whole family (theft detection).
+endpoint:
+  method: POST
+  path: /auth/token/refresh
+  summary: Rotate refresh token
+  tags: [auth]
+  auth: none                       # the refresh token itself is the credential
+  rate_limit:
+    keys: [ip]
+    budget: "60/min"
+
+input:
+  class: Univeros\Polaris\Http\Inputs\RefreshInput
+  source: body                     # or HttpOnly cookie in cookie-delivery mode
+  fields:
+    refresh_token:
+      type: string
+      rules: [required, string]
+      sensitive: true
+
+domain:
+  class: Univeros\Polaris\Domain\TokenService
+  method: refresh
+  description: >
+    HMAC-hash the presented token and look it up. Unknown/expired → invalid_grant.
+    Found-but-revoked → REUSE DETECTED: revoke the entire family_id, emit
+    auth.refresh_reuse_detected, return invalid_grant. Valid → revoke current
+    (reason=rotated), mint a new refresh in the same family (parent linkage) and
+    a new access JWT with freshly resolved org/roles. Emits auth.token_refreshed.
+
+output:
+  status: 200
+  responder: Univeros\Polaris\Http\Responders\TokenPairResponder
+  example:
+    data:
+      access_token: "<jwt>"
+      token_type: Bearer
+      expires_in: 900
+      refresh_token: "<new-opaque>"
+
+errors:
+  - { status: 401, code: invalid_grant }   # unknown / expired / reuse-detected (all generic)
+  - { status: 429, code: too_many_requests }
