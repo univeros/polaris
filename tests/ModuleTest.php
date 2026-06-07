@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests;
 
 use Altair\Container\Container;
+use Altair\Http\Contracts\IdentityProviderInterface;
+use Altair\Http\Contracts\IdentityValidatorInterface;
 use Altair\Module\Migration\MigrationSource;
 use PHPUnit\Framework\TestCase;
 use Univeros\Polaris\Config\AuthConfig;
@@ -42,6 +44,15 @@ final class ModuleTest extends TestCase
 
         self::assertInstanceOf(AuthConfig::class, $container->get(AuthConfig::class));
         self::assertInstanceOf(Secrets::class, $container->get(Secrets::class));
+    }
+
+    public function testApplyBindsTheIdentityProviderAndCredentialValidator(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        self::assertTrue($container->has(IdentityProviderInterface::class));
+        self::assertTrue($container->has(IdentityValidatorInterface::class));
     }
 
     public function testApplyFailsFastWhenSecretsAreMissing(): void
