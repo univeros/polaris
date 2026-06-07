@@ -16,8 +16,14 @@ use Altair\Module\Migration\MigrationSource;
 use PHPUnit\Framework\TestCase;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\RegisterDomain;
+use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
+use Univeros\Polaris\Identity\EmailVerificationService;
+use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Module;
 
 use function putenv;
@@ -96,6 +102,34 @@ final class ModuleTest extends TestCase
             ['GET', '/auth/.well-known/jwks.json', JwksDomain::class],
             (new Module())->routes(),
         );
+    }
+
+    public function testContributesTheRegistrationRoutes(): void
+    {
+        $routes = (new Module())->routes();
+
+        self::assertContains(['POST', '/auth/register', RegisterDomain::class], $routes);
+        self::assertContains(['POST', '/auth/email/verify', VerifyEmailDomain::class], $routes);
+        self::assertContains(['POST', '/auth/email/verify/resend', ResendVerificationDomain::class], $routes);
+    }
+
+    public function testApplyBindsTheRegistrationServices(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        $bindings = [
+            PasswordHasherInterface::class,
+            RegistrationService::class,
+            EmailVerificationService::class,
+            RegisterDomain::class,
+            VerifyEmailDomain::class,
+            ResendVerificationDomain::class,
+        ];
+
+        foreach ($bindings as $id) {
+            self::assertTrue($container->has($id), "$id should be bound");
+        }
     }
 
     public function testEntityDirectoriesExist(): void
