@@ -5,6 +5,9 @@ declare(strict_types=1);
 namespace Univeros\Polaris;
 
 use Altair\Container\Container;
+use Altair\Http\Contracts\IdentityProviderInterface;
+use Altair\Http\Contracts\IdentityValidatorInterface;
+use Altair\Http\Validator\RepositoryIdentityValidator;
 use Altair\Module\Contracts\EntityDirectoriesProviderInterface;
 use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
 use Altair\Module\Contracts\ModuleInterface;
@@ -13,6 +16,8 @@ use Altair\Module\Migration\MigrationSource;
 use Override;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Identity\CycleIdentityProvider;
+use Univeros\Polaris\Persistence\UserRepository;
 
 use function getenv;
 
@@ -43,7 +48,9 @@ final class Module implements
 
     /**
      * Build and bind the validated configuration and secrets. Both are constructed
-     * eagerly so an invalid configuration or a missing secret fails at boot.
+     * eagerly so an invalid configuration or a missing secret fails at boot. The
+     * identity provider and credential validator are bound lazily — they resolve a
+     * repository the persistence module wires.
      */
     #[Override]
     public function apply(Container $container): void
@@ -53,6 +60,35 @@ final class Module implements
 
         $container->instance(AuthConfig::class, $authConfig);
         $container->instance(Secrets::class, $secrets);
+
+        $this->bindIdentity($container);
+    }
+
+    /**
+     * Bind the framework's Http auth contracts: a {@see CycleIdentityProvider} over
+     * the {@see UserRepository}, and the framework's {@see RepositoryIdentityValidator}
+     * mapping its `username`/`hash` options onto the User's email and password-hash
+     * columns. Credentials authenticate when valid and are rejected otherwise.
+     *
+     * This is a password-only credential check. Account `status`/lockout, MFA, and
+     * the timing equalization that prevents user enumeration are enforced by the
+     * login flow (Phase 1), not here — a `true` result is not by itself a grant.
+     */
+    private function bindIdentity(Container $container): void
+    {
+        $container->singleton(
+            IdentityProviderInterface::class,
+            static fn(UserRepository $users): CycleIdentityProvider => new CycleIdentityProvider($users),
+        );
+
+        $container->singleton(
+            IdentityValidatorInterface::class,
+            static fn(IdentityProviderInterface $provider): RepositoryIdentityValidator
+                => new RepositoryIdentityValidator($provider, [
+                    'username' => CycleIdentityProvider::IDENTIFIER_FIELD,
+                    'hash' => CycleIdentityProvider::PASSWORD_HASH_FIELD,
+                ]),
+        );
     }
 
     /**
