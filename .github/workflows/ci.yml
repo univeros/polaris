@@ -14,6 +14,30 @@ jobs:
       matrix:
         php: ['8.3', '8.4']
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: polaris_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # Persistence tests run against a real driver (Postgres), never SQLite.
+      DB_CONNECTION: postgres
+      DB_DATABASE: polaris_test
+      DB_HOST: 127.0.0.1
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+
     steps:
       - uses: actions/checkout@v4
 
@@ -21,7 +45,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: openssl, sodium, gd, mbstring
+          extensions: openssl, sodium, gd, mbstring, pdo_pgsql, pgsql
           coverage: none
 
       - name: Validate composer.json
