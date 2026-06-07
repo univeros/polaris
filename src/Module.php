@@ -20,19 +20,27 @@ use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
 use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Contracts\RoutesProviderInterface;
 use Altair\Module\Migration\MigrationSource;
+use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Override;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
+use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
+use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Token\DefaultSessionPrincipalResolver;
 use Univeros\Polaris\Token\JwtSignerFactory;
 use Univeros\Polaris\Token\PolarisTokenFactory;
 use Univeros\Polaris\Token\PolarisTokenGenerator;
 use Univeros\Polaris\Token\PolarisTokenParser;
 use Univeros\Polaris\Token\PolarisTokenValidator;
+use Univeros\Polaris\Token\SessionPrincipalResolverInterface;
+use Univeros\Polaris\Token\TokenService;
 
 use function getenv;
 
@@ -78,6 +86,52 @@ final class Module implements
 
         $this->bindIdentity($container);
         $this->bindTokens($container, $authConfig, $secrets);
+        $this->bindSessions($container);
+    }
+
+    /**
+     * Bind the session machinery: the keyed {@see Pepper} (refresh-token hashing), a
+     * no-op PSR-14 dispatcher (until the host wires listeners in Phase 4), the default
+     * {@see SessionPrincipalResolverInterface} (RBAC rebinds it later), and
+     * {@see TokenService}, which issues and rotates refresh tokens with reuse detection.
+     */
+    private function bindSessions(Container $container): void
+    {
+        $container->singleton(Pepper::class, static fn(Secrets $secrets): Pepper => new Pepper($secrets->appKey));
+
+        // Only fall back to the no-op dispatcher when the host has not wired a real one,
+        // so a host-provided PSR-14 dispatcher (and its security listeners) is preserved.
+        if (!$container->has(EventDispatcherInterface::class)) {
+            $container->singleton(EventDispatcherInterface::class, NullEventDispatcher::class);
+        }
+        $container->singleton(
+            SessionPrincipalResolverInterface::class,
+            static fn(UserRepository $users): DefaultSessionPrincipalResolver
+                => new DefaultSessionPrincipalResolver($users),
+        );
+
+        $container->singleton(
+            TokenService::class,
+            static fn(
+                RefreshTokenRepository $refreshTokens,
+                UnitOfWorkInterface $unitOfWork,
+                Pepper $pepper,
+                TokenGeneratorInterface $accessTokens,
+                SessionPrincipalResolverInterface $principals,
+                AuthConfig $config,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): TokenService => new TokenService(
+                $refreshTokens,
+                $unitOfWork,
+                $pepper,
+                $accessTokens,
+                $principals,
+                $config,
+                $clock,
+                $events,
+            ),
+        );
     }
 
     /**
