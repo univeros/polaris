@@ -7,11 +7,17 @@ namespace Univeros\Polaris\Tests;
 use Altair\Container\Container;
 use Altair\Http\Contracts\IdentityProviderInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
+use Altair\Http\Contracts\TokenConfigurationInterface;
+use Altair\Http\Contracts\TokenFactoryInterface;
+use Altair\Http\Contracts\TokenGeneratorInterface;
+use Altair\Http\Contracts\TokenParserInterface;
+use Altair\Http\Contracts\TokenValidatorInterface;
 use Altair\Module\Migration\MigrationSource;
 use PHPUnit\Framework\TestCase;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Module;
 
 use function putenv;
@@ -66,9 +72,30 @@ final class ModuleTest extends TestCase
         (new Module())->apply(new Container());
     }
 
-    public function testContributesNoRoutesYet(): void
+    public function testApplyBindsTheTokenMachinery(): void
     {
-        self::assertSame([], (new Module())->routes());
+        $container = new Container();
+        (new Module())->apply($container);
+
+        $tokenBindings = [
+            TokenConfigurationInterface::class,
+            TokenGeneratorInterface::class,
+            TokenParserInterface::class,
+            TokenValidatorInterface::class,
+            TokenFactoryInterface::class,
+        ];
+
+        foreach ($tokenBindings as $id) {
+            self::assertTrue($container->has($id), "$id should be bound");
+        }
+    }
+
+    public function testContributesTheJwksRoute(): void
+    {
+        self::assertContains(
+            ['GET', '/auth/.well-known/jwks.json', JwksDomain::class],
+            (new Module())->routes(),
+        );
     }
 
     public function testEntityDirectoriesExist(): void
