@@ -6,7 +6,3 @@
 .DS_Store
 /.idea/
 /.vscode/
-
-# CI workflow: committed once the GitHub token has the `workflow` scope
-# (`gh auth refresh -s workflow`). Untracked until then so pushes aren't rejected.
-/.github/workflows/ci.yml
