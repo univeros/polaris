@@ -29,12 +29,14 @@ use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
+use Univeros\Polaris\Identity\LoginService;
 use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
@@ -97,6 +99,38 @@ final class Module implements
         $this->bindTokens($container, $authConfig, $secrets);
         $this->bindSessions($container);
         $this->bindRegistration($container);
+        $this->bindLogin($container);
+    }
+
+    /**
+     * Bind the password-login machinery: {@see LoginService} (constant-time verification,
+     * status/lockout/verified checks, token issuance via {@see TokenService}) and the
+     * {@see LoginDomain} behind `POST /auth/login`.
+     */
+    private function bindLogin(Container $container): void
+    {
+        $container->singleton(
+            LoginService::class,
+            static fn(
+                UserRepository $users,
+                PasswordHasherInterface $hasher,
+                TokenService $tokens,
+                UnitOfWorkInterface $unitOfWork,
+                AuthConfig $config,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): LoginService => new LoginService(
+                $users,
+                $hasher,
+                $tokens,
+                $unitOfWork,
+                $config,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(LoginDomain::class);
     }
 
     /**
@@ -287,6 +321,7 @@ final class Module implements
             ['POST', '/auth/register', RegisterDomain::class],
             ['POST', '/auth/email/verify', VerifyEmailDomain::class],
             ['POST', '/auth/email/verify/resend', ResendVerificationDomain::class],
+            ['POST', '/auth/login', LoginDomain::class],
         ];
     }
 
