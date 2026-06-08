@@ -113,6 +113,7 @@ final class LoginEndpointTest extends FunctionalTestCase
         $this->unitOfWork->clear();
         $user = $this->user(self::EMAIL);
         self::assertSame(0, $user->failedLoginCount, 'failure counter reset on success');
+        self::assertNull($user->failedLoginAt, 'failure window anchor cleared on success');
         self::assertNotNull($user->lastLoginAt);
         self::assertNull($user->lockedUntil);
     }
@@ -155,6 +156,71 @@ final class LoginEndpointTest extends FunctionalTestCase
         $reloaded = $this->user(self::EMAIL);
         self::assertNull($reloaded->lockedUntil);
         self::assertSame(0, $reloaded->failedLoginCount);
+        self::assertNull($reloaded->failedLoginAt);
+    }
+
+    public function testFailuresOutsideTheWindowDoNotAccumulateToALock(): void
+    {
+        $this->registerAndVerify();
+
+        // Four failures, one shy of the default lock threshold (5).
+        for ($attempt = 0; $attempt < 4; ++$attempt) {
+            $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => 'wrong']);
+        }
+
+        // Age the streak past the lockout window, so the next failure starts a fresh window
+        // (mirrors how testLockAutoExpires winds lock state into the past).
+        $user = $this->user(self::EMAIL);
+        self::assertSame(4, $user->failedLoginCount);
+        $user->failedLoginAt = new DateTimeImmutable('2000-01-01 00:00:00');
+        $this->unitOfWork->persist($user);
+        $this->unitOfWork->flush();
+        $this->unitOfWork->clear();
+
+        // A cumulative counter would lock on this fifth failure; the window instead resets it.
+        $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => 'wrong']);
+
+        $this->unitOfWork->clear();
+        $reloaded = $this->user(self::EMAIL);
+        self::assertSame(1, $reloaded->failedLoginCount, 'the stale streak reset to a single fresh failure');
+        self::assertNull($reloaded->lockedUntil, 'the account is not locked');
+
+        // The correct password still logs in.
+        self::assertSame(200, $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => self::PASSWORD])->getStatusCode());
+    }
+
+    public function testFailedLoginsAgainstADisabledAccountNeverReEnableIt(): void
+    {
+        $this->registerAndVerify();
+        $this->disable(self::EMAIL);
+
+        // Enough wrong-password attempts to lock an active account (default threshold 5).
+        for ($attempt = 0; $attempt < 5; ++$attempt) {
+            self::assertSame(401, $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => 'wrong'])->getStatusCode());
+        }
+
+        $this->unitOfWork->clear();
+        $user = $this->user(self::EMAIL);
+        self::assertSame(User::STATUS_DISABLED, $user->status, 'a disabled account stays out of the lockout lifecycle');
+        self::assertSame(0, $user->failedLoginCount);
+        self::assertNull($user->lockedUntil);
+
+        // The correct password still reports the account as disabled (403) — never re-enabled.
+        self::assertSame(403, $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => self::PASSWORD])->getStatusCode());
+    }
+
+    public function testUnknownUserAndWrongPasswordAreIndistinguishable(): void
+    {
+        $this->registerAndVerify();
+
+        $wrongPassword = $this->postJson('/auth/login', ['email' => self::EMAIL, 'password' => 'not-the-password']);
+        $unknownUser = $this->postJson('/auth/login', ['email' => 'nobody@example.com', 'password' => self::PASSWORD]);
+
+        // Same status and same error body — the caller cannot tell which account exists.
+        self::assertSame(401, $wrongPassword->getStatusCode());
+        self::assertSame($wrongPassword->getStatusCode(), $unknownUser->getStatusCode());
+        self::assertSame('invalid_credentials', $this->json($wrongPassword)['error']);
+        self::assertSame($this->json($wrongPassword)['error'], $this->json($unknownUser)['error']);
     }
 
     private function disable(string $email): void
