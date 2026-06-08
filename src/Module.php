@@ -5,17 +5,26 @@ declare(strict_types=1);
 namespace Univeros\Polaris;
 
 use Altair\Container\Container;
+use Altair\Http\Contracts\CredentialsExtractorInterface;
 use Altair\Http\Contracts\IdentityProviderInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
 use Altair\Http\Contracts\TokenConfigurationInterface;
+use Altair\Http\Contracts\TokenExtractorInterface;
 use Altair\Http\Contracts\TokenFactoryInterface;
 use Altair\Http\Contracts\TokenGeneratorInterface;
 use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Http\Contracts\TokenValidatorInterface;
 use Altair\Http\Jwt\SystemClock;
+use Altair\Http\Middleware\RateLimit\IpKeyResolver;
+use Altair\Http\Middleware\RateLimit\RateLimit;
+use Altair\Http\Middleware\RateLimit\RateLimitMiddleware;
+use Altair\Http\Middleware\TokenAuthenticationMiddleware;
+use Altair\Http\Rule\RequestPathRule;
+use Altair\Http\Support\MiddlewarePriority;
 use Altair\Http\Support\TokenConfiguration;
 use Altair\Http\Validator\RepositoryIdentityValidator;
 use Altair\Module\Contracts\EntityDirectoriesProviderInterface;
+use Altair\Module\Contracts\MiddlewareProviderInterface;
 use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
 use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Contracts\RoutesProviderInterface;
@@ -24,7 +33,10 @@ use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Override;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
+use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
@@ -43,6 +55,11 @@ use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
+use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
+use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
+use Univeros\Polaris\Http\Middleware\RateLimitGroup;
+use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
@@ -56,6 +73,7 @@ use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
 use Univeros\Polaris\Security\Argon2idPasswordHasher;
 use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Token\DefaultSessionPrincipalResolver;
 use Univeros\Polaris\Token\JwtSignerFactory;
 use Univeros\Polaris\Token\PolarisTokenFactory;
@@ -65,7 +83,9 @@ use Univeros\Polaris\Token\PolarisTokenValidator;
 use Univeros\Polaris\Token\SessionPrincipalResolverInterface;
 use Univeros\Polaris\Token\TokenService;
 
+use function array_map;
 use function getenv;
+use function preg_quote;
 
 /**
  * Polaris — the authentication, MFA/OTP, and user/organization management module.
@@ -83,9 +103,27 @@ use function getenv;
 final class Module implements
     ModuleInterface,
     RoutesProviderInterface,
+    MiddlewareProviderInterface,
     EntityDirectoriesProviderInterface,
     MigrationDirectoriesProviderInterface
 {
+    /**
+     * The `/auth` paths that skip token authentication: the unauthenticated entry points
+     * (login, register, email verification, refresh, password forgot/reset) and the public
+     * JWKS document. Every other path under `/auth` requires a valid bearer token. Matched as
+     * path prefixes by {@see RequestPathRule}, so `/auth/email/verify` also covers
+     * `/auth/email/verify/resend`.
+     */
+    private const array PUBLIC_PATHS = [
+        '/auth/login',
+        '/auth/register',
+        '/auth/email/verify',
+        '/auth/token/refresh',
+        '/auth/password/forgot',
+        '/auth/password/reset',
+        '/auth/.well-known/jwks.json',
+    ];
+
     #[Override]
     public function name(): string
     {
@@ -114,6 +152,126 @@ final class Module implements
         $this->bindLogin($container);
         $this->bindSessionEndpoints($container);
         $this->bindPasswordReset($container);
+        $this->bindMiddleware($container);
+    }
+
+    /**
+     * The PSR-15 middleware Polaris contributes to the host pipeline, ordered against the
+     * framework's {@see MiddlewarePriority} anchors:
+     *
+     * - {@see AuthRateLimitMiddleware} just inside the exception handler (outermost guard), so
+     *   abusive traffic is shed before routing or any work.
+     * - {@see TokenAuthenticationMiddleware} just after the dispatcher, so it can authenticate
+     *   the matched route and attach the access token the protected domains read.
+     *
+     * (The `AuthorizationMiddleware` — permission/step-up checks — arrives with the RBAC phase.)
+     *
+     * @return list<array{middleware: class-string, priority: int}>
+     */
+    #[Override]
+    public function middleware(): array
+    {
+        return [
+            ['middleware' => AuthRateLimitMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 50],
+            ['middleware' => TokenAuthenticationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 5],
+        ];
+    }
+
+    /**
+     * Bind the auth-pipeline middleware and its collaborators.
+     *
+     * {@see TokenAuthenticationMiddleware} is configured with a {@see RequestPathRule} so it only
+     * challenges protected `/auth` paths and skips {@see self::PUBLIC_PATHS}; with `ssl => false`
+     * because Polaris runs behind the host's TLS termination (the PHP-visible scheme is `http`,
+     * and the framework's allow-list guard would otherwise reject every proxied request —
+     * transport security is enforced at the edge); and with an {@see UnauthorizedResponder} that
+     * renders auth failures as a `401` JSON envelope. A {@see BearerTokenExtractor} reads the
+     * `Authorization: Bearer` header, and a {@see NullCredentialsExtractor} disables the
+     * credential-minting path so only pre-issued tokens authenticate (login stays the sole
+     * credential entry point, with its lockout/MFA/verified-email gates).
+     *
+     * {@see AuthRateLimitMiddleware} carries one fixed-window limiter per sensitive endpoint
+     * group (budgets from {@see RateLimitConfig}). A {@see CacheInterface} is bound to the
+     * in-process {@see InMemoryCache} only when the host has not provided one — a production host
+     * must bind a shared cache (Redis/APCu/…) for limits to hold across workers.
+     */
+    private function bindMiddleware(Container $container): void
+    {
+        $container->singleton(
+            TokenExtractorInterface::class,
+            static fn(): BearerTokenExtractor => new BearerTokenExtractor(),
+        );
+        $container->singleton(CredentialsExtractorInterface::class, NullCredentialsExtractor::class);
+
+        if (!$container->has(CacheInterface::class)) {
+            $container->singleton(CacheInterface::class, InMemoryCache::class);
+        }
+        $container->instance(RateLimitConfig::class, RateLimitConfig::defaults());
+
+        $container->singleton(
+            TokenAuthenticationMiddleware::class,
+            static fn(
+                TokenExtractorInterface $tokenExtractor,
+                CredentialsExtractorInterface $credentialsExtractor,
+                TokenFactoryInterface $tokenFactory,
+                IdentityValidatorInterface $identityValidator,
+                ResponseFactoryInterface $responseFactory,
+            ): TokenAuthenticationMiddleware => new TokenAuthenticationMiddleware(
+                $tokenExtractor,
+                $credentialsExtractor,
+                $tokenFactory,
+                $identityValidator,
+                $responseFactory,
+                [new RequestPathRule([
+                    'path' => [preg_quote('/auth', '@')],
+                    'passthrough' => self::publicPathPatterns(),
+                ])],
+                ['ssl' => false, 'onError' => new UnauthorizedResponder()],
+            ),
+        );
+
+        $container->singleton(
+            AuthRateLimitMiddleware::class,
+            static fn(
+                RateLimitConfig $limits,
+                CacheInterface $cache,
+                ResponseFactoryInterface $responseFactory,
+            ): AuthRateLimitMiddleware => new AuthRateLimitMiddleware(
+                self::rateLimitGroup('/auth/login', $limits->login, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/register', $limits->register, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
+            ),
+        );
+    }
+
+    /**
+     * Build one rate-limit group: a {@see RequestPathRule} over the group's path and the
+     * framework's fixed-window {@see RateLimitMiddleware} keyed on the client IP.
+     */
+    private static function rateLimitGroup(
+        string $path,
+        RateLimit $policy,
+        CacheInterface $cache,
+        ResponseFactoryInterface $responseFactory,
+    ): RateLimitGroup {
+        return new RateLimitGroup(
+            new RequestPathRule(['path' => [preg_quote($path, '@')]]),
+            new RateLimitMiddleware($cache, $policy, $responseFactory, new IpKeyResolver()),
+        );
+    }
+
+    /**
+     * The {@see self::PUBLIC_PATHS} as literal patterns for {@see RequestPathRule}, which
+     * interpolates them straight into a regex without escaping. Quoting keeps a metacharacter
+     * (e.g. the dots in `.well-known/jwks.json`) from matching more than the intended literal
+     * path — which could otherwise let a future route slip past authentication.
+     *
+     * @return list<string>
+     */
+    private static function publicPathPatterns(): array
+    {
+        return array_map(static fn(string $path): string => preg_quote($path, '@'), self::PUBLIC_PATHS);
     }
 
     /**
