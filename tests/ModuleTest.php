@@ -18,18 +18,23 @@ use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
+use Univeros\Polaris\Http\Auth\ForgotPasswordDomain;
 use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\LogoutAllDomain;
 use Univeros\Polaris\Http\Auth\LogoutDomain;
+use Univeros\Polaris\Http\Auth\MeDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\ResetPasswordDomain;
 use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
+use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Module;
@@ -149,6 +154,25 @@ final class ModuleTest extends TestCase
 
         self::assertTrue($container->has(SessionService::class));
         self::assertTrue($container->has(RefreshTokenDomain::class));
+    }
+
+    public function testContributesThePasswordAndProfileRoutes(): void
+    {
+        $routes = (new Module())->routes();
+
+        self::assertContains(['POST', '/auth/password/forgot', ForgotPasswordDomain::class], $routes);
+        self::assertContains(['POST', '/auth/password/reset', ResetPasswordDomain::class], $routes);
+        self::assertContains(['POST', '/auth/password/change', ChangePasswordDomain::class], $routes);
+        self::assertContains(['GET', '/auth/me', MeDomain::class], $routes);
+    }
+
+    public function testApplyBindsThePasswordResetService(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        self::assertTrue($container->has(PasswordResetService::class));
+        self::assertTrue($container->has(MeDomain::class));
     }
 
     public function testApplyBindsTheRegistrationServices(): void

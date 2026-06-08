@@ -29,12 +29,16 @@ use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
+use Univeros\Polaris\Http\Auth\ForgotPasswordDomain;
 use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\LogoutAllDomain;
 use Univeros\Polaris\Http\Auth\LogoutDomain;
+use Univeros\Polaris\Http\Auth\MeDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\ResetPasswordDomain;
 use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
@@ -43,9 +47,11 @@ use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
 use Univeros\Polaris\Identity\PasswordPolicy;
+use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
+use Univeros\Polaris\Persistence\PasswordResetRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
 use Univeros\Polaris\Security\Argon2idPasswordHasher;
@@ -107,6 +113,48 @@ final class Module implements
         $this->bindRegistration($container);
         $this->bindLogin($container);
         $this->bindSessionEndpoints($container);
+        $this->bindPasswordReset($container);
+    }
+
+    /**
+     * Bind the password reset/change and `/auth/me` machinery: {@see PasswordResetService}
+     * (forgot/reset/change with logout-everywhere on a credential change) and the domains
+     * behind `/auth/password/{forgot,reset,change}` and `GET /auth/me`.
+     */
+    private function bindPasswordReset(Container $container): void
+    {
+        $container->singleton(
+            PasswordResetService::class,
+            static fn(
+                UserRepository $users,
+                PasswordResetRepository $resets,
+                UnitOfWorkInterface $unitOfWork,
+                PasswordHasherInterface $hasher,
+                PasswordPolicy $policy,
+                Pepper $pepper,
+                SessionService $sessions,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): PasswordResetService => new PasswordResetService(
+                $users,
+                $resets,
+                $unitOfWork,
+                $hasher,
+                $policy,
+                $pepper,
+                $sessions,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(ForgotPasswordDomain::class);
+        $container->singleton(ResetPasswordDomain::class);
+        $container->singleton(ChangePasswordDomain::class);
+        $container->singleton(
+            MeDomain::class,
+            static fn(UserRepository $users): MeDomain => new MeDomain($users),
+        );
     }
 
     /**
@@ -359,6 +407,10 @@ final class Module implements
             ['POST', '/auth/logout-all', LogoutAllDomain::class],
             ['GET', '/auth/sessions', SessionsDomain::class],
             ['DELETE', '/auth/sessions/{id}', RevokeSessionDomain::class],
+            ['POST', '/auth/password/forgot', ForgotPasswordDomain::class],
+            ['POST', '/auth/password/reset', ResetPasswordDomain::class],
+            ['POST', '/auth/password/change', ChangePasswordDomain::class],
+            ['GET', '/auth/me', MeDomain::class],
         ];
     }
 
