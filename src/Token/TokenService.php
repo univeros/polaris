@@ -156,15 +156,17 @@ final class TokenService
     }
 
     /**
-     * Handle a presented token that is already revoked. With reuse detection on (default),
-     * this is a stolen-token replay: revoke the whole family and alert. With it off, the
-     * token is simply rejected as an invalid grant. Always throws.
+     * Handle a presented token that is already revoked. Only a token consumed by *rotation*
+     * being replayed is the stolen-token signature → revoke the whole family and alert.
+     * A token revoked intentionally (logout, admin, password change) is just an ended
+     * session and is rejected as a plain invalid grant — no family wipe, no theft alert.
+     * Always throws.
      *
      * @throws RefreshTokenReuseException|InvalidGrantException
      */
     private function onRevokedTokenPresented(RefreshToken $current, ClientContext $client, DateTimeImmutable $now): never
     {
-        if ($this->config->refreshToken->reuseDetection) {
+        if ($this->config->refreshToken->reuseDetection && $current->revokedReason === RefreshToken::REASON_ROTATED) {
             $this->revokeFamily($current->familyId, RefreshToken::REASON_REUSE_DETECTED, $now);
             $this->events->dispatch(new RefreshReuseDetected($current->userId, $current->familyId, $client->ip));
 

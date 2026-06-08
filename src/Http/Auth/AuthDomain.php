@@ -9,6 +9,7 @@ use Altair\Http\Collection\InputCollection;
 use Altair\Http\Contracts\DomainInterface;
 use Altair\Http\Contracts\MiddlewareInterface;
 use Altair\Http\Contracts\PayloadInterface;
+use Altair\Http\Contracts\TokenInterface;
 use Univeros\Polaris\Token\ClientContext;
 
 use function filter_var;
@@ -17,8 +18,8 @@ use function is_string;
 use const FILTER_VALIDATE_EMAIL;
 
 /**
- * Shared helpers for the auth HTTP domains: building responses and reading the client
- * context (IP) the request carries.
+ * Shared helpers for the auth HTTP domains: building responses, reading the client
+ * context (IP), and reading the authenticated access token the auth middleware attaches.
  */
 abstract class AuthDomain implements DomainInterface
 {
@@ -48,5 +49,21 @@ abstract class AuthDomain implements DomainInterface
     protected function isEmail(string $email): bool
     {
         return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+    }
+
+    /**
+     * The authenticated access token the `TokenAuthenticationMiddleware` attaches to the
+     * request, or null on an unauthenticated request (the route is then 401).
+     */
+    protected function token(InputCollection $input): ?TokenInterface
+    {
+        $token = $input->get(TokenInterface::TOKEN_KEY);
+
+        return $token instanceof TokenInterface ? $token : null;
+    }
+
+    protected function unauthorized(): PayloadInterface
+    {
+        return $this->respond(401, ['error' => 'unauthorized', 'message' => 'Authentication is required.']);
     }
 }
