@@ -27,7 +27,7 @@ final class AuthEntitiesPersistenceTest extends DatabaseTestCase
         self::assertTrue($database->hasTable('auth_refresh_tokens'));
 
         $users = $database->table('auth_users');
-        foreach (['id', 'email', 'password_hash', 'status', 'mfa_enforced', 'created_at'] as $column) {
+        foreach (['id', 'email', 'password_hash', 'status', 'mfa_enforced', 'failed_login_at', 'created_at'] as $column) {
             self::assertTrue($users->hasColumn($column), "auth_users.$column should exist");
         }
 
@@ -46,6 +46,8 @@ final class AuthEntitiesPersistenceTest extends DatabaseTestCase
         $user->id = Uuid::v7()->toRfc4122();
         $user->email = 'ada@example.com';
         $user->displayName = 'Ada';
+        $user->failedLoginCount = 2;
+        $user->failedLoginAt = $now;
         $user->createdAt = $now;
         $user->updatedAt = $now;
         $repository->save($user);
@@ -60,7 +62,8 @@ final class AuthEntitiesPersistenceTest extends DatabaseTestCase
         self::assertSame('Ada', $found->displayName);
         self::assertSame('active', $found->status);
         self::assertFalse($found->mfaEnforced);
-        self::assertSame(0, $found->failedLoginCount);
+        self::assertSame(2, $found->failedLoginCount);
+        self::assertInstanceOf(DateTimeImmutable::class, $found->failedLoginAt);
         self::assertNull($found->emailVerifiedAt);
         self::assertNull($found->passwordHash);
         self::assertInstanceOf(DateTimeImmutable::class, $found->createdAt);

@@ -68,6 +68,12 @@ final class PasswordResetService
     /**
      * Request a reset. Always a generic success: a challenge is created (and the mailer
      * notified) only for a known, active account.
+     *
+     * Anti-enumeration is by the uniform response — the caller can't tell a known from an unknown
+     * address. The known-active path does a little more work (a DB write + token HMAC) than the
+     * early return for a missing/inactive account, a small residual timing delta; the forgot
+     * endpoint's rate limit (added in #15) is the compensating control. Writing dummy challenge
+     * rows for non-existent accounts to equalize timing would be worse than the delta, so we don't.
      */
     public function forgot(string $email, ClientContext $client): void
     {
@@ -122,6 +128,7 @@ final class PasswordResetService
 
         $user->passwordHash = $this->hasher->hash($newPassword);
         $user->failedLoginCount = 0;
+        $user->failedLoginAt = null;
         $user->lockedUntil = null;
         if ($user->status === User::STATUS_LOCKED) {
             $user->status = User::STATUS_ACTIVE;
@@ -166,6 +173,14 @@ final class PasswordResetService
 
         $now = $this->clock->now();
         $user->passwordHash = $this->hasher->hash($newPassword);
+        // A credential rotation clears stale failure/lock state — the caller proved control via the
+        // current password — mirroring the reset path so the two stay consistent.
+        $user->failedLoginCount = 0;
+        $user->failedLoginAt = null;
+        $user->lockedUntil = null;
+        if ($user->status === User::STATUS_LOCKED) {
+            $user->status = User::STATUS_ACTIVE;
+        }
         $user->updatedAt = $now;
         $this->unitOfWork->persist($user);
         $this->unitOfWork->flush();
