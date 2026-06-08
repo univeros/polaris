@@ -30,8 +30,13 @@ use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\LoginDomain;
+use Univeros\Polaris\Http\Auth\LogoutAllDomain;
+use Univeros\Polaris\Http\Auth\LogoutDomain;
+use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
+use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
@@ -39,6 +44,7 @@ use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
 use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\RegistrationService;
+use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
@@ -100,6 +106,32 @@ final class Module implements
         $this->bindSessions($container);
         $this->bindRegistration($container);
         $this->bindLogin($container);
+        $this->bindSessionEndpoints($container);
+    }
+
+    /**
+     * Bind the refresh + session-management endpoints: {@see SessionService} and the
+     * domains behind `/auth/token/refresh`, `/auth/logout`, `/auth/logout-all`, and
+     * `/auth/sessions`. The mutating session endpoints read the access token the auth
+     * middleware (issue #15) attaches to the request.
+     */
+    private function bindSessionEndpoints(Container $container): void
+    {
+        $container->singleton(
+            SessionService::class,
+            static fn(
+                RefreshTokenRepository $refreshTokens,
+                TokenService $tokens,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): SessionService => new SessionService($refreshTokens, $tokens, $clock, $events),
+        );
+
+        $container->singleton(RefreshTokenDomain::class);
+        $container->singleton(LogoutDomain::class);
+        $container->singleton(LogoutAllDomain::class);
+        $container->singleton(SessionsDomain::class);
+        $container->singleton(RevokeSessionDomain::class);
     }
 
     /**
@@ -322,6 +354,11 @@ final class Module implements
             ['POST', '/auth/email/verify', VerifyEmailDomain::class],
             ['POST', '/auth/email/verify/resend', ResendVerificationDomain::class],
             ['POST', '/auth/login', LoginDomain::class],
+            ['POST', '/auth/token/refresh', RefreshTokenDomain::class],
+            ['POST', '/auth/logout', LogoutDomain::class],
+            ['POST', '/auth/logout-all', LogoutAllDomain::class],
+            ['GET', '/auth/sessions', SessionsDomain::class],
+            ['DELETE', '/auth/sessions/{id}', RevokeSessionDomain::class],
         ];
     }
 

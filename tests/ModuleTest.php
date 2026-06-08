@@ -19,13 +19,19 @@ use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\LoginDomain;
+use Univeros\Polaris\Http\Auth\LogoutAllDomain;
+use Univeros\Polaris\Http\Auth\LogoutDomain;
+use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
+use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
 use Univeros\Polaris\Identity\RegistrationService;
+use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Module;
 
 use function putenv;
@@ -123,6 +129,26 @@ final class ModuleTest extends TestCase
 
         self::assertTrue($container->has(LoginService::class));
         self::assertTrue($container->has(LoginDomain::class));
+    }
+
+    public function testContributesTheSessionRoutes(): void
+    {
+        $routes = (new Module())->routes();
+
+        self::assertContains(['POST', '/auth/token/refresh', RefreshTokenDomain::class], $routes);
+        self::assertContains(['POST', '/auth/logout', LogoutDomain::class], $routes);
+        self::assertContains(['POST', '/auth/logout-all', LogoutAllDomain::class], $routes);
+        self::assertContains(['GET', '/auth/sessions', SessionsDomain::class], $routes);
+        self::assertContains(['DELETE', '/auth/sessions/{id}', RevokeSessionDomain::class], $routes);
+    }
+
+    public function testApplyBindsTheSessionService(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        self::assertTrue($container->has(SessionService::class));
+        self::assertTrue($container->has(RefreshTokenDomain::class));
     }
 
     public function testApplyBindsTheRegistrationServices(): void
