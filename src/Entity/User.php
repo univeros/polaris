@@ -51,6 +51,10 @@ class User
     #[Column(type: 'integer', name: 'failed_login_count', default: 0)]
     public int $failedLoginCount = 0;
 
+    /** When the most recent failed login occurred; anchors the lockout failure window. */
+    #[Column(type: 'datetime', name: 'failed_login_at', nullable: true)]
+    public ?DateTimeImmutable $failedLoginAt = null;
+
     #[Column(type: 'datetime', name: 'locked_until', nullable: true)]
     public ?DateTimeImmutable $lockedUntil = null;
 

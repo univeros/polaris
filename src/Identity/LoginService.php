@@ -34,12 +34,17 @@ use Univeros\Polaris\Token\TokenService;
  * whether the account exists. Unknown user, wrong password, and a locked account all
  * surface identically as {@see InvalidCredentialsException}. (A known-user failure still
  * writes the lockout counter, a small residual timing delta versus the unknown-user path;
- * the per-endpoint rate limiting added in a later phase is the compensating control.)
+ * the per-endpoint login rate limiting added in #15 is the compensating control.)
  *
- * See `docs/auth/flows.md` §3. The MFA gate, sliding-window lockout (config
- * `lockout.window`, currently a cumulative counter — issue #16), and richer device
- * capture arrive in later phases; this issues tokens directly once credentials and
- * account state check out.
+ * Lockout is **windowed** (`auth.lockout` config): `max_attempts` failures within a rolling
+ * `window` lock the account for `lock_duration`, after which it auto-unlocks. The window is
+ * anchored on {@see User::$failedLoginAt}; failures spaced further apart than the window decay
+ * (the streak resets) rather than accumulating forever, so an attacker cannot trip a lock with
+ * a slow drip of guesses, and a legitimate user's occasional typos never compound into a lock.
+ *
+ * See `docs/auth/flows.md` §3 and `docs/auth/security.md` §6. The MFA gate and richer device
+ * capture arrive in later phases; this issues tokens directly once credentials and account
+ * state check out.
  */
 final class LoginService
 {
@@ -79,9 +84,11 @@ final class LoginService
         $verified = $this->hasher->verify($password, $hash !== '' ? $hash : $this->dummyHash());
 
         if (!$user instanceof User || $hash === '' || !$verified) {
-            // Skip the counter while already locked: avoids re-extending the lock on every
-            // attempt (a DoS) and avoids a write that would not auto-unlock the account.
-            if ($user instanceof User && !$locked) {
+            // Record the failure only for an active, not-currently-locked account: skipping a live
+            // lock avoids re-extending it on every attempt (a DoS), and skipping a DISABLED account
+            // keeps the lockout lifecycle (which can flip LOCKED back to ACTIVE on expiry) from ever
+            // re-enabling an account an admin disabled.
+            if ($user instanceof User && !$locked && $user->status !== User::STATUS_DISABLED) {
                 $this->recordFailure($user, $now, $client);
             }
 
@@ -102,6 +109,7 @@ final class LoginService
         }
 
         $user->failedLoginCount = 0;
+        $user->failedLoginAt = null;
         $user->lockedUntil = null;
         if ($user->status === User::STATUS_LOCKED) {
             $user->status = User::STATUS_ACTIVE;
@@ -135,14 +143,19 @@ final class LoginService
 
     private function recordFailure(User $user, DateTimeImmutable $now, ClientContext $client): void
     {
-        // An expired lock starts a fresh failure window on the next attempt.
-        if ($user->lockedUntil !== null && $user->lockedUntil <= $now) {
+        // Start a fresh failure window when the prior streak is stale — an expired lock, or a
+        // last failure older than the window — so only failures clustered within the window count
+        // toward a lock. A live DISABLED status is preserved (a failed guess never re-enables it).
+        if ($this->failureWindowExpired($user, $now)) {
             $user->failedLoginCount = 0;
             $user->lockedUntil = null;
-            $user->status = User::STATUS_ACTIVE;
+            if ($user->status === User::STATUS_LOCKED) {
+                $user->status = User::STATUS_ACTIVE;
+            }
         }
 
         ++$user->failedLoginCount;
+        $user->failedLoginAt = $now;
 
         $locked = false;
         if ($user->lockedUntil === null && $user->failedLoginCount >= $this->config->lockoutMaxAttempts) {
@@ -159,6 +172,24 @@ final class LoginService
         if ($locked) {
             $this->events->dispatch(new UserLocked($user->id, $client->ip));
         }
+    }
+
+    /**
+     * Whether the next failure should open a fresh window: true after an expired lock, or when the
+     * most recent failure is older than `auth.lockout.window`. A first-ever failure
+     * (`failedLoginAt === null`) continues the (empty) window rather than resetting.
+     */
+    private function failureWindowExpired(User $user, DateTimeImmutable $now): bool
+    {
+        if ($user->lockedUntil !== null && $user->lockedUntil <= $now) {
+            return true;
+        }
+
+        if ($user->failedLoginAt === null) {
+            return false;
+        }
+
+        return ($now->getTimestamp() - $user->failedLoginAt->getTimestamp()) > $this->config->lockoutWindow;
     }
 
     private function dummyHash(): string
