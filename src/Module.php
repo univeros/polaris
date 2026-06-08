@@ -34,11 +34,18 @@ use Override;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Config\TotpConfig;
+use Univeros\Polaris\Contracts\OtpMailerInterface;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
+use Univeros\Polaris\Contracts\QrCodeRendererInterface;
+use Univeros\Polaris\Contracts\SmsSenderInterface;
+use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
@@ -67,6 +74,10 @@ use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
+use Univeros\Polaris\Mfa\EndroidQrRenderer;
+use Univeros\Polaris\Mfa\LogOtpMailer;
+use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\PasswordResetRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
@@ -153,6 +164,51 @@ final class Module implements
         $this->bindSessionEndpoints($container);
         $this->bindPasswordReset($container);
         $this->bindMiddleware($container);
+        $this->bindMfaProviders($container);
+    }
+
+    /**
+     * Bind the MFA/OTP delivery ports and their default drivers/providers.
+     *
+     * Every port is bound only when the host has not already provided one (the same pattern as
+     * {@see CacheInterface}/{@see EventDispatcherInterface}), so a host that wires production
+     * adapters before registering the module keeps them. SMS and email otherwise default to the
+     * dev {@see LogSmsSender}/{@see LogOtpMailer}, which **write the OTP code to the PSR-3 logger**
+     * so flows are completable without a provider — a production host MUST bind real
+     * {@see SmsSenderInterface}/{@see OtpMailerInterface} adapters (or the {@see NullSmsSender}/
+     * {@see NullOtpMailer} no-ops) so codes are never logged. TOTP uses {@see OtphpTotpProvider}
+     * (configured from the {@see TotpConfig} inside {@see AuthConfig}); QR rendering uses
+     * {@see EndroidQrRenderer} (SVG). A {@see NullLogger} backs the log drivers only when the host
+     * has not bound a logger.
+     */
+    private function bindMfaProviders(Container $container): void
+    {
+        if (!$container->has(LoggerInterface::class)) {
+            $container->singleton(LoggerInterface::class, NullLogger::class);
+        }
+
+        $container->singleton(
+            TotpConfig::class,
+            static fn(AuthConfig $config): TotpConfig => $config->otp->totp,
+        );
+
+        $this->bindIfAbsent($container, SmsSenderInterface::class, LogSmsSender::class);
+        $this->bindIfAbsent($container, OtpMailerInterface::class, LogOtpMailer::class);
+        $this->bindIfAbsent($container, TotpProviderInterface::class, OtphpTotpProvider::class);
+        $this->bindIfAbsent($container, QrCodeRendererInterface::class, EndroidQrRenderer::class);
+    }
+
+    /**
+     * Register a default implementation for a port only when the host has not already bound one.
+     *
+     * @param class-string $id
+     * @param class-string $concrete
+     */
+    private function bindIfAbsent(Container $container, string $id, string $concrete): void
+    {
+        if (!$container->has($id)) {
+            $container->singleton($id, $concrete);
+        }
     }
 
     /**
