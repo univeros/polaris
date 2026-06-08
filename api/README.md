@@ -22,6 +22,8 @@ worked examples:
 | `auth/register.yaml`          | `POST /auth/register`          | input rules, persistence, queue side-effect |
 | `auth/login.yaml`             | `POST /auth/login`             | dual response (tokens vs mfa)       |
 | `auth/token-refresh.yaml`     | `POST /auth/token/refresh`     | rotation + reuse detection          |
+| `auth/password/forgot.yaml`   | `POST /auth/password/forgot`   | anti-enumeration generic 202        |
+| `auth/password/reset.yaml`    | `POST /auth/password/reset`    | one-of input + logout-everywhere    |
 | `auth/mfa/totp-enroll.yaml`   | `POST /auth/mfa/totp/enroll`   | authenticated, QR output            |
 | `auth/mfa/challenge.yaml`     | `POST /auth/mfa/challenge`     | OTP send via ports                  |
 | `orgs/create.yaml`            | `POST /orgs`                   | multi-tenant write + permission     |

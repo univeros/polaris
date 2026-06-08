@@ -1,0 +1,53 @@
+# POST /auth/password/forgot — request a password-reset link/OTP.
+# Always returns a generic 202 whether or not the account exists (anti-enumeration).
+endpoint:
+  method: POST
+  path: /auth/password/forgot
+  summary: Request a password reset
+  tags: [auth]
+  auth: none                       # public endpoint (skipped by auth middleware rule)
+  rate_limit:
+    keys: [ip, "body.email"]
+    budget: "5/hour"
+    cooldown: "60s"                # email-bombing protection
+
+input:
+  class: Univeros\Polaris\Http\Inputs\PasswordForgotInput
+  source: body
+  fields:
+    email:
+      type: string
+      rules: [required, email, "max:320", lowercase, trim]
+
+domain:
+  class: Univeros\Polaris\Domain\PasswordResetService
+  method: forgot
+  description: >
+    Normalize email and look up the user. If found and active, create a single-use
+    password-reset challenge (token HMAC-hashed, 1h TTL — shorter than verification
+    by design), record the request IP, and dispatch the reset notification. Unknown
+    or non-active accounts are silently skipped. Always returns a generic success
+    payload (anti-enumeration). Emits user.password_reset_requested.
+
+output:
+  status: 202
+  responder: Univeros\Polaris\Http\Responders\GenericStatusResponder
+  example:
+    data:
+      status: reset_sent
+
+# Cycle entity + repository + migration emitted from this block.
+persistence:
+  entity: Univeros\Polaris\Entity\PasswordReset
+  table: auth_password_resets
+  repository: Univeros\Polaris\Repository\PasswordResetRepository
+
+# Side effects run async on the host's message bus.
+queue:
+  - message: Univeros\Polaris\Message\SendPasswordReset
+    handler: Univeros\Polaris\Handler\SendPasswordResetHandler
+    description: Sends the reset link/OTP via OtpMailerInterface.
+
+errors:
+  - { status: 422, code: validation_failed }
+  - { status: 429, code: too_many_requests }

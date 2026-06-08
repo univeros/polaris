@@ -1,0 +1,63 @@
+# POST /auth/password/reset — set a new password using a reset token (link style)
+# or email+code (OTP style). Succeeding revokes EVERY session (logout-everywhere),
+# a core account-takeover containment measure.
+endpoint:
+  method: POST
+  path: /auth/password/reset
+  summary: Reset password with a token or OTP
+  tags: [auth]
+  auth: none                       # the reset token/OTP itself is the credential
+  rate_limit:
+    keys: [ip, "body.email"]
+    budget: "10/hour"              # per-challenge attempt cap is the primary guard
+
+input:
+  class: Univeros\Polaris\Http\Inputs\PasswordResetInput
+  source: body
+  # Supply EITHER `token` (link style) OR `email` + `code` (OTP style).
+  # The domain enforces the one-of rule and rejects with validation_failed.
+  fields:
+    token:
+      type: ?string
+      rules: [string]
+      sensitive: true
+    email:
+      type: ?string
+      rules: [email, "max:320", lowercase, trim]
+    code:
+      type: ?string
+      rules: [string]
+      sensitive: true
+    new_password:
+      type: string
+      rules: [required, string, "min:12"]   # breach check applied in domain
+      sensitive: true
+
+domain:
+  class: Univeros\Polaris\Domain\PasswordResetService
+  method: reset
+  description: >
+    Resolve the reset challenge by HMAC-hashed token (or email+code), enforcing
+    unconsumed / unexpired / attempts-remaining. Enforce password policy + breach
+    check on new_password, hash with Argon2id, set the new password_hash, and
+    consume the challenge. Revoke ALL of the user's refresh tokens
+    (reason=password_change) so every session is logged out. Bad/expired/consumed
+    challenges return a generic invalid_token. Emits user.password_changed
+    (method=reset).
+
+output:
+  status: 200
+  responder: Univeros\Polaris\Http\Responders\GenericStatusResponder
+  example:
+    data:
+      status: password_reset      # all sessions revoked — the client must log in again
+
+persistence:
+  entity: Univeros\Polaris\Entity\PasswordReset
+  table: auth_password_resets
+  repository: Univeros\Polaris\Repository\PasswordResetRepository
+
+errors:
+  - { status: 401, code: invalid_token }        # bad / expired / consumed challenge (generic)
+  - { status: 422, code: validation_failed }    # missing one-of, or password policy/breach
+  - { status: 429, code: too_many_requests }
