@@ -15,6 +15,13 @@ final readonly class TotpConfig
 {
     private const ALGORITHMS = ['SHA1', 'SHA256', 'SHA512'];
 
+    /**
+     * Hard cap on the skew window. RFC 6238 §5.2 recommends at most ±1 step; ±10 (±5 min at the
+     * default 30s period) tolerates generous clock drift while keeping a misconfiguration from
+     * accepting a wide range of codes at once and weakening brute-force resistance.
+     */
+    private const int MAX_WINDOW = 10;
+
     public function __construct(
         public int $digits,
         public int $period,
@@ -36,8 +43,10 @@ final readonly class TotpConfig
             );
         }
 
-        if ($window < 0) {
-            throw new InvalidConfigException('auth.otp.totp.window must be zero or greater.');
+        if ($window < 0 || $window > self::MAX_WINDOW) {
+            throw new InvalidConfigException(
+                'auth.otp.totp.window must be between 0 and ' . self::MAX_WINDOW . '.',
+            );
         }
 
         if ($issuer === '') {

@@ -21,12 +21,24 @@ use Altair\Module\Migration\MigrationSource;
 use Laminas\Diactoros\ResponseFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Config\TotpConfig;
+use Univeros\Polaris\Contracts\OtpMailerInterface;
+use Univeros\Polaris\Contracts\QrCodeRendererInterface;
+use Univeros\Polaris\Contracts\SmsSenderInterface;
+use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
+use Univeros\Polaris\Mfa\EndroidQrRenderer;
+use Univeros\Polaris\Mfa\LogOtpMailer;
+use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\NullSmsSender;
+use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Support\InMemoryCache;
+use Univeros\Polaris\Tests\Support\RecordingLogger;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
@@ -269,6 +281,33 @@ final class ModuleTest extends TestCase
         (new Module())->apply($container);
 
         self::assertSame($hostCache, $container->get(CacheInterface::class), 'a host-provided cache is preserved');
+    }
+
+    public function testApplyBindsTheMfaPortsToTheirDefaultDrivers(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        self::assertTrue($container->has(TotpConfig::class));
+        self::assertInstanceOf(LogSmsSender::class, $container->get(SmsSenderInterface::class));
+        self::assertInstanceOf(LogOtpMailer::class, $container->get(OtpMailerInterface::class));
+        self::assertInstanceOf(OtphpTotpProvider::class, $container->get(TotpProviderInterface::class));
+        self::assertInstanceOf(EndroidQrRenderer::class, $container->get(QrCodeRendererInterface::class));
+    }
+
+    public function testTheMfaPortsDeferToHostProvidedImplementations(): void
+    {
+        $hostLogger = new RecordingLogger();
+        $hostSms = new NullSmsSender();
+
+        $container = new Container();
+        $container->instance(LoggerInterface::class, $hostLogger);
+        $container->instance(SmsSenderInterface::class, $hostSms);
+        (new Module())->apply($container);
+
+        // A host that wired its own logger/adapter before registering the module keeps them.
+        self::assertSame($hostLogger, $container->get(LoggerInterface::class));
+        self::assertSame($hostSms, $container->get(SmsSenderInterface::class));
     }
 
     public function testEntityDirectoriesExist(): void
