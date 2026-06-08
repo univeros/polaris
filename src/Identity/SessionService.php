@@ -91,20 +91,40 @@ final class SessionService
     }
 
     /**
-     * Revoke every session for the user (logout everywhere).
+     * Revoke every session for the user (logout everywhere) and announce it.
      */
     public function logoutAll(string $userId, ClientContext $client): void
     {
+        $this->revokeAll($userId, RefreshToken::REASON_LOGOUT);
+
+        $this->events->dispatch(new SessionsRevoked($userId, $client->ip));
+    }
+
+    /**
+     * Revoke every session for the user with the given reason (no event). Used by the
+     * password reset/change flows (logout-everywhere on a credential change).
+     */
+    public function revokeAll(string $userId, string $reason): void
+    {
+        $this->revokeAllExcept($userId, null, $reason);
+    }
+
+    /**
+     * Revoke every session for the user except the given one (kept). Used by an
+     * authenticated password change, which leaves the caller's session active.
+     */
+    public function revokeAllExcept(string $userId, ?string $exceptSessionId, string $reason): void
+    {
         $families = [];
         foreach ($this->refreshTokens->findBy(['userId' => $userId]) as $token) {
-            $families[$token->familyId] = true;
+            if ($exceptSessionId === null || $token->familyId !== $exceptSessionId) {
+                $families[$token->familyId] = true;
+            }
         }
 
         foreach (array_keys($families) as $familyId) {
-            $this->tokens->revokeFamily($familyId, RefreshToken::REASON_LOGOUT);
+            $this->tokens->revokeFamily($familyId, $reason);
         }
-
-        $this->events->dispatch(new SessionsRevoked($userId, $client->ip));
     }
 
     /**
