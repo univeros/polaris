@@ -26,12 +26,21 @@ use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\RegisterDomain;
+use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
+use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
+use Univeros\Polaris\Identity\EmailVerificationService;
+use Univeros\Polaris\Identity\PasswordPolicy;
+use Univeros\Polaris\Identity\RegistrationService;
+use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
+use Univeros\Polaris\Security\Argon2idPasswordHasher;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Token\DefaultSessionPrincipalResolver;
 use Univeros\Polaris\Token\JwtSignerFactory;
@@ -87,6 +96,65 @@ final class Module implements
         $this->bindIdentity($container);
         $this->bindTokens($container, $authConfig, $secrets);
         $this->bindSessions($container);
+        $this->bindRegistration($container);
+    }
+
+    /**
+     * Bind the registration + email-verification machinery: the Argon2id hasher and
+     * password policy, and the {@see RegistrationService}/{@see EmailVerificationService}
+     * domains behind the `/auth/register` and `/auth/email/verify` endpoints.
+     */
+    private function bindRegistration(Container $container): void
+    {
+        $container->singleton(PasswordHasherInterface::class, Argon2idPasswordHasher::class);
+        $container->singleton(
+            PasswordPolicy::class,
+            static fn(AuthConfig $config): PasswordPolicy => new PasswordPolicy($config->passwordMinLength),
+        );
+
+        $container->singleton(
+            EmailVerificationService::class,
+            static fn(
+                UserRepository $users,
+                EmailVerificationRepository $verifications,
+                UnitOfWorkInterface $unitOfWork,
+                Pepper $pepper,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): EmailVerificationService => new EmailVerificationService(
+                $users,
+                $verifications,
+                $unitOfWork,
+                $pepper,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(
+            RegistrationService::class,
+            static fn(
+                UserRepository $users,
+                EmailVerificationService $verifications,
+                UnitOfWorkInterface $unitOfWork,
+                PasswordHasherInterface $hasher,
+                PasswordPolicy $policy,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): RegistrationService => new RegistrationService(
+                $users,
+                $verifications,
+                $unitOfWork,
+                $hasher,
+                $policy,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(RegisterDomain::class);
+        $container->singleton(VerifyEmailDomain::class);
+        $container->singleton(ResendVerificationDomain::class);
     }
 
     /**
@@ -213,10 +281,12 @@ final class Module implements
     #[Override]
     public function routes(): array
     {
-        // Public key set for verifying access tokens; further endpoints land in Phase 1+
-        // (see docs/auth/api-reference.md).
+        // See docs/auth/api-reference.md; more endpoints land in later Phase 1 issues.
         return [
             ['GET', '/auth/.well-known/jwks.json', JwksDomain::class],
+            ['POST', '/auth/register', RegisterDomain::class],
+            ['POST', '/auth/email/verify', VerifyEmailDomain::class],
+            ['POST', '/auth/email/verify/resend', ResendVerificationDomain::class],
         ];
     }
 
