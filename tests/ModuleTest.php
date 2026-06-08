@@ -18,11 +18,13 @@ use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Identity\EmailVerificationService;
+use Univeros\Polaris\Identity\LoginService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Module;
 
@@ -111,6 +113,16 @@ final class ModuleTest extends TestCase
         self::assertContains(['POST', '/auth/register', RegisterDomain::class], $routes);
         self::assertContains(['POST', '/auth/email/verify', VerifyEmailDomain::class], $routes);
         self::assertContains(['POST', '/auth/email/verify/resend', ResendVerificationDomain::class], $routes);
+        self::assertContains(['POST', '/auth/login', LoginDomain::class], $routes);
+    }
+
+    public function testApplyBindsTheLoginService(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        self::assertTrue($container->has(LoginService::class));
+        self::assertTrue($container->has(LoginDomain::class));
     }
 
     public function testApplyBindsTheRegistrationServices(): void

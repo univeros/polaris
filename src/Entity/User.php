@@ -21,6 +21,11 @@ use DateTimeImmutable;
 #[Entity(table: 'auth_users')]
 class User
 {
+    /** `status` values. */
+    public const string STATUS_ACTIVE = 'active';
+    public const string STATUS_DISABLED = 'disabled';
+    public const string STATUS_LOCKED = 'locked';
+
     #[Column(type: 'string(36)', name: 'id', primary: true)]
     public string $id = '';
 
