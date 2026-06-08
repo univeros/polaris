@@ -5,17 +5,28 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests;
 
 use Altair\Container\Container;
+use Altair\Http\Contracts\CredentialsExtractorInterface;
 use Altair\Http\Contracts\IdentityProviderInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
 use Altair\Http\Contracts\TokenConfigurationInterface;
+use Altair\Http\Contracts\TokenExtractorInterface;
 use Altair\Http\Contracts\TokenFactoryInterface;
 use Altair\Http\Contracts\TokenGeneratorInterface;
 use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Http\Contracts\TokenValidatorInterface;
+use Altair\Http\Middleware\TokenAuthenticationMiddleware;
+use Altair\Http\Support\MiddlewarePriority;
+use Altair\Module\Contracts\MiddlewareProviderInterface;
 use Altair\Module\Migration\MigrationSource;
+use Laminas\Diactoros\ResponseFactory;
 use PHPUnit\Framework\TestCase;
+use Psr\Http\Message\ResponseFactoryInterface;
+use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
+use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
+use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
@@ -39,6 +50,7 @@ use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Module;
 
+use function array_column;
 use function putenv;
 
 final class ModuleTest extends TestCase
@@ -192,6 +204,71 @@ final class ModuleTest extends TestCase
         foreach ($bindings as $id) {
             self::assertTrue($container->has($id), "$id should be bound");
         }
+    }
+
+    public function testIsAMiddlewareProvider(): void
+    {
+        self::assertInstanceOf(MiddlewareProviderInterface::class, new Module());
+    }
+
+    public function testContributesTheAuthAndRateLimitMiddlewareInPriorityOrder(): void
+    {
+        $middleware = (new Module())->middleware();
+
+        self::assertContains(
+            ['middleware' => AuthRateLimitMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 50],
+            $middleware,
+        );
+        self::assertContains(
+            ['middleware' => TokenAuthenticationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 5],
+            $middleware,
+        );
+
+        // Rate limiting is outermost (lower priority) — it runs before authentication.
+        $priorities = array_column($middleware, 'priority', 'middleware');
+        self::assertLessThan(
+            $priorities[TokenAuthenticationMiddleware::class],
+            $priorities[AuthRateLimitMiddleware::class],
+        );
+    }
+
+    public function testApplyBindsTheMiddlewareAndItsCollaborators(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        $bindings = [
+            TokenExtractorInterface::class,
+            CredentialsExtractorInterface::class,
+            CacheInterface::class,
+            RateLimitConfig::class,
+            TokenAuthenticationMiddleware::class,
+            AuthRateLimitMiddleware::class,
+        ];
+
+        foreach ($bindings as $id) {
+            self::assertTrue($container->has($id), "$id should be bound");
+        }
+    }
+
+    public function testTheRateLimitMiddlewareResolvesFromTheContainer(): void
+    {
+        $container = new Container();
+        $container->instance(ResponseFactoryInterface::class, new ResponseFactory());
+        (new Module())->apply($container);
+
+        self::assertInstanceOf(AuthRateLimitMiddleware::class, $container->get(AuthRateLimitMiddleware::class));
+    }
+
+    public function testTheDefaultCacheBindingDefersToAHostProvidedOne(): void
+    {
+        $hostCache = new InMemoryCache();
+
+        $container = new Container();
+        $container->instance(CacheInterface::class, $hostCache);
+        (new Module())->apply($container);
+
+        self::assertSame($hostCache, $container->get(CacheInterface::class), 'a host-provided cache is preserved');
     }
 
     public function testEntityDirectoriesExist(): void

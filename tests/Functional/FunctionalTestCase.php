@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests\Functional;
 
 use Altair\Container\Container;
-use Altair\Http\Contracts\TokenInterface;
-use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Cycle\ORM\ORMInterface;
 use Laminas\Diactoros\ResponseFactory;
@@ -62,7 +60,7 @@ abstract class FunctionalTestCase extends DatabaseTestCase
         $module->apply($container);
 
         $this->container = $container;
-        $this->harness = new ModuleHarness($container, $module->routes());
+        $this->harness = new ModuleHarness($container, $module);
     }
 
     protected function tearDown(): void
@@ -120,16 +118,13 @@ abstract class FunctionalTestCase extends DatabaseTestCase
     }
 
     /**
-     * Attaches the parsed access token as the request attribute the
-     * `TokenAuthenticationMiddleware` (issue #15) would set, so protected domains see an
-     * authenticated request.
+     * Sends the access token as a real `Authorization: Bearer` header, so the wired
+     * `TokenAuthenticationMiddleware` parses it and attaches the token the protected domains
+     * read — the same path a production client takes.
      */
     private function withToken(ServerRequestInterface $request, string $accessToken): ServerRequestInterface
     {
-        $parser = $this->container->get(TokenParserInterface::class);
-        self::assertInstanceOf(TokenParserInterface::class, $parser);
-
-        return $request->withAttribute(TokenInterface::TOKEN_KEY, $parser->parse($accessToken));
+        return $request->withHeader('Authorization', 'Bearer ' . $accessToken);
     }
 
     /**

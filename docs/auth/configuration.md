@@ -176,7 +176,42 @@ public function middleware(): array
 
 `TokenAuthenticationMiddleware` is configured with **rules** (`HttpAuthRule`) so
 it only challenges protected paths and skips the public ones (`/auth/login`,
-`/auth/register`, JWKS, …).
+`/auth/register`, `/auth/email/verify[/resend]`, `/auth/token/refresh`,
+`/auth/password/forgot`, `/auth/password/reset`, JWKS). Everything else under
+`/auth` (`logout`, `logout-all`, `sessions`, `sessions/{id}`, `password/change`,
+`me`) requires a valid bearer token.
+
+As shipped (issue #15), the wiring uses:
+
+- a **`BearerTokenExtractor`** that reads `Authorization: Bearer <jwt>` (the
+  framework's `HeaderTokenExtractor` returns the scheme too, which the parser
+  can't read); and a **`NullCredentialsExtractor`** that disables the
+  credential-minting path — only a *pre-issued* bearer token authenticates a
+  protected route, so login stays the sole credential entry point with its
+  lockout / verified-email / timing / MFA gates.
+- **`ssl => false`** on the middleware options: Polaris runs behind the host's
+  TLS termination, where the PHP-visible scheme is `http` and the framework's
+  TLS guard would reject every proxied request. **The host MUST enforce TLS at
+  the edge** (HSTS / redirect); transport security is not Polaris's layer.
+- an **`onError`** responder that renders any auth failure as a `401` JSON
+  envelope (`{"error":"unauthorized", …}`) plus a `WWW-Authenticate: Bearer`
+  challenge — matching what the protected domains emit.
+
+`AuthorizationMiddleware` (permission / step-up) arrives with the RBAC phase.
+
+> **Rate limiting requires a shared cache in production.** `AuthRateLimitMiddleware`
+> reuses the framework `RateLimitMiddleware` (one fixed-window limiter per
+> endpoint group — login, register, password/forgot, token/refresh — budgets in
+> `RateLimitConfig`, defaults from [security.md §5](security.md#5-rate-limiting)).
+> It keys on the client IP via `IpKeyResolver`, which reads `REMOTE_ADDR`; a host
+> behind a proxy that needs the real client IP must wire `IpAddressMiddleware`
+> with a **trusted-proxy allow-list** before it (never trust a raw
+> `X-Forwarded-For`). The module binds an in-process `InMemoryCache` as the
+> `CacheInterface` **only when the host has not bound one** — that default does
+> **not** persist across PHP worker processes, so a production host MUST bind a
+> shared cache (Redis / APCu / Memcached) for the limits to hold. The in-memory
+> default keeps the module bootable in dev/test, where one instance lives across
+> a request.
 
 ---
 
