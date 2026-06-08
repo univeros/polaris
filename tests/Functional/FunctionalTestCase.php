@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests\Functional;
 
 use Altair\Container\Container;
+use Altair\Http\Contracts\TokenInterface;
+use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Cycle\ORM\ORMInterface;
 use Laminas\Diactoros\ResponseFactory;
@@ -87,6 +89,47 @@ abstract class FunctionalTestCase extends DatabaseTestCase
             ->withParsedBody($body);
 
         return $this->harness->handle($request);
+    }
+
+    protected function authedGet(string $path, string $accessToken): ResponseInterface
+    {
+        return $this->harness->handle($this->withToken(
+            (new ServerRequestFactory())->createServerRequest('GET', $path),
+            $accessToken,
+        ));
+    }
+
+    /**
+     * @param array<string, mixed> $body
+     */
+    protected function authedPostJson(string $path, array $body, string $accessToken): ResponseInterface
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('POST', $path)
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody($body);
+
+        return $this->harness->handle($this->withToken($request, $accessToken));
+    }
+
+    protected function authedDelete(string $path, string $accessToken): ResponseInterface
+    {
+        return $this->harness->handle($this->withToken(
+            (new ServerRequestFactory())->createServerRequest('DELETE', $path),
+            $accessToken,
+        ));
+    }
+
+    /**
+     * Attaches the parsed access token as the request attribute the
+     * `TokenAuthenticationMiddleware` (issue #15) would set, so protected domains see an
+     * authenticated request.
+     */
+    private function withToken(ServerRequestInterface $request, string $accessToken): ServerRequestInterface
+    {
+        $parser = $this->container->get(TokenParserInterface::class);
+        self::assertInstanceOf(TokenParserInterface::class, $parser);
+
+        return $request->withAttribute(TokenInterface::TOKEN_KEY, $parser->parse($accessToken));
     }
 
     /**
