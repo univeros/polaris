@@ -22,6 +22,13 @@ use DateTimeImmutable;
 #[Entity(table: 'auth_refresh_tokens')]
 class RefreshToken
 {
+    /** `revoked_reason` values. */
+    public const string REASON_ROTATED = 'rotated';
+    public const string REASON_LOGOUT = 'logout';
+    public const string REASON_REUSE_DETECTED = 'reuse_detected';
+    public const string REASON_ADMIN = 'admin';
+    public const string REASON_PASSWORD_CHANGE = 'password_change';
+
     #[Column(type: 'string(36)', name: 'id', primary: true)]
     public string $id = '';
 
