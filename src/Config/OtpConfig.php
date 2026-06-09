@@ -18,6 +18,8 @@ final readonly class OtpConfig
         public int $ttl,
         public int $maxAttempts,
         public int $resendCooldown,
+        public int $sendMax,
+        public int $sendWindow,
         public TotpConfig $totp,
     ) {
         if ($length < 4 || $length > 10) {
@@ -35,6 +37,10 @@ final readonly class OtpConfig
         if ($resendCooldown < 0) {
             throw new InvalidConfigException('auth.otp.resend_cooldown must be zero or greater.');
         }
+
+        if ($sendMax <= 0 || $sendWindow <= 0) {
+            throw new InvalidConfigException('auth.otp.send_max and auth.otp.send_window must be positive integers.');
+        }
     }
 
     /**
@@ -49,6 +55,8 @@ final readonly class OtpConfig
             ttl: (int) ($data['ttl'] ?? 300),
             maxAttempts: (int) ($data['max_attempts'] ?? 5),
             resendCooldown: (int) ($data['resend_cooldown'] ?? 30),
+            sendMax: (int) ($data['send_max'] ?? 5),
+            sendWindow: (int) ($data['send_window'] ?? 3600),
             totp: TotpConfig::fromArray(is_array($totp) ? $totp : []),
         );
     }

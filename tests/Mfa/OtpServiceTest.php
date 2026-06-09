@@ -16,6 +16,7 @@ use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\OtpCooldownException;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Tests\Support\FrozenClock;
 use Univeros\Polaris\Tests\Support\RecordingEventDispatcher;
 use Univeros\Polaris\Tests\Support\RecordingOtpMailer;
@@ -187,6 +188,19 @@ final class OtpServiceTest extends TestCase
             ->verify('user-1', 'factor-1', '123456', OtpChallenge::PURPOSE_LOGIN_MFA);
     }
 
+    public function testSendQuotaThrottlesRepeatedSendsToADestination(): void
+    {
+        // The empty challenge stub means the resend cooldown never trips, isolating the send quota
+        // (sendMax defaults to 5). One service instance shares one cache across the calls.
+        $service = $this->service(new RecordingUnitOfWork());
+        for ($i = 0; $i < 5; ++$i) {
+            $service->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+        }
+
+        $this->expectException(OtpCooldownException::class);
+        $service->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+    }
+
     /**
      * @param list<OtpChallenge> $pending
      */
@@ -210,6 +224,7 @@ final class OtpServiceTest extends TestCase
             $uow,
             FrozenClock::at(self::INSTANT),
             $events ?? new RecordingEventDispatcher(),
+            new InMemoryCache(),
         );
     }
 

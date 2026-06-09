@@ -10,6 +10,7 @@ use DateInterval;
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\SimpleCache\CacheInterface;
 use SensitiveParameter;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Config\OtpConfig;
@@ -24,6 +25,7 @@ use Univeros\Polaris\Exception\OtpCooldownException;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Token\ClientContext;
 
+use function hash;
 use function in_array;
 use function random_int;
 
@@ -65,6 +67,7 @@ final readonly class OtpService
         private UnitOfWorkInterface $unitOfWork,
         private ClockInterface $clock,
         private EventDispatcherInterface $events,
+        private CacheInterface $cache,
     ) {
     }
 
@@ -89,6 +92,7 @@ final readonly class OtpService
         }
 
         $this->throttleAndSupersede($userId, $factor->id, $purpose, $now);
+        $this->assertSendQuota($userId, $destination);
 
         $code = $this->generateCode();
 
@@ -165,6 +169,32 @@ final readonly class OtpService
             $challenge->consumedAt = $now;
             $this->unitOfWork->persist($challenge);
         }
+    }
+
+    /**
+     * Cap OTP sends per account and per destination within `otp.send_window` so a caller cannot
+     * OTP-bomb a victim's phone/inbox or run up SMS cost (spec §9). The window is the cache TTL; the
+     * get-then-set is not atomic, so concurrent sends can race the counter, but the per-challenge
+     * resend cooldown and the per-IP endpoint rate limit bound the residual.
+     *
+     * @throws OtpCooldownException the per-account or per-destination send budget for the window is spent
+     */
+    private function assertSendQuota(string $userId, string $destination): void
+    {
+        // PSR-16 reserves `:` `{}()/\@` in keys, so namespace with dots; the id is a UUID and the
+        // destination is hashed (hex), both reserved-char-free.
+        $accountKey = 'otp.send.acct.' . $userId;
+        $destinationKey = 'otp.send.dest.' . hash('sha256', $destination);
+
+        $account = (int) $this->cache->get($accountKey, 0);
+        $perDestination = (int) $this->cache->get($destinationKey, 0);
+
+        if ($account >= $this->config->sendMax || $perDestination >= $this->config->sendMax) {
+            throw new OtpCooldownException('Too many verification codes requested. Please try again later.');
+        }
+
+        $this->cache->set($accountKey, $account + 1, $this->config->sendWindow);
+        $this->cache->set($destinationKey, $perDestination + 1, $this->config->sendWindow);
     }
 
     private function newestPending(string $userId, string $factorId, string $purpose, DateTimeImmutable $now): ?OtpChallenge

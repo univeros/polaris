@@ -27,6 +27,7 @@ use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Token\TokenService;
 use Univeros\Polaris\Tests\Support\FrozenClock;
 use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
@@ -132,6 +133,7 @@ final class StepUpServiceTest extends TestCase
             $uow,
             $clock,
             new RecordingEventDispatcher(),
+            new InMemoryCache(),
         );
 
         $refresh = new InMemoryRefreshTokenRepository();
