@@ -13,6 +13,7 @@ use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Tests\Support\FrozenClock;
+use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
 use Univeros\Polaris\Tests\Support\RecordingEventDispatcher;
 use Univeros\Polaris\Tests\Support\RecordingUnitOfWork;
 
@@ -60,7 +61,13 @@ final class MfaConfirmationTest extends TestCase
 
         return new MfaConfirmation(
             $factors,
-            new RecoveryCodeService($unitOfWork, new Pepper('app-key-for-tests'), $clock),
+            new RecoveryCodeService(
+                new InMemoryRecoveryCodeRepository($unitOfWork),
+                $unitOfWork,
+                new Pepper('app-key-for-tests'),
+                $clock,
+                new RecordingEventDispatcher(),
+            ),
             $unitOfWork,
             $clock,
             $events ?? new RecordingEventDispatcher(),

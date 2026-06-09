@@ -20,6 +20,7 @@ use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Tests\Support\FrozenClock;
+use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
 use Univeros\Polaris\Tests\Support\RecordingEventDispatcher;
 use Univeros\Polaris\Tests\Support\RecordingUnitOfWork;
 
@@ -148,7 +149,13 @@ final class MfaTotpServiceTest extends TestCase
         $unitOfWork = new RecordingUnitOfWork();
         $confirmation = new MfaConfirmation(
             $factors,
-            new RecoveryCodeService($unitOfWork, new Pepper('app-key'), $clock),
+            new RecoveryCodeService(
+                new InMemoryRecoveryCodeRepository($unitOfWork),
+                $unitOfWork,
+                new Pepper('app-key'),
+                $clock,
+                new RecordingEventDispatcher(),
+            ),
             $unitOfWork,
             $clock,
             $events ?? new RecordingEventDispatcher(),
