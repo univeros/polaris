@@ -6,6 +6,10 @@ namespace Univeros\Polaris\Tests\Functional;
 
 use Altair\Container\Container;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
+use Univeros\Polaris\Contracts\OtpMailerInterface;
+use Univeros\Polaris\Contracts\SmsSenderInterface;
+use Univeros\Polaris\Tests\Support\RecordingOtpMailer;
+use Univeros\Polaris\Tests\Support\RecordingSmsSender;
 use Cycle\ORM\ORMInterface;
 use Laminas\Diactoros\ResponseFactory;
 use Laminas\Diactoros\ServerRequestFactory;
@@ -37,6 +41,8 @@ abstract class FunctionalTestCase extends DatabaseTestCase
     protected Container $container;
     protected ModuleHarness $harness;
     protected RecordingEventDispatcher $events;
+    protected RecordingSmsSender $sms;
+    protected RecordingOtpMailer $mailer;
 
     protected function setUp(): void
     {
@@ -49,12 +55,18 @@ abstract class FunctionalTestCase extends DatabaseTestCase
         putenv('AUTH_ISSUER=https://auth.polaris.test');
 
         $this->events = new RecordingEventDispatcher();
+        $this->sms = new RecordingSmsSender();
+        $this->mailer = new RecordingOtpMailer();
 
         $container = new Container();
         $container->instance(ORMInterface::class, $this->orm);
         $container->instance(UnitOfWorkInterface::class, $this->unitOfWork);
         $container->instance(EventDispatcherInterface::class, $this->events);
         $container->instance(ResponseFactoryInterface::class, new ResponseFactory());
+        // Recording OTP senders so functional tests can read the delivered code; the module binds
+        // its Log* defaults only when absent, so these are preserved.
+        $container->instance(SmsSenderInterface::class, $this->sms);
+        $container->instance(OtpMailerInterface::class, $this->mailer);
 
         $module = new Module();
         $module->apply($container);
