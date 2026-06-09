@@ -41,6 +41,8 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
+use Univeros\Polaris\Authorization\OrganizationService;
+use Univeros\Polaris\Authorization\PermissionCatalog;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\OtpConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
@@ -87,6 +89,8 @@ use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
 use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
+use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
+use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
 use Univeros\Polaris\Http\Rule\AnyRule;
 use Univeros\Polaris\Http\Rule\MethodPathRule;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
@@ -111,9 +115,12 @@ use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
+use Univeros\Polaris\Persistence\MembershipRepository;
 use Univeros\Polaris\Persistence\MfaFactorRepository;
+use Univeros\Polaris\Persistence\OrganizationRepository;
 use Univeros\Polaris\Persistence\OtpChallengeRepository;
 use Univeros\Polaris\Persistence\PasswordResetRepository;
+use Univeros\Polaris\Persistence\PermissionRepository;
 use Univeros\Polaris\Persistence\RecoveryCodeRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
@@ -219,6 +226,7 @@ final class Module implements
         $this->bindMfaLogin($container, $authConfig, $secrets);
         $this->bindStepUp($container);
         $this->bindMfaManagement($container);
+        $this->bindOrganizations($container);
     }
 
     /**
@@ -573,7 +581,7 @@ final class Module implements
      * Bind the auth-pipeline middleware and its collaborators.
      *
      * {@see TokenAuthenticationMiddleware} is configured with a {@see RequestPathRule} so it only
-     * challenges protected `/auth` paths and skips {@see self::PUBLIC_PATHS}; with `ssl => false`
+     * challenges protected `/auth` and `/orgs` paths and skips {@see self::PUBLIC_PATHS}; with `ssl => false`
      * because Polaris runs behind the host's TLS termination (the PHP-visible scheme is `http`,
      * and the framework's allow-list guard would otherwise reject every proxied request —
      * transport security is enforced at the edge); and with an {@see UnauthorizedResponder} that
@@ -615,7 +623,7 @@ final class Module implements
                 $identityValidator,
                 $responseFactory,
                 [new RequestPathRule([
-                    'path' => [preg_quote('/auth', '@')],
+                    'path' => [preg_quote('/auth', '@'), preg_quote('/orgs', '@')],
                     'passthrough' => self::publicPathPatterns(),
                 ])],
                 ['ssl' => false, 'onError' => new UnauthorizedResponder()],
@@ -958,6 +966,41 @@ final class Module implements
     }
 
     /**
+     * Bind the organization service — a transactional create that clones the owner/admin/member
+     * system role templates into org-scoped roles and grants the creator an active `owner`
+     * membership — plus the `/orgs` domains. The repositories are autowired; the
+     * {@see PermissionCatalog} is bound with no host contributors by default (a host may rebind it).
+     */
+    private function bindOrganizations(Container $container): void
+    {
+        $container->singleton(PermissionCatalog::class, static fn(): PermissionCatalog => new PermissionCatalog());
+
+        $container->singleton(
+            OrganizationService::class,
+            static fn(
+                OrganizationRepository $organizations,
+                MembershipRepository $memberships,
+                PermissionRepository $permissions,
+                PermissionCatalog $catalog,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): OrganizationService => new OrganizationService(
+                $organizations,
+                $memberships,
+                $permissions,
+                $catalog,
+                $unitOfWork,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(CreateOrganizationDomain::class);
+        $container->singleton(ListOrganizationsDomain::class);
+    }
+
+    /**
      * @return list<array{0: string, 1: string, 2: class-string}>
      */
     #[Override]
@@ -993,6 +1036,8 @@ final class Module implements
             ['GET', '/auth/mfa/factors', MfaFactorsDomain::class],
             ['PATCH', '/auth/mfa/factors/{id}', UpdateFactorDomain::class],
             ['DELETE', '/auth/mfa/factors/{id}', DeleteFactorDomain::class],
+            ['POST', '/orgs', CreateOrganizationDomain::class],
+            ['GET', '/orgs', ListOrganizationsDomain::class],
         ];
     }
 
