@@ -201,6 +201,22 @@ final class OtpServiceTest extends TestCase
         $service->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
     }
 
+    public function testSendQuotaWindowResetsAfterItElapses(): void
+    {
+        $cache = new InMemoryCache();
+        $early = $this->service(new RecordingUnitOfWork(), cache: $cache, at: '2026-06-08 12:00:00');
+        for ($i = 0; $i < 5; ++$i) {
+            $early->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+        }
+
+        // The window is anchored on the first send, not the cache TTL: a send past `send_window`
+        // (3600s) opens a fresh window rather than staying blocked.
+        $later = $this->service(new RecordingUnitOfWork(), cache: $cache, at: '2026-06-08 13:00:01');
+        $result = $later->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+
+        self::assertNotSame('', $result->challengeId, 'a send in a fresh window is allowed');
+    }
+
     /**
      * @param list<OtpChallenge> $pending
      */
@@ -211,6 +227,8 @@ final class OtpServiceTest extends TestCase
         ?RecordingOtpMailer $mailer = null,
         ?Pepper $pepper = null,
         ?RecordingEventDispatcher $events = null,
+        ?InMemoryCache $cache = null,
+        string $at = self::INSTANT,
     ): OtpService {
         $challenges = $this->createStub(RepositoryInterface::class);
         $challenges->method('findBy')->willReturn($pending);
@@ -222,9 +240,9 @@ final class OtpServiceTest extends TestCase
             $pepper ?? new Pepper(self::PEPPER_KEY),
             OtpConfig::fromArray([]),
             $uow,
-            FrozenClock::at(self::INSTANT),
+            FrozenClock::at($at),
             $events ?? new RecordingEventDispatcher(),
-            new InMemoryCache(),
+            $cache ?? new InMemoryCache(),
         );
     }
 

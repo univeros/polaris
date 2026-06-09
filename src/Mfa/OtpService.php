@@ -27,6 +27,7 @@ use Univeros\Polaris\Token\ClientContext;
 
 use function hash;
 use function in_array;
+use function is_array;
 use function random_int;
 
 /**
@@ -173,9 +174,11 @@ final readonly class OtpService
 
     /**
      * Cap OTP sends per account and per destination within `otp.send_window` so a caller cannot
-     * OTP-bomb a victim's phone/inbox or run up SMS cost (spec §9). The window is the cache TTL; the
-     * get-then-set is not atomic, so concurrent sends can race the counter, but the per-challenge
-     * resend cooldown and the per-IP endpoint rate limit bound the residual.
+     * OTP-bomb a victim's phone/inbox or run up SMS cost (spec §9). The window is **fixed**, anchored
+     * on its first send (`start`, held in the cache value) — not the cache TTL, which would slide
+     * forward on every write. The get-then-set is not atomic, so concurrent sends can race the
+     * counter, but the per-challenge resend cooldown and the per-IP endpoint rate limit bound the
+     * residual.
      *
      * @throws OtpCooldownException the per-account or per-destination send budget for the window is spent
      */
@@ -183,18 +186,47 @@ final readonly class OtpService
     {
         // PSR-16 reserves `:` `{}()/\@` in keys, so namespace with dots; the id is a UUID and the
         // destination is hashed (hex), both reserved-char-free.
-        $accountKey = 'otp.send.acct.' . $userId;
-        $destinationKey = 'otp.send.dest.' . hash('sha256', $destination);
+        $now = $this->clock->now()->getTimestamp();
+        $account = $this->sendBudget('otp.send.acct.' . $userId, $now);
+        $perDestination = $this->sendBudget('otp.send.dest.' . hash('sha256', $destination), $now);
 
-        $account = (int) $this->cache->get($accountKey, 0);
-        $perDestination = (int) $this->cache->get($destinationKey, 0);
-
-        if ($account >= $this->config->sendMax || $perDestination >= $this->config->sendMax) {
+        if ($account['count'] >= $this->config->sendMax || $perDestination['count'] >= $this->config->sendMax) {
             throw new OtpCooldownException('Too many verification codes requested. Please try again later.');
         }
 
-        $this->cache->set($accountKey, $account + 1, $this->config->sendWindow);
-        $this->cache->set($destinationKey, $perDestination + 1, $this->config->sendWindow);
+        $this->commitSendBudget($account);
+        $this->commitSendBudget($perDestination);
+    }
+
+    /**
+     * The current fixed-window counter for a key: the count so far and the window's start instant. A
+     * key whose window has elapsed (or never existed) opens a fresh one.
+     *
+     * @return array{key: string, count: int, start: int}
+     */
+    private function sendBudget(string $key, int $now): array
+    {
+        $entry = $this->cache->get($key);
+        $start = is_array($entry) ? (int) ($entry['start'] ?? 0) : 0;
+        $count = is_array($entry) ? (int) ($entry['count'] ?? 0) : 0;
+
+        if ($now - $start >= $this->config->sendWindow) {
+            return ['key' => $key, 'count' => 0, 'start' => $now];
+        }
+
+        return ['key' => $key, 'count' => $count, 'start' => $start];
+    }
+
+    /**
+     * @param array{key: string, count: int, start: int} $budget
+     */
+    private function commitSendBudget(array $budget): void
+    {
+        $this->cache->set(
+            $budget['key'],
+            ['count' => $budget['count'] + 1, 'start' => $budget['start']],
+            $this->config->sendWindow,
+        );
     }
 
     private function newestPending(string $userId, string $factorId, string $purpose, DateTimeImmutable $now): ?OtpChallenge

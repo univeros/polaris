@@ -11,6 +11,9 @@ use Univeros\Polaris\Entity\User;
 use Univeros\Polaris\Event\MfaFactorRemoved;
 use Univeros\Polaris\Event\UserRegistered;
 use Univeros\Polaris\Persistence\UserRepository;
+use Univeros\Polaris\Token\ClientContext;
+use Univeros\Polaris\Token\SessionPrincipal;
+use Univeros\Polaris\Token\TokenService;
 
 use function array_column;
 use function array_slice;
@@ -20,6 +23,7 @@ use function explode;
 use function json_decode;
 use function preg_match;
 use function strtr;
+use function time;
 
 /**
  * End-to-end tests for MFA factor management + enforcement + OTP abuse controls (#26): list / relabel
@@ -97,6 +101,20 @@ final class MfaManagementEndpointsTest extends FunctionalTestCase
         self::assertCount(0, $this->events->ofType(MfaFactorRemoved::class));
     }
 
+    public function testDeletingAFactorRequiresAFreshStepUp(): void
+    {
+        $access = $this->registerVerifyLogin();
+        $this->enrollConfirmTotp($access);
+        $sms = $this->enrollConfirmSms($access);
+        $stale = $this->staleToken($this->subjectOf($access));
+
+        $response = $this->authedDelete("/auth/mfa/factors/$sms", $stale);
+
+        self::assertSame(401, $response->getStatusCode());
+        self::assertStringContainsString('step_up_required', (string) $response->getBody());
+        self::assertCount(0, $this->events->ofType(MfaFactorRemoved::class), 'the factor is not removed without step-up');
+    }
+
     public function testOtpSendBombingIsCapped(): void
     {
         $access = $this->registerVerifyLogin();
@@ -132,6 +150,22 @@ final class MfaManagementEndpointsTest extends FunctionalTestCase
         $this->unitOfWork->clear();
 
         return $factorId;
+    }
+
+    /** A valid access token whose auth_time is past the step-up window. */
+    private function staleToken(string $userId): string
+    {
+        $tokens = $this->container->get(TokenService::class);
+        self::assertInstanceOf(TokenService::class, $tokens);
+        $principal = new SessionPrincipal(
+            userId: $userId,
+            emailVerified: true,
+            mfa: true,
+            amr: ['pwd', 'otp'],
+            authTime: time() - 100000,
+        );
+
+        return $tokens->issue($principal, ClientContext::none())->accessToken;
     }
 
     private function enforceMfa(string $userId): void

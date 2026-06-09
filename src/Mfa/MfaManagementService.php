@@ -15,6 +15,8 @@ use Univeros\Polaris\Exception\InvalidMfaFactorStateException;
 use Univeros\Polaris\Exception\LastFactorProtectedException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
 
+use function mb_strlen;
+
 /**
  * Self-service management of a user's MFA factors (spec §8): list them, relabel / re-default them,
  * and remove them.
@@ -25,6 +27,9 @@ use Univeros\Polaris\Exception\MfaFactorNotFoundException;
  */
 final readonly class MfaManagementService
 {
+    /** Matches the `auth_mfa_factors.label` column width. */
+    private const int MAX_LABEL_LENGTH = 80;
+
     /**
      * @param RepositoryInterface<MfaFactor> $factors
      */
@@ -65,6 +70,9 @@ final readonly class MfaManagementService
         $now = $this->clock->now();
 
         if ($label !== null) {
+            if (mb_strlen($label) > self::MAX_LABEL_LENGTH) {
+                throw new InvalidMfaFactorStateException('A factor label may be at most ' . self::MAX_LABEL_LENGTH . ' characters.');
+            }
             $factor->label = $label === '' ? null : $label;
         }
 
@@ -103,10 +111,12 @@ final readonly class MfaManagementService
             throw new LastFactorProtectedException('Enrol another factor before removing your last one.');
         }
 
-        $this->unitOfWork->remove($factor);
+        // Promote before removing so the candidate lookup never depends on the ORM still (or no
+        // longer) returning a factor that is marked for deletion.
         if ($factor->isDefault) {
             $this->promoteNewDefault($userId, $factorId, $now);
         }
+        $this->unitOfWork->remove($factor);
         $this->unitOfWork->flush();
 
         $this->events->dispatch(new MfaFactorRemoved($userId, $factorId));

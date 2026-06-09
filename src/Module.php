@@ -640,6 +640,8 @@ final class Module implements
                 self::rateLimitGroup('/auth/mfa/challenge', $limits->mfaSend, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/step-up/challenge', $limits->mfaSend, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/step-up', $limits->mfaConfirm, $cache, $responseFactory),
+                // Factor management (list/patch/delete) gets a moderate per-IP budget like enrollment.
+                self::rateLimitGroup('/auth/mfa/factors', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/sms/confirm', $limits->mfaConfirm, $cache, $responseFactory),
