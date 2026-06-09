@@ -42,9 +42,10 @@ use Univeros\Polaris\Token\TokenService;
  * (the streak resets) rather than accumulating forever, so an attacker cannot trip a lock with
  * a slow drip of guesses, and a legitimate user's occasional typos never compound into a lock.
  *
- * See `docs/auth/flows.md` §3 and `docs/auth/security.md` §6. The MFA gate and richer device
- * capture arrive in later phases; this issues tokens directly once credentials and account
- * state check out.
+ * See `docs/auth/flows.md` §3 and `docs/auth/security.md` §6. Once credentials and account state
+ * check out, a user with a confirmed MFA factor is handed off to {@see MfaLoginService} for the
+ * second step (this returns an {@see MfaChallengeResult} and opens no session); everyone else gets
+ * tokens directly.
  */
 final class LoginService
 {
@@ -61,6 +62,7 @@ final class LoginService
         private readonly RepositoryInterface $users,
         private readonly PasswordHasherInterface $hasher,
         private readonly TokenService $tokens,
+        private readonly MfaLoginService $mfaLogin,
         private readonly UnitOfWorkInterface $unitOfWork,
         private readonly AuthConfig $config,
         private readonly ClockInterface $clock,
@@ -69,12 +71,18 @@ final class LoginService
     }
 
     /**
+     * Returns a {@see LoginResult} (session opened) when the user has no confirmed MFA factor, or an
+     * {@see MfaChallengeResult} (a `login_mfa` ticket + factor list) when a second step is required.
+     *
      * @throws InvalidCredentialsException unknown user, wrong password, or locked account
      * @throws AccountDisabledException    correct password but the account is disabled
      * @throws EmailNotVerifiedException   correct password but the email is unverified
      */
-    public function login(string $email, #[SensitiveParameter] string $password, ClientContext $client): LoginResult
-    {
+    public function login(
+        string $email,
+        #[SensitiveParameter] string $password,
+        ClientContext $client,
+    ): LoginResult|MfaChallengeResult {
         $now = $this->clock->now();
         $user = $this->users->findOneBy(['email' => EmailNormalizer::normalize($email)]);
         $hash = $user instanceof User ? (string) $user->passwordHash : '';
@@ -117,8 +125,21 @@ final class LoginService
         if ($this->hasher->needsRehash($hash)) {
             $user->passwordHash = $this->hasher->hash($password);
         }
-        $user->lastLoginAt = $now;
         $user->updatedAt = $now;
+
+        // Password is correct. If the user has a confirmed second factor, do NOT open a session yet:
+        // return the MFA challenge instead — the real tokens are minted only by /auth/mfa/verify.
+        // `lastLoginAt` and `user.logged_in` mark a *completed* login, so they are stamped here only
+        // on the no-MFA path; the MFA path stamps them in MfaLoginService when verify succeeds.
+        $confirmedFactors = $this->mfaLogin->confirmedFactors($user->id);
+        if ($confirmedFactors !== []) {
+            $this->unitOfWork->persist($user);
+            $this->unitOfWork->flush();
+
+            return $this->mfaLogin->beginChallenge($user->id, $confirmedFactors);
+        }
+
+        $user->lastLoginAt = $now;
         $this->unitOfWork->persist($user);
 
         $tokens = $this->issueTokens($user, $now->getTimestamp(), $client);

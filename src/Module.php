@@ -14,6 +14,7 @@ use Altair\Http\Contracts\TokenFactoryInterface;
 use Altair\Http\Contracts\TokenGeneratorInterface;
 use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Http\Contracts\TokenValidatorInterface;
+use Altair\Http\Jwt\LcobucciTokenParser;
 use Altair\Http\Jwt\SystemClock;
 use Altair\Http\Middleware\RateLimit\IpKeyResolver;
 use Altair\Http\Middleware\RateLimit\RateLimit;
@@ -59,6 +60,8 @@ use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\LogoutAllDomain;
 use Univeros\Polaris\Http\Auth\LogoutDomain;
 use Univeros\Polaris\Http\Auth\MeDomain;
+use Univeros\Polaris\Http\Auth\MfaChallengeDomain;
+use Univeros\Polaris\Http\Auth\MfaVerifyDomain;
 use Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
@@ -73,12 +76,14 @@ use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
+use Univeros\Polaris\Identity\MfaLoginService;
 use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
@@ -104,6 +109,7 @@ use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Token\DefaultSessionPrincipalResolver;
 use Univeros\Polaris\Token\JwtSignerFactory;
+use Univeros\Polaris\Token\MfaLoginTokenService;
 use Univeros\Polaris\Token\PolarisTokenFactory;
 use Univeros\Polaris\Token\PolarisTokenGenerator;
 use Univeros\Polaris\Token\PolarisTokenParser;
@@ -150,6 +156,10 @@ final class Module implements
         '/auth/password/forgot',
         '/auth/password/reset',
         '/auth/.well-known/jwks.json',
+        // The MFA-gate routes carry the single-purpose `login_mfa` ticket, not an access token, so
+        // they bypass the access-token middleware; {@see MfaTokenMiddleware} authenticates them.
+        '/auth/mfa/challenge',
+        '/auth/mfa/verify',
     ];
 
     #[Override]
@@ -183,6 +193,7 @@ final class Module implements
         $this->bindMiddleware($container);
         $this->bindMfaProviders($container);
         $this->bindTotpEnrollment($container, $secrets);
+        $this->bindMfaLogin($container, $authConfig, $secrets);
     }
 
     /**
@@ -266,6 +277,92 @@ final class Module implements
         $container->singleton(SmsEnrollDomain::class);
         $container->singleton(EmailEnrollDomain::class);
         $container->singleton(OtpFactorConfirmDomain::class);
+    }
+
+    /**
+     * Bind the login MFA gate (#23): the short-lived `login_mfa` ticket service, the
+     * {@see MfaLoginService} that lists factors / challenges / verifies and mints the real session,
+     * the gate domains, and the {@see MfaTokenMiddleware} that authenticates the ticket on those
+     * routes.
+     *
+     * The ticket is signed with the access-token key set but minted by a **separate** generator
+     * whose configuration carries a short TTL (`auth.mfa.login_token_ttl`); it is validated by the
+     * framework {@see LcobucciTokenParser} (the access-token {@see PolarisTokenParser} would reject
+     * its `purpose` claim — which is exactly what keeps the ticket off normal routes).
+     */
+    private function bindMfaLogin(Container $container, AuthConfig $authConfig, Secrets $secrets): void
+    {
+        $keyId = $secrets->jwtKid;
+        $container->singleton(
+            MfaLoginTokenService::class,
+            static function (
+                TokenConfigurationInterface $config,
+                ClockInterface $clock,
+            ) use (
+                $authConfig,
+                $secrets,
+                $keyId
+            ): MfaLoginTokenService {
+                $ticketConfig = new TokenConfiguration(
+                    $secrets->jwtPublicKey,
+                    $authConfig->mfaLoginTokenTtl,
+                    JwtSignerFactory::create($authConfig->accessToken->signer),
+                    $authConfig->issuer,
+                    null,
+                    $secrets->jwtPrivateKey,
+                    $authConfig->audience,
+                );
+
+                return new MfaLoginTokenService(
+                    new PolarisTokenGenerator($ticketConfig, $clock, $keyId),
+                    new LcobucciTokenParser($config, $clock),
+                );
+            },
+        );
+
+        $container->singleton(
+            MfaLoginService::class,
+            static fn(
+                MfaFactorRepository $factors,
+                MfaTotpService $totp,
+                OtpService $otp,
+                RecoveryCodeService $recovery,
+                MfaLoginTokenService $tickets,
+                TokenService $tokens,
+                SessionPrincipalResolverInterface $principals,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): MfaLoginService => new MfaLoginService(
+                $factors,
+                $totp,
+                $otp,
+                $recovery,
+                $tickets,
+                $tokens,
+                $principals,
+                $clock,
+                $events,
+            ),
+        );
+
+        $container->singleton(MfaChallengeDomain::class);
+        $container->singleton(MfaVerifyDomain::class);
+
+        $container->singleton(
+            MfaTokenMiddleware::class,
+            static fn(
+                MfaLoginTokenService $tickets,
+                ResponseFactoryInterface $responseFactory,
+            ): MfaTokenMiddleware => new MfaTokenMiddleware(
+                new RequestPathRule(['path' => [
+                    preg_quote('/auth/mfa/challenge', '@'),
+                    preg_quote('/auth/mfa/verify', '@'),
+                ]]),
+                new BearerTokenExtractor(),
+                $tickets,
+                $responseFactory,
+            ),
+        );
     }
 
     /**
@@ -358,6 +455,9 @@ final class Module implements
         return [
             ['middleware' => AuthRateLimitMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 50],
             ['middleware' => TokenAuthenticationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 5],
+            // Runs after the (passthrough) access-token middleware and before the dispatcher, so the
+            // login_mfa ticket's user id is attached before the gate domains read it.
+            ['middleware' => MfaTokenMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 4],
         ];
     }
 
@@ -425,7 +525,9 @@ final class Module implements
                 self::rateLimitGroup('/auth/register', $limits->register, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
-                // Throttle the brute-forceable 6-digit MFA confirms and cap factor/send churn.
+                // Throttle the brute-forceable 6-digit MFA confirms/verify and cap factor/send churn.
+                self::rateLimitGroup('/auth/mfa/verify', $limits->mfaConfirm, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/challenge', $limits->mfaSend, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/sms/confirm', $limits->mfaConfirm, $cache, $responseFactory),
@@ -545,6 +647,7 @@ final class Module implements
                 UserRepository $users,
                 PasswordHasherInterface $hasher,
                 TokenService $tokens,
+                MfaLoginService $mfaLogin,
                 UnitOfWorkInterface $unitOfWork,
                 AuthConfig $config,
                 ClockInterface $clock,
@@ -553,6 +656,7 @@ final class Module implements
                 $users,
                 $hasher,
                 $tokens,
+                $mfaLogin,
                 $unitOfWork,
                 $config,
                 $clock,
@@ -767,6 +871,8 @@ final class Module implements
             ['POST', '/auth/mfa/sms/confirm', OtpFactorConfirmDomain::class],
             ['POST', '/auth/mfa/email/enroll', EmailEnrollDomain::class],
             ['POST', '/auth/mfa/email/confirm', OtpFactorConfirmDomain::class],
+            ['POST', '/auth/mfa/challenge', MfaChallengeDomain::class],
+            ['POST', '/auth/mfa/verify', MfaVerifyDomain::class],
         ];
     }
 
