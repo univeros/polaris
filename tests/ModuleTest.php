@@ -18,6 +18,7 @@ use Altair\Http\Middleware\TokenAuthenticationMiddleware;
 use Altair\Http\Support\MiddlewarePriority;
 use Altair\Module\Contracts\MiddlewareProviderInterface;
 use Altair\Module\Migration\MigrationSource;
+use Altair\Security\Contracts\EncrypterInterface;
 use Laminas\Diactoros\ResponseFactory;
 use PHPUnit\Framework\TestCase;
 use Psr\Http\Message\ResponseFactoryInterface;
@@ -31,12 +32,16 @@ use Univeros\Polaris\Contracts\OtpMailerInterface;
 use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\SmsSenderInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
+use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
+use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\NullSmsSender;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
+use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Tests\Support\RecordingLogger;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
@@ -308,6 +313,34 @@ final class ModuleTest extends TestCase
         // A host that wired its own logger/adapter before registering the module keeps them.
         self::assertSame($hostLogger, $container->get(LoggerInterface::class));
         self::assertSame($hostSms, $container->get(SmsSenderInterface::class));
+    }
+
+    public function testContributesTheTotpRoutes(): void
+    {
+        $routes = (new Module())->routes();
+
+        self::assertContains(['POST', '/auth/mfa/totp/enroll', TotpEnrollDomain::class], $routes);
+        self::assertContains(['POST', '/auth/mfa/totp/confirm', TotpConfirmDomain::class], $routes);
+    }
+
+    public function testApplyBindsTheTotpEnrollmentMachinery(): void
+    {
+        $container = new Container();
+        (new Module())->apply($container);
+
+        // The encrypter resolves from the app key (no database needed).
+        self::assertInstanceOf(EncrypterInterface::class, $container->get(EncrypterInterface::class));
+
+        $bindings = [
+            RecoveryCodeService::class,
+            MfaTotpService::class,
+            TotpEnrollDomain::class,
+            TotpConfirmDomain::class,
+        ];
+
+        foreach ($bindings as $id) {
+            self::assertTrue($container->has($id), "$id should be bound");
+        }
     }
 
     public function testEntityDirectoriesExist(): void
