@@ -27,6 +27,7 @@ use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Tests\Support\FrozenClock;
 use Univeros\Polaris\Tests\Support\CountingRequestHandler;
 use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
@@ -144,6 +145,7 @@ final class StepUpMiddlewareTest extends TestCase
             $uow,
             $clock,
             new RecordingEventDispatcher(),
+            new InMemoryCache(),
         );
 
         return new MfaChallengeVerifier($factors, $totp, $otp, $recovery);

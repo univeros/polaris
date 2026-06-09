@@ -28,6 +28,7 @@ use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
+use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Token\ClientContext;
 use Univeros\Polaris\Token\MfaLoginTokenService;
 use Univeros\Polaris\Token\TokenService;
@@ -175,6 +176,7 @@ final class MfaLoginServiceTest extends TestCase
             $uow,
             $clock,
             new RecordingEventDispatcher(),
+            new InMemoryCache(),
         );
 
         $refresh = new InMemoryRefreshTokenRepository();

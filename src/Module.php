@@ -54,6 +54,7 @@ use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
+use Univeros\Polaris\Http\Auth\DeleteFactorDomain;
 use Univeros\Polaris\Http\Auth\EmailEnrollDomain;
 use Univeros\Polaris\Http\Auth\ForgotPasswordDomain;
 use Univeros\Polaris\Http\Auth\LoginDomain;
@@ -61,6 +62,7 @@ use Univeros\Polaris\Http\Auth\LogoutAllDomain;
 use Univeros\Polaris\Http\Auth\LogoutDomain;
 use Univeros\Polaris\Http\Auth\MeDomain;
 use Univeros\Polaris\Http\Auth\MfaChallengeDomain;
+use Univeros\Polaris\Http\Auth\MfaFactorsDomain;
 use Univeros\Polaris\Http\Auth\MfaVerifyDomain;
 use Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
@@ -74,6 +76,7 @@ use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
 use Univeros\Polaris\Http\Auth\StepUpChallengeDomain;
 use Univeros\Polaris\Http\Auth\StepUpVerifyDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
+use Univeros\Polaris\Http\Auth\UpdateFactorDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
@@ -84,6 +87,8 @@ use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
 use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
+use Univeros\Polaris\Http\Rule\AnyRule;
+use Univeros\Polaris\Http\Rule\MethodPathRule;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
 use Univeros\Polaris\Identity\LoginService;
@@ -98,6 +103,8 @@ use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
 use Univeros\Polaris\Mfa\MfaChallengeVerifier;
 use Univeros\Polaris\Mfa\MfaConfirmation;
+use Univeros\Polaris\Mfa\MfaEnforcement;
+use Univeros\Polaris\Mfa\MfaManagementService;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpFactorService;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
@@ -211,6 +218,7 @@ final class Module implements
         $this->bindTotpEnrollment($container, $secrets);
         $this->bindMfaLogin($container, $authConfig, $secrets);
         $this->bindStepUp($container);
+        $this->bindMfaManagement($container);
     }
 
     /**
@@ -415,16 +423,48 @@ final class Module implements
                 ClockInterface $clock,
                 ResponseFactoryInterface $responseFactory,
             ): StepUpMiddleware => new StepUpMiddleware(
-                new RequestPathRule(['path' => array_map(
-                    static fn(string $path): string => preg_quote($path, '@'),
-                    self::STEP_UP_PATHS,
-                )]),
+                new AnyRule(
+                    new RequestPathRule(['path' => array_map(
+                        static fn(string $path): string => preg_quote($path, '@'),
+                        self::STEP_UP_PATHS,
+                    )]),
+                    // Removing a factor needs step-up too, but the path is shared with the GET list and
+                    // the PATCH — so gate it by method, not prefix.
+                    new MethodPathRule('DELETE', new RequestPathRule(['path' => [preg_quote('/auth/mfa/factors', '@')]])),
+                ),
                 $verifier,
                 $config,
                 $clock,
                 $responseFactory,
             ),
         );
+    }
+
+    /**
+     * Bind MFA factor management (#26): {@see MfaEnforcement} (is MFA required for this user?),
+     * {@see MfaManagementService} (list / relabel / re-default / remove, blocking the last confirmed
+     * factor when enforced), and the list/patch/delete domains.
+     */
+    private function bindMfaManagement(Container $container): void
+    {
+        $container->singleton(
+            MfaEnforcement::class,
+            static fn(UserRepository $users, AuthConfig $config): MfaEnforcement => new MfaEnforcement($users, $config),
+        );
+        $container->singleton(
+            MfaManagementService::class,
+            static fn(
+                MfaFactorRepository $factors,
+                MfaEnforcement $enforcement,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): MfaManagementService => new MfaManagementService($factors, $enforcement, $unitOfWork, $clock, $events),
+        );
+
+        $container->singleton(MfaFactorsDomain::class);
+        $container->singleton(UpdateFactorDomain::class);
+        $container->singleton(DeleteFactorDomain::class);
     }
 
     /**
@@ -472,6 +512,7 @@ final class Module implements
                 UnitOfWorkInterface $unitOfWork,
                 ClockInterface $clock,
                 EventDispatcherInterface $events,
+                CacheInterface $cache,
             ): OtpService => new OtpService(
                 $challenges,
                 $sms,
@@ -481,6 +522,7 @@ final class Module implements
                 $unitOfWork,
                 $clock,
                 $events,
+                $cache,
             ),
         );
     }
@@ -598,6 +640,8 @@ final class Module implements
                 self::rateLimitGroup('/auth/mfa/challenge', $limits->mfaSend, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/step-up/challenge', $limits->mfaSend, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/step-up', $limits->mfaConfirm, $cache, $responseFactory),
+                // Factor management (list/patch/delete) gets a moderate per-IP budget like enrollment.
+                self::rateLimitGroup('/auth/mfa/factors', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/sms/confirm', $limits->mfaConfirm, $cache, $responseFactory),
@@ -946,6 +990,9 @@ final class Module implements
             ['POST', '/auth/mfa/step-up/challenge', StepUpChallengeDomain::class],
             ['POST', '/auth/mfa/step-up', StepUpVerifyDomain::class],
             ['POST', '/auth/mfa/recovery-codes/regenerate', RegenerateRecoveryCodesDomain::class],
+            ['GET', '/auth/mfa/factors', MfaFactorsDomain::class],
+            ['PATCH', '/auth/mfa/factors/{id}', UpdateFactorDomain::class],
+            ['DELETE', '/auth/mfa/factors/{id}', DeleteFactorDomain::class],
         ];
     }
 

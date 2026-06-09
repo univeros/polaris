@@ -16,6 +16,9 @@ final class RecordingUnitOfWork implements UnitOfWorkInterface
     /** @var list<object> */
     public array $persisted = [];
 
+    /** @var list<object> */
+    public array $removed = [];
+
     public int $flushes = 0;
 
     #[Override]
@@ -27,6 +30,7 @@ final class RecordingUnitOfWork implements UnitOfWorkInterface
     #[Override]
     public function remove(object $entity): void
     {
+        $this->removed[] = $entity;
     }
 
     #[Override]
