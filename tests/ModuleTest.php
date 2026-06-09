@@ -25,6 +25,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
+use Univeros\Polaris\Config\OtpConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Config\TotpConfig;
@@ -41,6 +42,7 @@ use Univeros\Polaris\Mfa\LogSmsSender;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\NullSmsSender;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
+use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Support\InMemoryCache;
 use Univeros\Polaris\Tests\Support\RecordingLogger;
@@ -331,9 +333,12 @@ final class ModuleTest extends TestCase
         // The encrypter resolves from the app key (no database needed).
         self::assertInstanceOf(EncrypterInterface::class, $container->get(EncrypterInterface::class));
 
+        self::assertInstanceOf(OtpConfig::class, $container->get(OtpConfig::class));
+
         $bindings = [
             RecoveryCodeService::class,
             MfaTotpService::class,
+            OtpService::class,
             TotpEnrollDomain::class,
             TotpConfirmDomain::class,
         ];
