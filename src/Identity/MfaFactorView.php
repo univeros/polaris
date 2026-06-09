@@ -20,6 +20,7 @@ final readonly class MfaFactorView
         public ?string $label,
         public ?string $maskedDestination,
         public bool $isDefault,
+        public bool $confirmed = true,
     ) {
     }
 
@@ -37,6 +38,7 @@ final readonly class MfaFactorView
             $factor->label,
             $destination === '' ? null : Destination::mask($factor->type, $destination),
             $factor->isDefault,
+            $factor->confirmedAt !== null,
         );
     }
 
@@ -59,5 +61,16 @@ final readonly class MfaFactorView
         }
 
         return $view;
+    }
+
+    /**
+     * The management-list shape (spec §8): the login-challenge fields plus `confirmed`, since the
+     * management view lists pending factors too (the login challenge lists only confirmed ones).
+     *
+     * @return array<string, mixed>
+     */
+    public function toManagementArray(): array
+    {
+        return [...$this->toArray(), 'confirmed' => $this->confirmed];
     }
 }
