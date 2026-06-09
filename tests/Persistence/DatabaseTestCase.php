@@ -19,8 +19,10 @@ use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
 use PHPUnit\Framework\TestCase;
 
+use function array_keys;
 use function dirname;
 use function getenv;
+use function is_string;
 
 /**
  * Base class for Polaris persistence tests.
@@ -107,8 +109,11 @@ abstract class DatabaseTestCase extends TestCase
     /**
      * Drops every table so each test starts from a clean, dedicated database.
      *
-     * Driver-portable: there are no foreign-key constraints between Polaris
-     * tables, so a plain `DROP TABLE IF EXISTS` per table is sufficient.
+     * The RBAC join tables (`auth_role_permissions`, `auth_membership_roles`) carry cascading
+     * foreign keys, so tables are dropped in dependency order — each only after every table that
+     * references it is gone — using Cycle's portable schema introspection
+     * ({@see \Cycle\Database\TableInterface::getDependencies()}) rather than driver-specific SQL.
+     * That keeps the teardown working on every supported driver.
      */
     private function dropAllTables(): void
     {
@@ -118,8 +123,41 @@ abstract class DatabaseTestCase extends TestCase
         }
 
         $connection = $database->database('default');
+
+        // Map each table to the tables it references via foreign keys.
+        $remaining = [];
         foreach ($connection->getTables() as $table) {
-            $connection->execute('DROP TABLE IF EXISTS ' . $table->getName());
+            $remaining[$table->getName()] = $table->getDependencies();
+        }
+
+        while ($remaining !== []) {
+            // A table referenced by another remaining table cannot be dropped yet.
+            $referenced = [];
+            foreach ($remaining as $dependencies) {
+                foreach ($dependencies as $dependency) {
+                    if (is_string($dependency)) {
+                        $referenced[$dependency] = true;
+                    }
+                }
+            }
+
+            $progressed = false;
+            foreach (array_keys($remaining) as $name) {
+                if (isset($referenced[$name])) {
+                    continue;
+                }
+                $connection->execute('DROP TABLE IF EXISTS ' . $name);
+                unset($remaining[$name]);
+                $progressed = true;
+            }
+
+            if (!$progressed) {
+                // No dependency-free table left (unexpected cycle): drop whatever remains.
+                foreach (array_keys($remaining) as $name) {
+                    $connection->execute('DROP TABLE IF EXISTS ' . $name);
+                }
+                break;
+            }
         }
     }
 
