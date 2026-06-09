@@ -49,14 +49,22 @@ final readonly class OtphpTotpProvider implements TotpProviderInterface
     #[Override]
     public function verify(string $secret, #[SensitiveParameter] string $code): bool
     {
+        return $this->matchingTimestamp($secret, $code) !== null;
+    }
+
+    #[Override]
+    public function matchingTimestamp(string $secret, #[SensitiveParameter] string $code): ?int
+    {
         if ($code === '') {
-            return false;
+            return null;
         }
 
         $totp = $this->totp($secret);
         $now = $this->clock->now()->getTimestamp();
         $period = $this->config->period;
 
+        // A given code matches exactly one step, so the iteration order doesn't change which step is
+        // returned; the caller uses the returned step start to fence replay.
         for ($step = -$this->config->window; $step <= $this->config->window; ++$step) {
             $timestamp = $now + ($step * $period);
             if ($timestamp < 0) {
@@ -64,11 +72,12 @@ final readonly class OtphpTotpProvider implements TotpProviderInterface
             }
 
             if (hash_equals($totp->at($timestamp), $code)) {
-                return true;
+                // Normalise to the step's start instant so callers can compare/track it.
+                return $timestamp - ($timestamp % $period);
             }
         }
 
-        return false;
+        return null;
     }
 
     private function totp(string $secret): TOTP

@@ -17,8 +17,8 @@ use function is_array;
  * `auth.rate_limits` config namespace), leaving the rest at their defaults.
  *
  * Only the groups whose routes exist in this phase are modelled (login, register,
- * password/forgot, token/refresh). The composite IP+account keys and the user-id "global
- * authenticated" budget from the spec arrive with later phases.
+ * password/forgot, token/refresh, and MFA TOTP enroll/confirm). The composite IP+account keys and
+ * the user-id "global authenticated" budget from the spec arrive with later phases.
  */
 final readonly class RateLimitConfig
 {
@@ -30,12 +30,18 @@ final readonly class RateLimitConfig
     private const int PASSWORD_FORGOT_WINDOW = 3600;
     private const int TOKEN_REFRESH_LIMIT = 60;
     private const int TOKEN_REFRESH_WINDOW = 60;
+    private const int MFA_ENROLL_LIMIT = 5;
+    private const int MFA_ENROLL_WINDOW = 3600;
+    private const int MFA_CONFIRM_LIMIT = 10;
+    private const int MFA_CONFIRM_WINDOW = 300;
 
     public function __construct(
         public RateLimit $login,
         public RateLimit $register,
         public RateLimit $passwordForgot,
         public RateLimit $tokenRefresh,
+        public RateLimit $mfaEnroll,
+        public RateLimit $mfaConfirm,
     ) {
     }
 
@@ -46,9 +52,9 @@ final readonly class RateLimitConfig
 
     /**
      * @param array<string, mixed> $limits the host's `auth.rate_limits` namespace. Each group key
-     *   (`login`, `register`, `password_forgot`, `token_refresh`) takes an array of overrides:
-     *   `limit` (max requests per window) and `window` (window length in seconds). Any group or
-     *   key left out keeps its default.
+     *   (`login`, `register`, `password_forgot`, `token_refresh`, `mfa_enroll`, `mfa_confirm`)
+     *   takes an array of overrides: `limit` (max requests per window) and `window` (window length
+     *   in seconds). Any group or key left out keeps its default.
      */
     public static function fromArray(array $limits): self
     {
@@ -68,6 +74,20 @@ final readonly class RateLimitConfig
                 self::TOKEN_REFRESH_LIMIT,
                 self::TOKEN_REFRESH_WINDOW,
                 'auth.token_refresh',
+            ),
+            mfaEnroll: self::policy(
+                $limits,
+                'mfa_enroll',
+                self::MFA_ENROLL_LIMIT,
+                self::MFA_ENROLL_WINDOW,
+                'auth.mfa_enroll',
+            ),
+            mfaConfirm: self::policy(
+                $limits,
+                'mfa_confirm',
+                self::MFA_CONFIRM_LIMIT,
+                self::MFA_CONFIRM_WINDOW,
+                'auth.mfa_confirm',
             ),
         );
     }

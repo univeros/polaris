@@ -30,6 +30,9 @@ use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Contracts\RoutesProviderInterface;
 use Altair\Module\Migration\MigrationSource;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
+use Altair\Security\Contracts\EncrypterInterface;
+use Altair\Security\Encrypter;
+use Altair\Security\Support\HkdfKey;
 use Override;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
@@ -60,6 +63,8 @@ use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
 use Univeros\Polaris\Http\Auth\ResetPasswordDomain;
 use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
+use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
+use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
@@ -77,8 +82,11 @@ use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
+use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
+use Univeros\Polaris\Persistence\MfaFactorRepository;
 use Univeros\Polaris\Persistence\PasswordResetRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
@@ -165,6 +173,60 @@ final class Module implements
         $this->bindPasswordReset($container);
         $this->bindMiddleware($container);
         $this->bindMfaProviders($container);
+        $this->bindTotpEnrollment($container, $secrets);
+    }
+
+    /**
+     * Bind TOTP enrollment: a secret-at-rest {@see EncrypterInterface} (a {@see Encrypter} over an
+     * {@see HkdfKey} derived from the application key with a distinct context, AES-256-CBC), the
+     * {@see RecoveryCodeService}, the {@see MfaTotpService}, and the enroll/confirm domains. The
+     * repositories the service depends on are plain Cycle repositories the container autowires.
+     */
+    private function bindTotpEnrollment(Container $container, Secrets $secrets): void
+    {
+        if (!$container->has(EncrypterInterface::class)) {
+            $appKey = $secrets->appKey;
+            $container->singleton(
+                EncrypterInterface::class,
+                // The default `$allowedClasses = false` MUST stay: TOTP secrets are plain strings, so
+                // decrypt() must never reconstruct objects (no unserialize gadget surface).
+                static fn(): Encrypter => new Encrypter(
+                    new HkdfKey(
+                        $appKey,
+                        null,
+                        'polaris:encrypter:mfa',
+                        EncrypterInterface::AES_256_CBC_CIPHER_KEY_LENGTH,
+                    ),
+                    EncrypterInterface::AES_256_CBC_CIPHER,
+                ),
+            );
+        }
+
+        $container->singleton(RecoveryCodeService::class);
+        $container->singleton(
+            MfaTotpService::class,
+            static fn(
+                MfaFactorRepository $factors,
+                TotpProviderInterface $totp,
+                EncrypterInterface $encrypter,
+                QrCodeRendererInterface $qr,
+                RecoveryCodeService $recoveryCodes,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): MfaTotpService => new MfaTotpService(
+                $factors,
+                $totp,
+                $encrypter,
+                $qr,
+                $recoveryCodes,
+                $unitOfWork,
+                $clock,
+                $events,
+            ),
+        );
+        $container->singleton(TotpEnrollDomain::class);
+        $container->singleton(TotpConfirmDomain::class);
     }
 
     /**
@@ -297,6 +359,9 @@ final class Module implements
                 self::rateLimitGroup('/auth/register', $limits->register, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
+                // Throttle the brute-forceable 6-digit TOTP confirm and cap unconfirmed-factor churn.
+                self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
             ),
         );
     }
@@ -625,6 +690,8 @@ final class Module implements
             ['POST', '/auth/password/reset', ResetPasswordDomain::class],
             ['POST', '/auth/password/change', ChangePasswordDomain::class],
             ['GET', '/auth/me', MeDomain::class],
+            ['POST', '/auth/mfa/totp/enroll', TotpEnrollDomain::class],
+            ['POST', '/auth/mfa/totp/confirm', TotpConfirmDomain::class],
         ];
     }
 
