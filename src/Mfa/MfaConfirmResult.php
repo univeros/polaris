@@ -9,11 +9,11 @@ use SensitiveParameter;
 use function count;
 
 /**
- * The result of confirming a TOTP factor. {@see $recoveryCodes} is non-empty only when this confirm
- * activated the user's first factor — the codes are returned **once** here and only their hashes
- * are stored.
+ * The result of confirming an MFA factor (any channel). {@see $recoveryCodes} is non-empty only
+ * when this confirm activated the user's first factor — the codes are returned **once** here and
+ * only their hashes are stored.
  */
-final readonly class TotpConfirmResult
+final readonly class MfaConfirmResult
 {
     /**
      * @param list<string> $recoveryCodes

@@ -9,14 +9,12 @@ use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Altair\Security\Contracts\EncrypterInterface;
 use Altair\Security\Exception\DecryptException;
 use Psr\Clock\ClockInterface;
-use Psr\EventDispatcher\EventDispatcherInterface;
 use SensitiveParameter;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Entity\MfaFactor;
 use Univeros\Polaris\Entity\User;
-use Univeros\Polaris\Event\MfaEnrolled;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
 
@@ -43,10 +41,9 @@ final readonly class MfaTotpService
         private TotpProviderInterface $totp,
         private EncrypterInterface $encrypter,
         private QrCodeRendererInterface $qr,
-        private RecoveryCodeService $recoveryCodes,
+        private MfaConfirmation $confirmation,
         private UnitOfWorkInterface $unitOfWork,
         private ClockInterface $clock,
-        private EventDispatcherInterface $events,
     ) {
     }
 
@@ -74,7 +71,7 @@ final readonly class MfaTotpService
      * @throws MfaFactorNotFoundException the factor is unknown or not the caller's TOTP factor
      * @throws InvalidOtpException        the code is wrong, or a replay of an already-used step
      */
-    public function confirm(string $userId, string $factorId, #[SensitiveParameter] string $code): TotpConfirmResult
+    public function confirm(string $userId, string $factorId, #[SensitiveParameter] string $code): MfaConfirmResult
     {
         $factor = $this->factors->find($factorId);
         if (!$factor instanceof MfaFactor || $factor->userId !== $userId || $factor->type !== MfaFactor::TYPE_TOTP) {
@@ -98,38 +95,9 @@ final readonly class MfaTotpService
             throw new InvalidOtpException('The verification code has already been used.');
         }
 
-        $now = $this->clock->now();
-        $firstConfirmation = $factor->confirmedAt === null && !$this->hasOtherConfirmedFactor($userId, $factorId);
+        // Record the consumed step (replay fence), then run the shared confirmation tail.
+        $factor->lastUsedAt = $this->clock->now()->setTimestamp($matchedAt);
 
-        if ($factor->confirmedAt === null) {
-            $factor->confirmedAt = $now;
-        }
-        if ($firstConfirmation) {
-            $factor->isDefault = true;
-        }
-        $factor->lastUsedAt = $now->setTimestamp($matchedAt);
-        $factor->updatedAt = $now;
-        $this->unitOfWork->persist($factor);
-
-        $codes = $firstConfirmation ? $this->recoveryCodes->issue($userId) : [];
-
-        $this->unitOfWork->flush();
-
-        if ($firstConfirmation) {
-            $this->events->dispatch(new MfaEnrolled($userId, $factorId));
-        }
-
-        return new TotpConfirmResult($codes);
-    }
-
-    private function hasOtherConfirmedFactor(string $userId, string $exceptFactorId): bool
-    {
-        foreach ($this->factors->findBy(['userId' => $userId]) as $factor) {
-            if ($factor->id !== $exceptFactorId && $factor->confirmedAt !== null) {
-                return true;
-            }
-        }
-
-        return false;
+        return new MfaConfirmResult($this->confirmation->complete($factor));
     }
 }
