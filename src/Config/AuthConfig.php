@@ -36,6 +36,7 @@ final readonly class AuthConfig
         public int $lockoutDuration,
         public bool $mfaEnforce,
         public bool $mfaGraceEnroll,
+        public int $mfaLoginTokenTtl,
         public int $stepUpMaxAge,
         public bool $requireVerifiedEmail,
         public string $tokenDelivery,
@@ -56,6 +57,10 @@ final readonly class AuthConfig
 
         if ($lockoutMaxAttempts <= 0 || $lockoutWindow <= 0 || $lockoutDuration <= 0) {
             throw new InvalidConfigException('auth.lockout values must be positive integers.');
+        }
+
+        if ($mfaLoginTokenTtl <= 0) {
+            throw new InvalidConfigException('auth.mfa.login_token_ttl must be a positive integer.');
         }
 
         if ($stepUpMaxAge <= 0) {
@@ -94,6 +99,7 @@ final readonly class AuthConfig
             lockoutDuration: (int) ($lockout['lock_duration'] ?? 900),
             mfaEnforce: (bool) ($mfa['enforce'] ?? false),
             mfaGraceEnroll: (bool) ($mfa['grace_enroll'] ?? true),
+            mfaLoginTokenTtl: (int) ($mfa['login_token_ttl'] ?? 300),
             stepUpMaxAge: (int) ($stepUp['max_age'] ?? 300),
             requireVerifiedEmail: (bool) ($flows['require_verified_email'] ?? true),
             tokenDelivery: (string) ($flows['token_delivery'] ?? 'body'),

@@ -12,6 +12,7 @@ use PHPUnit\Framework\TestCase;
 use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Entity\MfaFactor;
+use Univeros\Polaris\Entity\RecoveryCode;
 use Univeros\Polaris\Event\MfaEnrolled;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
@@ -24,8 +25,12 @@ use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
 use Univeros\Polaris\Tests\Support\RecordingEventDispatcher;
 use Univeros\Polaris\Tests\Support\RecordingUnitOfWork;
 
+use function array_filter;
+
 final class MfaTotpServiceTest extends TestCase
 {
+    private RecordingUnitOfWork $unitOfWork;
+
     public function testConfirmRejectsAnUnknownFactor(): void
     {
         $this->expectException(MfaFactorNotFoundException::class);
@@ -105,6 +110,66 @@ final class MfaTotpServiceTest extends TestCase
         self::assertCount(0, $events->ofType(MfaEnrolled::class));
     }
 
+    public function testVerifyAcceptsAValidCodeWithoutReconfirmingOrIssuingCodes(): void
+    {
+        $factor = $this->factor();
+        $factor->confirmedAt = new DateTimeImmutable('@100');
+        $factor->isDefault = true;
+        $events = new RecordingEventDispatcher();
+
+        $this->service($factor, matched: 5000, events: $events)->verify('user-1', 'factor-1', '123456');
+
+        self::assertSame(5000, $factor->lastUsedAt?->getTimestamp(), 'the consumed step is fenced');
+        self::assertSame(100, $factor->confirmedAt->getTimestamp(), 'login verify does not re-confirm');
+        self::assertCount(0, $events->ofType(MfaEnrolled::class), 'login verify is not an enrollment');
+        self::assertContains($factor, $this->unitOfWork->persisted);
+        self::assertSame(
+            [],
+            array_filter($this->unitOfWork->persisted, static fn(object $e): bool => $e instanceof RecoveryCode),
+            'login verify issues no recovery codes',
+        );
+        self::assertGreaterThanOrEqual(1, $this->unitOfWork->flushes);
+    }
+
+    public function testVerifyRejectsAnUnknownFactor(): void
+    {
+        $this->expectException(MfaFactorNotFoundException::class);
+
+        $this->service(null)->verify('user-1', 'missing', '123456');
+    }
+
+    public function testVerifyRejectsAFactorOwnedByAnotherUser(): void
+    {
+        $this->expectException(MfaFactorNotFoundException::class);
+
+        $this->service($this->factor(userId: 'someone-else'))->verify('user-1', 'factor-1', '123456');
+    }
+
+    public function testVerifyRejectsANonTotpFactor(): void
+    {
+        $this->expectException(MfaFactorNotFoundException::class);
+
+        $this->service($this->factor(type: MfaFactor::TYPE_SMS))->verify('user-1', 'factor-1', '123456');
+    }
+
+    public function testVerifyRejectsAWrongCode(): void
+    {
+        $this->expectException(InvalidOtpException::class);
+
+        $this->service($this->factor(), matched: null)->verify('user-1', 'factor-1', '000000');
+    }
+
+    public function testVerifyRejectsAReplayedStep(): void
+    {
+        $factor = $this->factor();
+        $factor->lastUsedAt = new DateTimeImmutable('@1000');
+
+        $this->expectException(InvalidOtpException::class);
+
+        // The matched step equals the last-used step → replay.
+        $this->service($factor, matched: 1000)->verify('user-1', 'factor-1', '123456');
+    }
+
     private function factor(
         string $id = 'factor-1',
         string $userId = 'user-1',
@@ -147,6 +212,7 @@ final class MfaTotpServiceTest extends TestCase
         }
 
         $unitOfWork = new RecordingUnitOfWork();
+        $this->unitOfWork = $unitOfWork;
         $confirmation = new MfaConfirmation(
             $factors,
             new RecoveryCodeService(

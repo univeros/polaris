@@ -10,6 +10,7 @@ use Altair\Http\Contracts\DomainInterface;
 use Altair\Http\Contracts\MiddlewareInterface;
 use Altair\Http\Contracts\PayloadInterface;
 use Altair\Http\Contracts\TokenInterface;
+use Univeros\Polaris\Http\Middleware\MfaTicket;
 use Univeros\Polaris\Token\ClientContext;
 
 use function filter_var;
@@ -60,6 +61,19 @@ abstract class AuthDomain implements DomainInterface
         $token = $input->get(TokenInterface::TOKEN_KEY);
 
         return $token instanceof TokenInterface ? $token : null;
+    }
+
+    /**
+     * The `login_mfa` ticket the {@see MfaTokenMiddleware} attaches to a gate request, or null when
+     * absent. The `instanceof` check is load-bearing: input merges request attributes with the body,
+     * so only a typed {@see MfaTicket} (which a JSON value can never be) is a trusted principal — a
+     * client cannot spoof one by posting the attribute key.
+     */
+    protected function mfaTicket(InputCollection $input): ?MfaTicket
+    {
+        $ticket = $input->get(MfaTicket::ATTRIBUTE);
+
+        return $ticket instanceof MfaTicket ? $ticket : null;
     }
 
     protected function unauthorized(): PayloadInterface
