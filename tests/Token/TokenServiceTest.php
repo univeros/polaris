@@ -131,6 +131,36 @@ final class TokenServiceTest extends TestCase
         self::assertNotNull($family[0]->lastUsedAt);
     }
 
+    public function testStepUpMintsAFreshAccessTokenForTheExistingSessionWithoutTouchingRefresh(): void
+    {
+        $service = $this->serviceAt('2026-06-07 12:00:00');
+        $issued = $service->issue($this->principal(), ClientContext::none());
+
+        $token = $service->stepUp('user-1', 'org-1', $issued->sessionId);
+
+        self::assertNotSame('', $token);
+        self::assertCount(1, $this->store->findBy([]), 'step-up adds no refresh token to the family');
+
+        // claims[0] is the issue access token; claims[1] is the step-up one.
+        $claims = $this->generator->claims[1];
+        self::assertSame('user-1', $claims['sub']);
+        self::assertSame($issued->sessionId, $claims['sid']);
+        self::assertTrue($claims['mfa']);
+        self::assertSame(['pwd', 'otp'], $claims['amr']);
+        self::assertSame((new DateTimeImmutable('2026-06-07 12:00:00'))->getTimestamp(), $claims['auth_time']);
+    }
+
+    public function testStepUpRejectsARevokedSession(): void
+    {
+        $service = $this->serviceAt('2026-06-07 12:00:00');
+        $issued = $service->issue($this->principal(), ClientContext::none());
+        $service->revokeFamily($issued->sessionId, RefreshToken::REASON_LOGOUT);
+
+        // A still-valid access token must not re-mint itself after its session was logged out.
+        $this->expectException(InvalidGrantException::class);
+        $service->stepUp('user-1', 'org-1', $issued->sessionId);
+    }
+
     public function testReuseDetectionDisabledRejectsWithoutRevokingTheFamily(): void
     {
         $config = $this->configWith(['reuse_detection' => false]);

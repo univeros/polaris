@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Tests\Identity;
 
-use Altair\Http\Contracts\TokenParserInterface;
 use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Security\Contracts\EncrypterInterface;
 use DateTimeImmutable;
@@ -16,20 +15,18 @@ use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\SmsSenderInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Entity\MfaFactor;
-use Univeros\Polaris\Event\MfaVerified;
+use Univeros\Polaris\Entity\RefreshToken;
+use Univeros\Polaris\Event\MfaStepUpCompleted;
 use Univeros\Polaris\Event\MfaVerifyFailed;
-use Univeros\Polaris\Event\UserLoggedIn;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
-use Univeros\Polaris\Identity\MfaLoginService;
+use Univeros\Polaris\Identity\StepUpService;
 use Univeros\Polaris\Mfa\MfaChallengeVerifier;
 use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
-use Univeros\Polaris\Token\ClientContext;
-use Univeros\Polaris\Token\MfaLoginTokenService;
 use Univeros\Polaris\Token\TokenService;
 use Univeros\Polaris\Tests\Support\FrozenClock;
 use Univeros\Polaris\Tests\Support\InMemoryRecoveryCodeRepository;
@@ -39,7 +36,7 @@ use Univeros\Polaris\Tests\Support\RecordingTokenGenerator;
 use Univeros\Polaris\Tests\Support\RecordingUnitOfWork;
 use Univeros\Polaris\Tests\Support\StubSessionPrincipalResolver;
 
-final class MfaLoginServiceTest extends TestCase
+final class StepUpServiceTest extends TestCase
 {
     private const string AT = '2026-06-09 12:00:00';
 
@@ -47,66 +44,30 @@ final class MfaLoginServiceTest extends TestCase
     private RecordingTokenGenerator $accessTokens;
     private RecoveryCodeService $recovery;
 
-    public function testConfirmedFactorsKeepsOnlyConfirmedOnes(): void
-    {
-        $confirmed = $this->factor('f-1', confirmed: true);
-        $pending = $this->factor('f-2', confirmed: false);
-        $service = $this->service(findBy: [$pending, $confirmed]);
-
-        $result = $service->confirmedFactors('user-1');
-
-        self::assertSame([$confirmed], $result);
-    }
-
-    public function testBeginChallengeMintsATicketAndMasksFactorViews(): void
-    {
-        $totp = $this->factor('f-totp', type: MfaFactor::TYPE_TOTP, confirmed: true);
-        $totp->label = 'Authenticator';
-        $totp->isDefault = true;
-        $sms = $this->factor('f-sms', type: MfaFactor::TYPE_SMS, confirmed: true);
-        $sms->phoneE164 = '+14155550123';
-        $service = $this->service();
-
-        $result = $service->beginChallenge('user-1', [$totp, $sms]);
-
-        self::assertSame('user-1', $result->userId);
-        self::assertNotSame('', $result->mfaToken);
-        self::assertSame(
-            ['id' => 'f-totp', 'type' => 'totp', 'default' => true, 'label' => 'Authenticator'],
-            $result->factors[0]->toArray(),
-            'a TOTP factor carries no destination',
-        );
-        self::assertSame(
-            ['id' => 'f-sms', 'type' => 'sms', 'default' => false, 'destination' => '+1 *** *** 0123'],
-            $result->factors[1]->toArray(),
-            'an sms factor exposes only a masked destination',
-        );
-    }
-
-    public function testVerifyWithARecoveryCodeMintsTheSessionAndEmits(): void
+    public function testRecoveryVerifyRefreshesTheSessionAndEmits(): void
     {
         $service = $this->service();
         $codes = $this->recovery->issue('user-1');
 
-        $tokens = $service->verify('user-1', null, $codes[0], ClientContext::none());
+        $token = $service->verify('user-1', 'org-1', 'session-xyz', null, $codes[0]);
 
-        self::assertNotSame('', $tokens->accessToken);
+        self::assertNotSame('', $token);
         $claims = $this->accessTokens->claims[0];
+        self::assertSame('user-1', $claims['sub']);
+        self::assertSame('session-xyz', $claims['sid']);
         self::assertTrue($claims['mfa']);
-        self::assertSame(['pwd', 'otp'], $claims['amr']);
         self::assertGreaterThan(0, $claims['auth_time'], 'a fresh auth_time is stamped');
-        self::assertCount(1, $this->events->ofType(MfaVerified::class));
-        self::assertCount(1, $this->events->ofType(UserLoggedIn::class));
+        self::assertCount(1, $this->events->ofType(MfaStepUpCompleted::class));
         self::assertCount(0, $this->events->ofType(MfaVerifyFailed::class));
     }
 
-    public function testVerifyWithAWrongRecoveryCodeFailsAndEmitsNoSession(): void
+    public function testAWrongCodeFailsWithoutRefreshing(): void
     {
         $service = $this->service();
         $this->recovery->issue('user-1');
 
         try {
-            $service->verify('user-1', null, 'aaaaa-bbbbb', ClientContext::none());
+            $service->verify('user-1', null, 'session-xyz', null, 'aaaaa-bbbbb');
             self::fail('a wrong recovery code must be rejected');
         } catch (InvalidOtpException) {
             // expected
@@ -114,17 +75,16 @@ final class MfaLoginServiceTest extends TestCase
 
         self::assertSame([], $this->accessTokens->claims, 'no token is minted on failure');
         self::assertCount(1, $this->events->ofType(MfaVerifyFailed::class));
-        self::assertCount(0, $this->events->ofType(MfaVerified::class));
+        self::assertCount(0, $this->events->ofType(MfaStepUpCompleted::class));
     }
 
-    public function testVerifyRejectsAnUnknownOrUnconfirmedFactor(): void
+    public function testAnUnconfirmedFactorIsRejected(): void
     {
-        $unconfirmed = $this->factor('f-1', confirmed: false);
-        $service = $this->service(find: $unconfirmed);
+        $service = $this->service(find: $this->factor(confirmed: false));
 
         try {
-            $service->verify('user-1', 'f-1', '123456', ClientContext::none());
-            self::fail('an unconfirmed factor must not satisfy the gate');
+            $service->verify('user-1', null, 'session-xyz', 'f-1', '123456');
+            self::fail('an unconfirmed factor must not satisfy step-up');
         } catch (MfaFactorNotFoundException) {
             // expected
         }
@@ -133,10 +93,7 @@ final class MfaLoginServiceTest extends TestCase
         self::assertSame([], $this->accessTokens->claims);
     }
 
-    /**
-     * @param list<MfaFactor> $findBy what the factor repository returns for findBy(userId)
-     */
-    private function service(?MfaFactor $find = null, array $findBy = []): MfaLoginService
+    private function service(?MfaFactor $find = null): StepUpService
     {
         $clock = FrozenClock::at(self::AT);
         $this->events = new RecordingEventDispatcher();
@@ -144,7 +101,7 @@ final class MfaLoginServiceTest extends TestCase
 
         $factors = $this->createStub(RepositoryInterface::class);
         $factors->method('find')->willReturn($find);
-        $factors->method('findBy')->willReturn($findBy);
+        $factors->method('findBy')->willReturn([]);
 
         $uow = new RecordingUnitOfWork();
         $pepper = new Pepper('app-key-for-tests');
@@ -178,6 +135,7 @@ final class MfaLoginServiceTest extends TestCase
         );
 
         $refresh = new InMemoryRefreshTokenRepository();
+        $this->seedSession($refresh, 'session-xyz');
         $tokens = new TokenService(
             $refresh,
             $refresh,
@@ -189,25 +147,34 @@ final class MfaLoginServiceTest extends TestCase
             new RecordingEventDispatcher(),
         );
 
-        $tickets = new MfaLoginTokenService(new RecordingTokenGenerator(), $this->createStub(TokenParserInterface::class));
-
-        return new MfaLoginService(
+        return new StepUpService(
             new MfaChallengeVerifier($factors, $totp, $otp, $this->recovery),
-            $tickets,
             $tokens,
-            new StubSessionPrincipalResolver(),
-            $clock,
             $this->events,
         );
     }
 
-    private function factor(string $id, string $type = MfaFactor::TYPE_TOTP, bool $confirmed = true): MfaFactor
+    private function seedSession(InMemoryRefreshTokenRepository $refresh, string $sessionId): void
+    {
+        $now = new DateTimeImmutable(self::AT);
+        $token = new RefreshToken();
+        $token->id = 'rt-seed';
+        $token->userId = 'user-1';
+        $token->familyId = $sessionId;
+        $token->tokenHash = 'seed-hash';
+        $token->expiresAt = $now->modify('+1 day');
+        $token->createdAt = $now;
+        $refresh->persist($token);
+        $refresh->flush();
+    }
+
+    private function factor(bool $confirmed = true): MfaFactor
     {
         $now = new DateTimeImmutable(self::AT);
         $factor = new MfaFactor();
-        $factor->id = $id;
+        $factor->id = 'f-1';
         $factor->userId = 'user-1';
-        $factor->type = $type;
+        $factor->type = MfaFactor::TYPE_TOTP;
         $factor->confirmedAt = $confirmed ? $now : null;
         $factor->createdAt = $now;
         $factor->updatedAt = $now;

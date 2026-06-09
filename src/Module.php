@@ -64,12 +64,15 @@ use Univeros\Polaris\Http\Auth\MfaChallengeDomain;
 use Univeros\Polaris\Http\Auth\MfaVerifyDomain;
 use Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
+use Univeros\Polaris\Http\Auth\RegenerateRecoveryCodesDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
 use Univeros\Polaris\Http\Auth\ResetPasswordDomain;
 use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
+use Univeros\Polaris\Http\Auth\StepUpChallengeDomain;
+use Univeros\Polaris\Http\Auth\StepUpVerifyDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
@@ -79,6 +82,7 @@ use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
+use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
 use Univeros\Polaris\Identity\EmailVerificationService;
@@ -88,9 +92,11 @@ use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
+use Univeros\Polaris\Identity\StepUpService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\MfaChallengeVerifier;
 use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtpFactorService;
@@ -162,6 +168,16 @@ final class Module implements
         '/auth/mfa/verify',
     ];
 
+    /**
+     * Sensitive routes that require a recent strong authentication (spec §7). {@see StepUpMiddleware}
+     * enforces `now - auth_time <= step_up.max_age` on these — but only for users who have a
+     * confirmed factor — and returns `401 step_up_required` when stale. Matched as path prefixes.
+     */
+    private const array STEP_UP_PATHS = [
+        '/auth/password/change',
+        '/auth/mfa/recovery-codes/regenerate',
+    ];
+
     #[Override]
     public function name(): string
     {
@@ -194,6 +210,7 @@ final class Module implements
         $this->bindMfaProviders($container);
         $this->bindTotpEnrollment($container, $secrets);
         $this->bindMfaLogin($container, $authConfig, $secrets);
+        $this->bindStepUp($container);
     }
 
     /**
@@ -321,22 +338,26 @@ final class Module implements
         );
 
         $container->singleton(
-            MfaLoginService::class,
+            MfaChallengeVerifier::class,
             static fn(
                 MfaFactorRepository $factors,
                 MfaTotpService $totp,
                 OtpService $otp,
                 RecoveryCodeService $recovery,
+            ): MfaChallengeVerifier => new MfaChallengeVerifier($factors, $totp, $otp, $recovery),
+        );
+
+        $container->singleton(
+            MfaLoginService::class,
+            static fn(
+                MfaChallengeVerifier $verifier,
                 MfaLoginTokenService $tickets,
                 TokenService $tokens,
                 SessionPrincipalResolverInterface $principals,
                 ClockInterface $clock,
                 EventDispatcherInterface $events,
             ): MfaLoginService => new MfaLoginService(
-                $factors,
-                $totp,
-                $otp,
-                $recovery,
+                $verifier,
                 $tickets,
                 $tokens,
                 $principals,
@@ -360,6 +381,47 @@ final class Module implements
                 ]]),
                 new BearerTokenExtractor(),
                 $tickets,
+                $responseFactory,
+            ),
+        );
+    }
+
+    /**
+     * Bind step-up re-authentication (#25): the {@see StepUpService} (re-verify a factor and mint a
+     * refreshed access token for the existing session), its challenge/verify domains, the step-up-
+     * gated recovery-codes regenerate domain, and the {@see StepUpMiddleware} that returns
+     * `401 step_up_required` on the {@see self::STEP_UP_PATHS} when the session's `auth_time` is stale.
+     */
+    private function bindStepUp(Container $container): void
+    {
+        $container->singleton(
+            StepUpService::class,
+            static fn(
+                MfaChallengeVerifier $verifier,
+                TokenService $tokens,
+                EventDispatcherInterface $events,
+            ): StepUpService => new StepUpService($verifier, $tokens, $events),
+        );
+
+        $container->singleton(StepUpChallengeDomain::class);
+        $container->singleton(StepUpVerifyDomain::class);
+        $container->singleton(RegenerateRecoveryCodesDomain::class);
+
+        $container->singleton(
+            StepUpMiddleware::class,
+            static fn(
+                MfaChallengeVerifier $verifier,
+                AuthConfig $config,
+                ClockInterface $clock,
+                ResponseFactoryInterface $responseFactory,
+            ): StepUpMiddleware => new StepUpMiddleware(
+                new RequestPathRule(['path' => array_map(
+                    static fn(string $path): string => preg_quote($path, '@'),
+                    self::STEP_UP_PATHS,
+                )]),
+                $verifier,
+                $config,
+                $clock,
                 $responseFactory,
             ),
         );
@@ -459,6 +521,9 @@ final class Module implements
             // the action runs, so the validated ticket is attached before the gate domain reads it.
             // Path-scoped, so it no-ops on every other route.
             ['middleware' => MfaTokenMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 4],
+            // After the access-token middleware (so the token is attached) and before the action, it
+            // gates the step-up routes on a recent auth_time. Path-scoped; no-op elsewhere.
+            ['middleware' => StepUpMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 6],
         ];
     }
 
@@ -527,8 +592,12 @@ final class Module implements
                 self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
                 // Throttle the brute-forceable 6-digit MFA confirms/verify and cap factor/send churn.
+                // The more specific step-up/challenge path is listed before /step-up so it wins the
+                // first-match: a sent code is throttled as a send, the verify as a confirm.
                 self::rateLimitGroup('/auth/mfa/verify', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/challenge', $limits->mfaSend, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/step-up/challenge', $limits->mfaSend, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/step-up', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/sms/confirm', $limits->mfaConfirm, $cache, $responseFactory),
@@ -874,6 +943,9 @@ final class Module implements
             ['POST', '/auth/mfa/email/confirm', OtpFactorConfirmDomain::class],
             ['POST', '/auth/mfa/challenge', MfaChallengeDomain::class],
             ['POST', '/auth/mfa/verify', MfaVerifyDomain::class],
+            ['POST', '/auth/mfa/step-up/challenge', StepUpChallengeDomain::class],
+            ['POST', '/auth/mfa/step-up', StepUpVerifyDomain::class],
+            ['POST', '/auth/mfa/recovery-codes/regenerate', RegenerateRecoveryCodesDomain::class],
         ];
     }
 
