@@ -54,8 +54,10 @@ final readonly class StepUpMiddleware implements MiddlewareInterface
 
         $token = $request->getAttribute(TokenInterface::TOKEN_KEY);
         if (!$token instanceof TokenInterface) {
-            // Unauthenticated: the access-token middleware already rejects this; nothing to step up.
-            return $handler->handle($request);
+            // The access-token middleware (which runs first) already rejects an unauthenticated
+            // request, so this is a dead path in the wired pipeline — but fail closed rather than
+            // pass a tokenless request through to a sensitive domain if the ordering ever changes.
+            return (new UnauthorizedResponder())($request, $this->responseFactory->createResponse());
         }
 
         $userId = (string) $token->getMetadata('sub');

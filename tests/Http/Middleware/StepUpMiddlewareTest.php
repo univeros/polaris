@@ -93,14 +93,16 @@ final class StepUpMiddlewareTest extends TestCase
         self::assertSame(401, $response->getStatusCode());
     }
 
-    public function testAnUnauthenticatedRequestPassesThrough(): void
+    public function testAnUnauthenticatedRequestFailsClosed(): void
     {
+        // The access-token middleware owns this 401 in the wired pipeline; on a sensitive route this
+        // middleware must still fail closed rather than pass a tokenless request to the domain.
         $request = (new ServerRequestFactory())->createServerRequest('POST', '/auth/password/change');
 
         $response = $this->middleware(hasFactor: true)->process($request, $this->handler);
 
-        self::assertSame(200, $response->getStatusCode(), 'the access-token middleware owns this 401');
-        self::assertSame(1, $this->handler->calls);
+        self::assertSame(401, $response->getStatusCode());
+        self::assertSame(0, $this->handler->calls, 'the sensitive domain is never reached');
     }
 
     private function middleware(bool $hasFactor): StepUpMiddleware

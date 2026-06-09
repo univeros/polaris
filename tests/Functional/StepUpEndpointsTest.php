@@ -68,6 +68,16 @@ final class StepUpEndpointsTest extends FunctionalTestCase
         self::assertCount(0, $this->events->ofType(MfaStepUpCompleted::class));
     }
 
+    public function testStepUpChallengeRejectsATotpFactor(): void
+    {
+        ['userId' => $userId, 'factorId' => $factorId] = $this->userWithTotp();
+        $stale = $this->staleToken($userId);
+
+        $response = $this->authedPostJson('/auth/mfa/step-up/challenge', ['factor_id' => $factorId], $stale);
+
+        self::assertSame(422, $response->getStatusCode(), 'TOTP takes its code from the app, not a sent challenge');
+    }
+
     public function testAUserWithoutMfaCanChangePasswordWithoutStepUp(): void
     {
         // No factor enrolled → step-up does not apply even with a (synthetic) stale token.

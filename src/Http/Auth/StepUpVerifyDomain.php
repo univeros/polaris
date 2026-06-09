@@ -7,6 +7,7 @@ namespace Univeros\Polaris\Http\Auth;
 use Altair\Http\Collection\InputCollection;
 use Altair\Http\Contracts\PayloadInterface;
 use Override;
+use Univeros\Polaris\Exception\InvalidGrantException;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
 use Univeros\Polaris\Identity\StepUpService;
@@ -59,6 +60,9 @@ final class StepUpVerifyDomain extends AuthDomain
             return $this->respond(404, ['error' => 'not_found', 'message' => 'MFA factor not found.']);
         } catch (InvalidOtpException) {
             return $this->respond(422, ['error' => 'invalid_code', 'message' => 'The verification code is invalid.']);
+        } catch (InvalidGrantException) {
+            // The session ended (logout) while its access token was still valid — re-login required.
+            return $this->unauthorized();
         }
 
         return $this->respond(200, ['data' => ['access_token' => $accessToken, 'token_type' => 'Bearer']]);

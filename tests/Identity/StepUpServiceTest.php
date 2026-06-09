@@ -15,6 +15,7 @@ use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\SmsSenderInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Entity\MfaFactor;
+use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Event\MfaStepUpCompleted;
 use Univeros\Polaris\Event\MfaVerifyFailed;
 use Univeros\Polaris\Exception\InvalidOtpException;
@@ -134,6 +135,7 @@ final class StepUpServiceTest extends TestCase
         );
 
         $refresh = new InMemoryRefreshTokenRepository();
+        $this->seedSession($refresh, 'session-xyz');
         $tokens = new TokenService(
             $refresh,
             $refresh,
@@ -150,6 +152,20 @@ final class StepUpServiceTest extends TestCase
             $tokens,
             $this->events,
         );
+    }
+
+    private function seedSession(InMemoryRefreshTokenRepository $refresh, string $sessionId): void
+    {
+        $now = new DateTimeImmutable(self::AT);
+        $token = new RefreshToken();
+        $token->id = 'rt-seed';
+        $token->userId = 'user-1';
+        $token->familyId = $sessionId;
+        $token->tokenHash = 'seed-hash';
+        $token->expiresAt = $now->modify('+1 day');
+        $token->createdAt = $now;
+        $refresh->persist($token);
+        $refresh->flush();
     }
 
     private function factor(bool $confirmed = true): MfaFactor

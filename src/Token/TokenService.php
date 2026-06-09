@@ -86,9 +86,21 @@ final class TokenService
      * step-up grant (issue #25). No refresh token is rotated or issued: the caller keeps its session
      * and only swaps its access token for one that records a recent strong authentication
      * (`amr=["pwd","otp"]`, `mfa=true`). The authorization context (roles/scope/org) is re-resolved.
+     *
+     * Step-up is the only path that mints an access token without presenting a refresh token, so —
+     * like {@see refresh()} — it requires the session to still be live: if the family was revoked
+     * (logout / logout-all), a still-valid access token must not be able to re-mint itself and
+     * outlive the revocation.
+     *
+     * @throws InvalidGrantException the session has ended (no unrevoked token in the family)
      */
     public function stepUp(string $userId, ?string $organizationId, string $sessionId): string
     {
+        $active = $this->refreshTokens->findOneBy(['familyId' => $sessionId, 'revokedAt' => null]);
+        if (!$active instanceof RefreshToken) {
+            throw new InvalidGrantException('The session is no longer active.');
+        }
+
         $base = $this->principals->resolve($userId, $organizationId);
 
         $principal = new SessionPrincipal(
