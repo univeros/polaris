@@ -73,11 +73,53 @@ final readonly class MfaTotpService
      */
     public function confirm(string $userId, string $factorId, #[SensitiveParameter] string $code): MfaConfirmResult
     {
+        $factor = $this->requireTotpFactor($userId, $factorId);
+        $this->verifyCodeAndFence($factor, $code);
+
+        // The shared confirmation tail flushes (marks confirmed, first-factor recovery codes + event).
+        return new MfaConfirmResult($this->confirmation->complete($factor));
+    }
+
+    /**
+     * Verify a TOTP code against an already-confirmed factor at **login** (the MFA gate) — same code
+     * check and replay fence as {@see confirm()}, but it does not run the enrollment tail (no
+     * recovery codes, no `mfa.enrolled`); it only records the consumed step.
+     *
+     * @throws MfaFactorNotFoundException the factor is unknown or not the caller's TOTP factor
+     * @throws InvalidOtpException        the code is wrong, or a replay of an already-used step
+     */
+    public function verify(string $userId, string $factorId, #[SensitiveParameter] string $code): void
+    {
+        $factor = $this->requireTotpFactor($userId, $factorId);
+        $this->verifyCodeAndFence($factor, $code);
+
+        $factor->updatedAt = $this->clock->now();
+        $this->unitOfWork->persist($factor);
+        $this->unitOfWork->flush();
+    }
+
+    /**
+     * @throws MfaFactorNotFoundException
+     */
+    private function requireTotpFactor(string $userId, string $factorId): MfaFactor
+    {
         $factor = $this->factors->find($factorId);
         if (!$factor instanceof MfaFactor || $factor->userId !== $userId || $factor->type !== MfaFactor::TYPE_TOTP) {
             throw new MfaFactorNotFoundException('MFA factor not found.');
         }
 
+        return $factor;
+    }
+
+    /**
+     * Decrypt the secret, match the code within the skew window, reject a replayed step, and record
+     * the consumed step on the factor ({@see MfaFactor::$lastUsedAt}) — the shared core of confirm
+     * and login verify. Persisting/flushing the stamped factor is the caller's responsibility.
+     *
+     * @throws InvalidOtpException the code is wrong (or undecryptable secret), or a replayed step
+     */
+    private function verifyCodeAndFence(MfaFactor $factor, #[SensitiveParameter] string $code): void
+    {
         try {
             $secret = (string) $this->encrypter->decrypt((string) $factor->secretEncrypted);
         } catch (DecryptException) {
@@ -95,9 +137,6 @@ final readonly class MfaTotpService
             throw new InvalidOtpException('The verification code has already been used.');
         }
 
-        // Record the consumed step (replay fence), then run the shared confirmation tail.
         $factor->lastUsedAt = $this->clock->now()->setTimestamp($matchedAt);
-
-        return new MfaConfirmResult($this->confirmation->complete($factor));
     }
 }

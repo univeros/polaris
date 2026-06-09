@@ -26,6 +26,8 @@ use Univeros\Polaris\Tests\Support\RecordingUnitOfWork;
 
 final class MfaTotpServiceTest extends TestCase
 {
+    private RecordingUnitOfWork $unitOfWork;
+
     public function testConfirmRejectsAnUnknownFactor(): void
     {
         $this->expectException(MfaFactorNotFoundException::class);
@@ -147,6 +149,7 @@ final class MfaTotpServiceTest extends TestCase
         }
 
         $unitOfWork = new RecordingUnitOfWork();
+        $this->unitOfWork = $unitOfWork;
         $confirmation = new MfaConfirmation(
             $factors,
             new RecoveryCodeService(
