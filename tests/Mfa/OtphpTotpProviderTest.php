@@ -38,6 +38,21 @@ final class OtphpTotpProviderTest extends TestCase
         self::assertTrue(str_contains($uri, 'issuer=' . rawurlencode('Univeros')));
     }
 
+    public function testMatchesTheRfc6238Sha1Vector(): void
+    {
+        // RFC 6238 Appendix B: secret "12345678901234567890" (base32 below), SHA-1, 8 digits,
+        // T=59s → 94287082.
+        $config = TotpConfig::fromArray(['digits' => 8, 'period' => 30, 'algorithm' => 'SHA1', 'window' => 0]);
+        $provider = new OtphpTotpProvider($config, FrozenClock::at('@59'));
+        $secret = 'GEZDGNBVGY3TQOJQGEZDGNBVGY3TQOJQ';
+
+        self::assertTrue($provider->verify($secret, '94287082'));
+        self::assertFalse($provider->verify($secret, '00000000'));
+        // The matched step start for T=59, period 30 (epoch 0) is 30.
+        self::assertSame(30, $provider->matchingTimestamp($secret, '94287082'));
+        self::assertNull($provider->matchingTimestamp($secret, '00000000'));
+    }
+
     public function testVerifiesTheCurrentAndInWindowCodesButRejectsOthers(): void
     {
         $clock = FrozenClock::at(self::INSTANT);

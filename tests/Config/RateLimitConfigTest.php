@@ -25,6 +25,12 @@ final class RateLimitConfigTest extends TestCase
 
         self::assertSame(60, $config->tokenRefresh->limit);
         self::assertSame(60, $config->tokenRefresh->windowSeconds);
+
+        self::assertSame(5, $config->mfaEnroll->limit);
+        self::assertSame(3600, $config->mfaEnroll->windowSeconds);
+
+        self::assertSame(10, $config->mfaConfirm->limit);
+        self::assertSame(300, $config->mfaConfirm->windowSeconds);
     }
 
     public function testEachGroupHasADistinctCacheKeyPrefix(): void
@@ -36,6 +42,8 @@ final class RateLimitConfigTest extends TestCase
             $config->register->keyPrefix,
             $config->passwordForgot->keyPrefix,
             $config->tokenRefresh->keyPrefix,
+            $config->mfaEnroll->keyPrefix,
+            $config->mfaConfirm->keyPrefix,
         ];
 
         self::assertSame($prefixes, array_unique($prefixes), 'prefixes must not collide in a shared cache');

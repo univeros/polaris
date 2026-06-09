@@ -32,4 +32,11 @@ interface TotpProviderInterface
      * Whether `$code` is valid for `$secret` right now, within the configured skew window.
      */
     public function verify(string $secret, #[SensitiveParameter] string $code): bool;
+
+    /**
+     * The step-aligned Unix timestamp of the time step whose code matched `$code`, or null when the
+     * code is invalid. Callers use the returned step to reject replay: a code from a step already
+     * consumed (≤ the last accepted step) must not be honoured again within its validity window.
+     */
+    public function matchingTimestamp(string $secret, #[SensitiveParameter] string $code): ?int;
 }
