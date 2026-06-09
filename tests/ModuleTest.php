@@ -33,14 +33,19 @@ use Univeros\Polaris\Contracts\OtpMailerInterface;
 use Univeros\Polaris\Contracts\QrCodeRendererInterface;
 use Univeros\Polaris\Contracts\SmsSenderInterface;
 use Univeros\Polaris\Contracts\TotpProviderInterface;
+use Univeros\Polaris\Http\Auth\EmailEnrollDomain;
+use Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain;
+use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\NullSmsSender;
+use Univeros\Polaris\Mfa\OtpFactorService;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
@@ -337,15 +342,30 @@ final class ModuleTest extends TestCase
 
         $bindings = [
             RecoveryCodeService::class,
+            MfaConfirmation::class,
             MfaTotpService::class,
             OtpService::class,
+            OtpFactorService::class,
             TotpEnrollDomain::class,
             TotpConfirmDomain::class,
+            SmsEnrollDomain::class,
+            EmailEnrollDomain::class,
+            OtpFactorConfirmDomain::class,
         ];
 
         foreach ($bindings as $id) {
             self::assertTrue($container->has($id), "$id should be bound");
         }
+    }
+
+    public function testContributesTheSmsAndEmailMfaRoutes(): void
+    {
+        $routes = (new Module())->routes();
+
+        self::assertContains(['POST', '/auth/mfa/sms/enroll', SmsEnrollDomain::class], $routes);
+        self::assertContains(['POST', '/auth/mfa/sms/confirm', OtpFactorConfirmDomain::class], $routes);
+        self::assertContains(['POST', '/auth/mfa/email/enroll', EmailEnrollDomain::class], $routes);
+        self::assertContains(['POST', '/auth/mfa/email/confirm', OtpFactorConfirmDomain::class], $routes);
     }
 
     public function testEntityDirectoriesExist(): void

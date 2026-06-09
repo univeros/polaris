@@ -53,17 +53,20 @@ use Univeros\Polaris\Contracts\TotpProviderInterface;
 use Univeros\Polaris\Event\NullEventDispatcher;
 use Univeros\Polaris\Exception\InvalidConfigException;
 use Univeros\Polaris\Http\Auth\ChangePasswordDomain;
+use Univeros\Polaris\Http\Auth\EmailEnrollDomain;
 use Univeros\Polaris\Http\Auth\ForgotPasswordDomain;
 use Univeros\Polaris\Http\Auth\LoginDomain;
 use Univeros\Polaris\Http\Auth\LogoutAllDomain;
 use Univeros\Polaris\Http\Auth\LogoutDomain;
 use Univeros\Polaris\Http\Auth\MeDomain;
+use Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain;
 use Univeros\Polaris\Http\Auth\RefreshTokenDomain;
 use Univeros\Polaris\Http\Auth\RegisterDomain;
 use Univeros\Polaris\Http\Auth\ResendVerificationDomain;
 use Univeros\Polaris\Http\Auth\ResetPasswordDomain;
 use Univeros\Polaris\Http\Auth\RevokeSessionDomain;
 use Univeros\Polaris\Http\Auth\SessionsDomain;
+use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
@@ -83,7 +86,9 @@ use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
+use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\MfaTotpService;
+use Univeros\Polaris\Mfa\OtpFactorService;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
@@ -207,29 +212,50 @@ final class Module implements
 
         $container->singleton(RecoveryCodeService::class);
         $container->singleton(
+            MfaConfirmation::class,
+            static fn(
+                MfaFactorRepository $factors,
+                RecoveryCodeService $recoveryCodes,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): MfaConfirmation => new MfaConfirmation($factors, $recoveryCodes, $unitOfWork, $clock, $events),
+        );
+        $container->singleton(
             MfaTotpService::class,
             static fn(
                 MfaFactorRepository $factors,
                 TotpProviderInterface $totp,
                 EncrypterInterface $encrypter,
                 QrCodeRendererInterface $qr,
-                RecoveryCodeService $recoveryCodes,
+                MfaConfirmation $confirmation,
                 UnitOfWorkInterface $unitOfWork,
                 ClockInterface $clock,
-                EventDispatcherInterface $events,
             ): MfaTotpService => new MfaTotpService(
                 $factors,
                 $totp,
                 $encrypter,
                 $qr,
-                $recoveryCodes,
+                $confirmation,
                 $unitOfWork,
                 $clock,
-                $events,
             ),
+        );
+        $container->singleton(
+            OtpFactorService::class,
+            static fn(
+                MfaFactorRepository $factors,
+                OtpService $otp,
+                MfaConfirmation $confirmation,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+            ): OtpFactorService => new OtpFactorService($factors, $otp, $confirmation, $unitOfWork, $clock),
         );
         $container->singleton(TotpEnrollDomain::class);
         $container->singleton(TotpConfirmDomain::class);
+        $container->singleton(SmsEnrollDomain::class);
+        $container->singleton(EmailEnrollDomain::class);
+        $container->singleton(OtpFactorConfirmDomain::class);
     }
 
     /**
@@ -389,9 +415,14 @@ final class Module implements
                 self::rateLimitGroup('/auth/register', $limits->register, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
-                // Throttle the brute-forceable 6-digit TOTP confirm and cap unconfirmed-factor churn.
+                // Throttle the brute-forceable 6-digit MFA confirms and cap factor/send churn.
                 self::rateLimitGroup('/auth/mfa/totp/confirm', $limits->mfaConfirm, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/mfa/totp/enroll', $limits->mfaEnroll, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/sms/confirm', $limits->mfaConfirm, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/email/confirm', $limits->mfaConfirm, $cache, $responseFactory),
+                // SMS/email enroll *sends* a code — throttle harder (cost + OTP-bombing).
+                self::rateLimitGroup('/auth/mfa/sms/enroll', $limits->mfaSend, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/mfa/email/enroll', $limits->mfaSend, $cache, $responseFactory),
             ),
         );
     }
@@ -722,6 +753,10 @@ final class Module implements
             ['GET', '/auth/me', MeDomain::class],
             ['POST', '/auth/mfa/totp/enroll', TotpEnrollDomain::class],
             ['POST', '/auth/mfa/totp/confirm', TotpConfirmDomain::class],
+            ['POST', '/auth/mfa/sms/enroll', SmsEnrollDomain::class],
+            ['POST', '/auth/mfa/sms/confirm', OtpFactorConfirmDomain::class],
+            ['POST', '/auth/mfa/email/enroll', EmailEnrollDomain::class],
+            ['POST', '/auth/mfa/email/confirm', OtpFactorConfirmDomain::class],
         ];
     }
 

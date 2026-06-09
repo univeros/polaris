@@ -15,6 +15,7 @@ use Univeros\Polaris\Entity\MfaFactor;
 use Univeros\Polaris\Event\MfaEnrolled;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
+use Univeros\Polaris\Mfa\MfaConfirmation;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Security\Pepper;
@@ -144,17 +145,23 @@ final class MfaTotpServiceTest extends TestCase
             $encrypter->method('decrypt')->willReturn('SECRET');
         }
 
-        $recoveryCodes = new RecoveryCodeService(new RecordingUnitOfWork(), new Pepper('app-key'), $clock);
+        $unitOfWork = new RecordingUnitOfWork();
+        $confirmation = new MfaConfirmation(
+            $factors,
+            new RecoveryCodeService($unitOfWork, new Pepper('app-key'), $clock),
+            $unitOfWork,
+            $clock,
+            $events ?? new RecordingEventDispatcher(),
+        );
 
         return new MfaTotpService(
             $factors,
             $totp,
             $encrypter,
             $this->createStub(QrCodeRendererInterface::class),
-            $recoveryCodes,
-            new RecordingUnitOfWork(),
+            $confirmation,
+            $unitOfWork,
             $clock,
-            $events ?? new RecordingEventDispatcher(),
         );
     }
 }
