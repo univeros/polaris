@@ -110,17 +110,17 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
 
         $permission = new Permission();
         $permission->id = Uuid::v7()->toRfc4122();
-        $permission->key = 'members.invite';
-        $permission->description = 'Invite new members to an organization';
+        $permission->key = 'test.permission';
+        $permission->description = 'A custom, non-catalog permission';
         $repository->save($permission);
 
         $this->unitOfWork->clear();
 
-        $found = $repository->findOneBy(['key' => 'members.invite']);
+        $found = $repository->findOneBy(['key' => 'test.permission']);
 
         self::assertInstanceOf(Permission::class, $found);
-        self::assertSame('members.invite', $found->key);
-        self::assertSame('Invite new members to an organization', $found->description);
+        self::assertSame('test.permission', $found->key);
+        self::assertSame('A custom, non-catalog permission', $found->description);
     }
 
     public function testRolePermissionGrantRoundTrips(): void
@@ -148,12 +148,12 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
         $this->insertRolePermission($roleId, $permissionId);
 
         $database = $this->connection();
-        self::assertSame(1, $database->select()->from('auth_role_permissions')->count());
+        self::assertSame(1, $database->select()->from('auth_role_permissions')->where('role_id', $roleId)->count());
 
         $database->delete('auth_roles', ['id' => $roleId])->run();
 
-        self::assertSame(0, $database->select()->from('auth_role_permissions')->count());
-        self::assertSame(1, $database->select()->from('auth_permissions')->count(), 'The permission itself must remain.');
+        self::assertSame(0, $database->select()->from('auth_role_permissions')->where('role_id', $roleId)->count());
+        self::assertSame(1, $database->select()->from('auth_permissions')->where('id', $permissionId)->count(), 'The permission itself must remain.');
     }
 
     public function testDeletingAPermissionCascadesItsRoleGrants(): void
@@ -162,12 +162,12 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
         $this->insertRolePermission($roleId, $permissionId);
 
         $database = $this->connection();
-        self::assertSame(1, $database->select()->from('auth_role_permissions')->count());
+        self::assertSame(1, $database->select()->from('auth_role_permissions')->where('permission_id', $permissionId)->count());
 
         $database->delete('auth_permissions', ['id' => $permissionId])->run();
 
-        self::assertSame(0, $database->select()->from('auth_role_permissions')->count());
-        self::assertSame(1, $database->select()->from('auth_roles')->count(), 'The role itself must remain.');
+        self::assertSame(0, $database->select()->from('auth_role_permissions')->where('permission_id', $permissionId)->count());
+        self::assertSame(1, $database->select()->from('auth_roles')->where('id', $roleId)->count(), 'The role itself must remain.');
     }
 
     public function testDeletingAMembershipCascadesItsRoleGrants(): void
@@ -177,12 +177,12 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
         $this->insertMembershipRole($membershipId, $roleId);
 
         $database = $this->connection();
-        self::assertSame(1, $database->select()->from('auth_membership_roles')->count());
+        self::assertSame(1, $database->select()->from('auth_membership_roles')->where('membership_id', $membershipId)->count());
 
         $database->delete('auth_memberships', ['id' => $membershipId])->run();
 
-        self::assertSame(0, $database->select()->from('auth_membership_roles')->count());
-        self::assertSame(1, $database->select()->from('auth_roles')->count(), 'The role itself must remain.');
+        self::assertSame(0, $database->select()->from('auth_membership_roles')->where('membership_id', $membershipId)->count());
+        self::assertSame(1, $database->select()->from('auth_roles')->where('id', $roleId)->count(), 'The role itself must remain.');
     }
 
     public function testDeletingARoleCascadesItsMembershipGrants(): void
@@ -192,12 +192,12 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
         $this->insertMembershipRole($membershipId, $roleId);
 
         $database = $this->connection();
-        self::assertSame(1, $database->select()->from('auth_membership_roles')->count());
+        self::assertSame(1, $database->select()->from('auth_membership_roles')->where('role_id', $roleId)->count());
 
         $database->delete('auth_roles', ['id' => $roleId])->run();
 
-        self::assertSame(0, $database->select()->from('auth_membership_roles')->count());
-        self::assertSame(1, $database->select()->from('auth_memberships')->count(), 'The membership itself must remain.');
+        self::assertSame(0, $database->select()->from('auth_membership_roles')->where('role_id', $roleId)->count());
+        self::assertSame(1, $database->select()->from('auth_memberships')->where('id', $membershipId)->count(), 'The membership itself must remain.');
     }
 
     public function testMigrationsRollBackCleanly(): void
@@ -235,8 +235,8 @@ final class RolesPermissionsPersistenceTest extends DatabaseTestCase
 
         $permission = new Permission();
         $permission->id = Uuid::v7()->toRfc4122();
-        $permission->key = 'roles.manage';
-        $permission->description = 'Create and edit roles';
+        $permission->key = 'test.grant';
+        $permission->description = 'A custom, non-catalog permission';
         (new CycleRepository(Permission::class, $this->orm, $this->unitOfWork))->save($permission);
 
         $this->unitOfWork->clear();
