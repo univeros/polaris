@@ -9,6 +9,7 @@ use Psr\Http\Message\ResponseInterface;
 use Univeros\Polaris\Event\MfaVerified;
 use Univeros\Polaris\Event\MfaVerifyFailed;
 use Univeros\Polaris\Event\UserRegistered;
+use Univeros\Polaris\Http\Middleware\MfaTicket;
 
 use function base64_decode;
 use function end;
@@ -159,6 +160,26 @@ final class MfaLoginGateEndpointsTest extends FunctionalTestCase
     {
         self::assertSame(401, $this->postJson('/auth/mfa/verify', ['code' => '123456'])->getStatusCode());
         self::assertSame(401, $this->postJson('/auth/mfa/challenge', ['factor_id' => 'x'])->getStatusCode());
+    }
+
+    public function testTheTicketPrincipalCannotBeSpoofedViaTheBody(): void
+    {
+        // The attacker holds a valid ticket for their *own* account and tries to act as another user
+        // by posting the middleware's attribute key in the JSON body. Input merges the body over
+        // request attributes, so the string clobbers the typed ticket — and the instanceof guard then
+        // rejects the request rather than trusting the attacker-supplied id.
+        $access = $this->registerVerifyLogin();
+        $this->enrollConfirmTotp($access);
+        $this->unitOfWork->clear();
+        $mfaToken = (string) $this->json($this->login())['data']['mfa_token'];
+
+        $response = $this->authedPostJson(
+            '/auth/mfa/verify',
+            [MfaTicket::ATTRIBUTE => 'victim-user-id', 'type' => 'recovery', 'code' => 'aaaaa-bbbbb'],
+            $mfaToken,
+        );
+
+        self::assertSame(401, $response->getStatusCode());
     }
 
     /**

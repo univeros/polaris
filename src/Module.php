@@ -455,8 +455,9 @@ final class Module implements
         return [
             ['middleware' => AuthRateLimitMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 50],
             ['middleware' => TokenAuthenticationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 5],
-            // Runs after the (passthrough) access-token middleware and before the dispatcher, so the
-            // login_mfa ticket's user id is attached before the gate domains read it.
+            // In the (DISPATCHER, ACTION) band: runs after routing resolves the gate route and before
+            // the action runs, so the validated ticket is attached before the gate domain reads it.
+            // Path-scoped, so it no-ops on every other route.
             ['middleware' => MfaTokenMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 4],
         ];
     }

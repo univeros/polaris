@@ -9,7 +9,6 @@ use Altair\Http\Contracts\PayloadInterface;
 use Override;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
-use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Identity\MfaLoginService;
 use Univeros\Polaris\Token\IssuedTokens;
 
@@ -33,8 +32,8 @@ final class MfaVerifyDomain extends AuthDomain
     #[Override]
     public function __invoke(InputCollection $input): PayloadInterface
     {
-        $userId = (string) $input->get(MfaTokenMiddleware::ATTRIBUTE_MFA_USER_ID, '');
-        if ($userId === '') {
+        $ticket = $this->mfaTicket($input);
+        if ($ticket === null) {
             return $this->unauthorized();
         }
 
@@ -44,7 +43,7 @@ final class MfaVerifyDomain extends AuthDomain
         }
 
         try {
-            $tokens = $this->service->verify($userId, $this->factorId($input), $code, $this->client($input));
+            $tokens = $this->service->verify($ticket->userId, $this->factorId($input), $code, $this->client($input));
         } catch (MfaFactorNotFoundException) {
             return $this->respond(404, ['error' => 'not_found', 'message' => 'MFA factor not found.']);
         } catch (InvalidOtpException) {

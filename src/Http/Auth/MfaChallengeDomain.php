@@ -10,7 +10,6 @@ use Override;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\MfaFactorNotFoundException;
 use Univeros\Polaris\Exception\OtpCooldownException;
-use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Identity\MfaLoginService;
 
 use function trim;
@@ -30,8 +29,8 @@ final class MfaChallengeDomain extends AuthDomain
     #[Override]
     public function __invoke(InputCollection $input): PayloadInterface
     {
-        $userId = (string) $input->get(MfaTokenMiddleware::ATTRIBUTE_MFA_USER_ID, '');
-        if ($userId === '') {
+        $ticket = $this->mfaTicket($input);
+        if ($ticket === null) {
             return $this->unauthorized();
         }
 
@@ -41,7 +40,7 @@ final class MfaChallengeDomain extends AuthDomain
         }
 
         try {
-            $result = $this->service->challenge($userId, $factorId, $this->client($input));
+            $result = $this->service->challenge($ticket->userId, $factorId, $this->client($input));
         } catch (MfaFactorNotFoundException) {
             return $this->respond(404, ['error' => 'not_found', 'message' => 'MFA factor not found.']);
         } catch (OtpCooldownException) {

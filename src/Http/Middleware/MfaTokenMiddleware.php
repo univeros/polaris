@@ -29,9 +29,6 @@ use Univeros\Polaris\Token\MfaLoginTokenService;
  */
 final readonly class MfaTokenMiddleware implements MiddlewareInterface
 {
-    /** Request attribute carrying the user id resolved from a valid `login_mfa` ticket. */
-    public const string ATTRIBUTE_MFA_USER_ID = 'polaris:mfa:user-id';
-
     public function __construct(
         private HttpAuthRuleInterface $rule,
         private TokenExtractorInterface $bearer,
@@ -58,7 +55,7 @@ final readonly class MfaTokenMiddleware implements MiddlewareInterface
             return $this->unauthorized($request);
         }
 
-        return $handler->handle($request->withAttribute(self::ATTRIBUTE_MFA_USER_ID, $userId));
+        return $handler->handle($request->withAttribute(MfaTicket::ATTRIBUTE, new MfaTicket($userId)));
     }
 
     private function unauthorized(ServerRequestInterface $request): ResponseInterface

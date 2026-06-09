@@ -16,6 +16,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\MfaTicket;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Token\MfaLoginTokenService;
 use Univeros\Polaris\Tests\Support\CountingRequestHandler;
@@ -44,13 +45,13 @@ final class MfaTokenMiddlewareTest extends TestCase
     public function testAValidTicketAttachesTheUserIdAndDelegates(): void
     {
         $handler = new class implements RequestHandlerInterface {
-            public mixed $userId = 'unset';
+            public mixed $ticket = 'unset';
             public int $calls = 0;
 
             public function handle(ServerRequestInterface $request): ResponseInterface
             {
                 ++$this->calls;
-                $this->userId = $request->getAttribute(MfaTokenMiddleware::ATTRIBUTE_MFA_USER_ID);
+                $this->ticket = $request->getAttribute(MfaTicket::ATTRIBUTE);
 
                 return (new ResponseFactory())->createResponse(200);
             }
@@ -60,7 +61,8 @@ final class MfaTokenMiddlewareTest extends TestCase
             ->process($this->gateRequest('Bearer good-ticket'), $handler);
 
         self::assertSame(200, $response->getStatusCode());
-        self::assertSame('user-1', $handler->userId);
+        self::assertInstanceOf(MfaTicket::class, $handler->ticket);
+        self::assertSame('user-1', $handler->ticket->userId);
         self::assertSame(1, $handler->calls);
     }
 
