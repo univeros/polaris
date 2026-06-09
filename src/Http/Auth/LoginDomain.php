@@ -12,15 +12,20 @@ use Univeros\Polaris\Exception\EmailNotVerifiedException;
 use Univeros\Polaris\Exception\InvalidCredentialsException;
 use Univeros\Polaris\Identity\LoginResult;
 use Univeros\Polaris\Identity\LoginService;
+use Univeros\Polaris\Identity\MfaChallengeResult;
+use Univeros\Polaris\Identity\MfaFactorView;
 
+use function array_map;
 use function trim;
 
 /**
- * `POST /auth/login` — password login (no-MFA path).
+ * `POST /auth/login` — password login.
  *
- * Returns `200` with an access + refresh token pair on success. Credential and lock
- * failures collapse to an identical generic `401`; correct-credential account-state
- * failures return `403` (`account_disabled` or `email_unverified`).
+ * Returns `200` with an access + refresh token pair on success, or — when the user has a confirmed
+ * MFA factor — `200` with `mfa_required` plus a short-lived `mfa_token` and the factor list to
+ * complete via `/auth/mfa/challenge` + `/auth/mfa/verify`. Credential and lock failures collapse to
+ * an identical generic `401`; correct-credential account-state failures return `403`
+ * (`account_disabled` or `email_unverified`).
  */
 final class LoginDomain extends AuthDomain
 {
@@ -56,7 +61,25 @@ final class LoginDomain extends AuthDomain
             return $this->respond(401, ['error' => 'invalid_credentials', 'message' => 'Invalid email or password.']);
         }
 
+        if ($result instanceof MfaChallengeResult) {
+            return $this->respond(200, $this->mfaBody($result));
+        }
+
         return $this->respond(200, $this->body($result));
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function mfaBody(MfaChallengeResult $result): array
+    {
+        return [
+            'data' => [
+                'mfa_required' => true,
+                'mfa_token' => $result->mfaToken,
+                'factors' => array_map(static fn(MfaFactorView $factor): array => $factor->toArray(), $result->factors),
+            ],
+        ];
     }
 
     /**
