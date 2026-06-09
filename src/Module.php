@@ -41,6 +41,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Config\AuthConfig;
+use Univeros\Polaris\Config\OtpConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Config\TotpConfig;
@@ -84,9 +85,11 @@ use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
 use Univeros\Polaris\Mfa\MfaTotpService;
 use Univeros\Polaris\Mfa\OtphpTotpProvider;
+use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\MfaFactorRepository;
+use Univeros\Polaris\Persistence\OtpChallengeRepository;
 use Univeros\Polaris\Persistence\PasswordResetRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
@@ -253,11 +256,38 @@ final class Module implements
             TotpConfig::class,
             static fn(AuthConfig $config): TotpConfig => $config->otp->totp,
         );
+        $container->singleton(
+            OtpConfig::class,
+            static fn(AuthConfig $config): OtpConfig => $config->otp,
+        );
 
         $this->bindIfAbsent($container, SmsSenderInterface::class, LogSmsSender::class);
         $this->bindIfAbsent($container, OtpMailerInterface::class, LogOtpMailer::class);
         $this->bindIfAbsent($container, TotpProviderInterface::class, OtphpTotpProvider::class);
         $this->bindIfAbsent($container, QrCodeRendererInterface::class, EndroidQrRenderer::class);
+
+        $container->singleton(
+            OtpService::class,
+            static fn(
+                OtpChallengeRepository $challenges,
+                SmsSenderInterface $sms,
+                OtpMailerInterface $mailer,
+                Pepper $pepper,
+                OtpConfig $config,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): OtpService => new OtpService(
+                $challenges,
+                $sms,
+                $mailer,
+                $pepper,
+                $config,
+                $unitOfWork,
+                $clock,
+                $events,
+            ),
+        );
     }
 
     /**
