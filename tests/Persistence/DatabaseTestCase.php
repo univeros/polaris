@@ -18,11 +18,10 @@ use Cycle\ORM\ORM;
 use Cycle\ORM\ORMInterface;
 use Cycle\ORM\Schema;
 use PHPUnit\Framework\TestCase;
+use Throwable;
 
-use function array_keys;
 use function dirname;
 use function getenv;
-use function is_string;
 
 /**
  * Base class for Polaris persistence tests.
@@ -110,10 +109,11 @@ abstract class DatabaseTestCase extends TestCase
      * Drops every table so each test starts from a clean, dedicated database.
      *
      * The RBAC join tables (`auth_role_permissions`, `auth_membership_roles`) carry cascading
-     * foreign keys, so tables are dropped in dependency order — each only after every table that
-     * references it is gone — using Cycle's portable schema introspection
-     * ({@see \Cycle\Database\TableInterface::getDependencies()}) rather than driver-specific SQL.
-     * That keeps the teardown working on every supported driver.
+     * foreign keys, so a parent cannot be dropped while a child still references it. Rather than
+     * reflect each table's foreign keys — an `information_schema` query that is slow under load and
+     * would run for every table on every test — we simply drop what we can and retry the rest: a
+     * still-referenced table fails and succeeds on a later pass once its children are gone.
+     * Portable: plain `DROP TABLE`, no driver-specific SQL, no schema introspection.
      */
     private function dropAllTables(): void
     {
@@ -124,38 +124,24 @@ abstract class DatabaseTestCase extends TestCase
 
         $connection = $database->database('default');
 
-        // Map each table to the tables it references via foreign keys.
         $remaining = [];
         foreach ($connection->getTables() as $table) {
-            $remaining[$table->getName()] = $table->getDependencies();
+            $remaining[] = $table->getName();
         }
 
         while ($remaining !== []) {
-            // A table referenced by another remaining table cannot be dropped yet.
-            $referenced = [];
-            foreach ($remaining as $dependencies) {
-                foreach ($dependencies as $dependency) {
-                    if (is_string($dependency)) {
-                        $referenced[$dependency] = true;
-                    }
-                }
-            }
-
             $progressed = false;
-            foreach (array_keys($remaining) as $name) {
-                if (isset($referenced[$name])) {
-                    continue;
+            foreach ($remaining as $index => $name) {
+                try {
+                    $connection->execute('DROP TABLE IF EXISTS ' . $name);
+                } catch (Throwable) {
+                    continue; // still referenced by another remaining table; retry next pass
                 }
-                $connection->execute('DROP TABLE IF EXISTS ' . $name);
-                unset($remaining[$name]);
+                unset($remaining[$index]);
                 $progressed = true;
             }
 
             if (!$progressed) {
-                // No dependency-free table left (unexpected cycle): drop whatever remains.
-                foreach (array_keys($remaining) as $name) {
-                    $connection->execute('DROP TABLE IF EXISTS ' . $name);
-                }
                 break;
             }
         }
