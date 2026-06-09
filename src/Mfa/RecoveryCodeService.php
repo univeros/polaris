@@ -4,24 +4,30 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Mfa;
 
+use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use SensitiveParameter;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Entity\RecoveryCode;
+use Univeros\Polaris\Event\MfaRecoveryRegenerated;
 use Univeros\Polaris\Security\Pepper;
 
+use function count;
 use function random_int;
 use function strlen;
 
 /**
- * Issues single-use MFA recovery codes.
+ * Issues, verifies, and regenerates single-use MFA recovery codes.
  *
  * A batch of {@see COUNT} codes is generated, each formatted `xxxxx-xxxxx` from an unambiguous
  * base32 alphabet (no `0/1/8/9/O/I/L`), returned **once** to the caller, and stored only as a keyed
- * HMAC ({@see Pepper}, `recovery` context) — never in plaintext. Rows are persisted via the unit of
- * work; the caller flushes, so issuance commits atomically with the confirm that triggered it.
- *
- * (Verify-with-recovery-code and regenerate-batch land in issue #24 and extend this service.)
+ * HMAC ({@see Pepper}, `recovery` context) — never in plaintext. A code is spent at verify by
+ * stamping {@see RecoveryCode::$usedAt}; the same stamp retires the prior batch on regenerate, so a
+ * code can satisfy at most one verify. Rows are written through the unit of work — {@see issue()}
+ * leaves the flush to its caller (so issuance commits atomically with the confirm that triggered
+ * it), while {@see verify()} and {@see regenerate()} flush their own mutation.
  */
 final readonly class RecoveryCodeService
 {
@@ -32,15 +38,22 @@ final readonly class RecoveryCodeService
     private const string ALPHABET = 'abcdefghjkmnpqrstuvwxyz234567';
     private const int GROUP_LENGTH = 5;
 
+    /**
+     * @param RepositoryInterface<RecoveryCode> $codes
+     */
     public function __construct(
+        private RepositoryInterface $codes,
         private UnitOfWorkInterface $unitOfWork,
         private Pepper $pepper,
         private ClockInterface $clock,
+        private EventDispatcherInterface $events,
     ) {
     }
 
     /**
      * Generate, persist (hashed), and return a fresh batch of plaintext recovery codes.
+     *
+     * The caller flushes the unit of work; see the class note.
      *
      * @return list<string>
      */
@@ -62,6 +75,89 @@ final readonly class RecoveryCodeService
         }
 
         return $codes;
+    }
+
+    /**
+     * Spend a recovery code: if it matches one of the user's unused codes, stamp it used and return
+     * true; otherwise return false having changed nothing. Single-use — a matched code cannot be
+     * replayed.
+     *
+     * Every unused row is compared (no early return) so the work — and thus the timing — does not
+     * depend on which code matched. Two concurrent verifies of the same code can race the
+     * non-atomic stamp and double-spend; the per-account verify rate limit (issue #26) is the
+     * compensating control, as in {@see OtpService}.
+     */
+    public function verify(string $userId, #[SensitiveParameter] string $code): bool
+    {
+        $match = null;
+        foreach ($this->unusedFor($userId) as $candidate) {
+            if ($this->pepper->matches(self::PEPPER_CONTEXT, $code, $candidate->codeHash)) {
+                $match = $candidate;
+            }
+        }
+
+        if ($match === null) {
+            return false;
+        }
+
+        $match->usedAt = $this->clock->now();
+        $this->unitOfWork->persist($match);
+        $this->unitOfWork->flush();
+
+        return true;
+    }
+
+    /**
+     * Retire every still-unused code (so the prior batch can no longer authenticate), issue a fresh
+     * batch, and return the new plaintext codes. Emits {@see MfaRecoveryRegenerated}.
+     *
+     * @return list<string>
+     */
+    public function regenerate(string $userId): array
+    {
+        $now = $this->clock->now();
+        foreach ($this->unusedFor($userId) as $code) {
+            $code->usedAt = $now;
+            $this->unitOfWork->persist($code);
+        }
+
+        $codes = $this->issue($userId);
+        $this->unitOfWork->flush();
+
+        $this->events->dispatch(new MfaRecoveryRegenerated($userId));
+
+        return $codes;
+    }
+
+    /**
+     * How many of the user's recovery codes are still unused — the signal a host surfaces (e.g. ≤3
+     * left) to prompt regeneration.
+     */
+    public function remaining(string $userId): int
+    {
+        return count($this->unusedFor($userId));
+    }
+
+    /**
+     * The user's still-spendable codes: persisted rows with no `used_at` stamp.
+     *
+     * The query is scoped to `used_at IS NULL` so it stays bounded as spent rows accumulate over an
+     * account's lifetime (served by the `auth_recovery_codes (user_id, used_at)` index). The
+     * in-PHP re-check is the authoritative single-use guard: a spent code is never treated as live
+     * even if a repository ignored the scope.
+     *
+     * @return list<RecoveryCode>
+     */
+    private function unusedFor(string $userId): array
+    {
+        $unused = [];
+        foreach ($this->codes->findBy(['userId' => $userId, 'usedAt' => null]) as $code) {
+            if ($code->usedAt === null) {
+                $unused[] = $code;
+            }
+        }
+
+        return $unused;
     }
 
     private function generateCode(): string

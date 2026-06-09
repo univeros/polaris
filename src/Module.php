@@ -96,6 +96,7 @@ use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\MfaFactorRepository;
 use Univeros\Polaris\Persistence\OtpChallengeRepository;
 use Univeros\Polaris\Persistence\PasswordResetRepository;
+use Univeros\Polaris\Persistence\RecoveryCodeRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
 use Univeros\Polaris\Persistence\UserRepository;
 use Univeros\Polaris\Security\Argon2idPasswordHasher;
@@ -210,7 +211,16 @@ final class Module implements
             );
         }
 
-        $container->singleton(RecoveryCodeService::class);
+        $container->singleton(
+            RecoveryCodeService::class,
+            static fn(
+                RecoveryCodeRepository $codes,
+                UnitOfWorkInterface $unitOfWork,
+                Pepper $pepper,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): RecoveryCodeService => new RecoveryCodeService($codes, $unitOfWork, $pepper, $clock, $events),
+        );
         $container->singleton(
             MfaConfirmation::class,
             static fn(
