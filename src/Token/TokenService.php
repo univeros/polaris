@@ -82,6 +82,30 @@ final class TokenService
     }
 
     /**
+     * Mint a fresh access token for an **existing** session, stamping a new `auth_time` — the
+     * step-up grant (issue #25). No refresh token is rotated or issued: the caller keeps its session
+     * and only swaps its access token for one that records a recent strong authentication
+     * (`amr=["pwd","otp"]`, `mfa=true`). The authorization context (roles/scope/org) is re-resolved.
+     */
+    public function stepUp(string $userId, ?string $organizationId, string $sessionId): string
+    {
+        $base = $this->principals->resolve($userId, $organizationId);
+
+        $principal = new SessionPrincipal(
+            userId: $base->userId,
+            organizationId: $base->organizationId,
+            roles: $base->roles,
+            scope: $base->scope,
+            emailVerified: $base->emailVerified,
+            mfa: true,
+            amr: ['pwd', 'otp'],
+            authTime: $this->clock->now()->getTimestamp(),
+        );
+
+        return $this->mintAccess($principal, $sessionId);
+    }
+
+    /**
      * Exchange a refresh token for a fresh pair, rotating it within its family.
      *
      * @throws RefreshTokenReuseException when an already-rotated token is replayed

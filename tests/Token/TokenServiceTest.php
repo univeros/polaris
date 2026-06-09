@@ -131,6 +131,23 @@ final class TokenServiceTest extends TestCase
         self::assertNotNull($family[0]->lastUsedAt);
     }
 
+    public function testStepUpMintsAFreshAccessTokenForTheExistingSessionWithoutTouchingRefresh(): void
+    {
+        $service = $this->serviceAt('2026-06-07 12:00:00');
+
+        $token = $service->stepUp('user-1', 'org-1', 'session-xyz');
+
+        self::assertNotSame('', $token);
+        self::assertCount(0, $this->store->findBy([]), 'step-up mints no refresh token');
+
+        $claims = $this->generator->claims[0];
+        self::assertSame('user-1', $claims['sub']);
+        self::assertSame('session-xyz', $claims['sid']);
+        self::assertTrue($claims['mfa']);
+        self::assertSame(['pwd', 'otp'], $claims['amr']);
+        self::assertSame((new DateTimeImmutable('2026-06-07 12:00:00'))->getTimestamp(), $claims['auth_time']);
+    }
+
     public function testReuseDetectionDisabledRejectsWithoutRevokingTheFamily(): void
     {
         $config = $this->configWith(['reuse_detection' => false]);
