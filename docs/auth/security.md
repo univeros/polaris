@@ -39,11 +39,11 @@ to verify, are encrypted (reversible) rather than hashed.
   (`AUTH_JWT_PUBLIC_KEY`), PEM, provided via env / secret manager — never
   committed. Each key has a `kid`.
 - **Rotation:** multiple public keys may be published at once at
-  `/auth/.well-known/jwks.json`; new tokens are signed with the current `kid`,
-  old tokens stay verifiable until their (short) TTL lapses. Rotate by adding the
+  `/auth/.well-known/jwks.json` (`AUTH_JWT_PREVIOUS_PUBLIC_KEY` keeps the
+  retiring key verifiable); new tokens are signed with the current `kid`, old
+  tokens stay verifiable until their (short) TTL lapses. Rotate by adding the
   new key, switching the active `kid`, then retiring the old key after one
-  access-TTL window. Documented as an ops runbook in
-  [implementation-plan.md](implementation-plan.md).
+  access-TTL window. Ops procedure: [key-rotation.md](key-rotation.md).
 - **Pepper rotation** requires re-hashing on next use (refresh tokens naturally
   rotate; OTPs are short-lived) — documented but rarely needed.
 

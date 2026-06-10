@@ -27,6 +27,32 @@ final class JwkSet
      */
     public static function fromPublicKey(string $publicKeyPem, string $keyId, string $algorithm): array
     {
+        return self::fromPublicKeys([$keyId => $publicKeyPem], $algorithm);
+    }
+
+    /**
+     * Render several public keys at once — during a rotation the JWK Set carries the active and
+     * the retiring key side by side, each under its own `kid`.
+     *
+     * @param array<string, string> $publicKeysByKid kid => PEM
+     *
+     * @return array{keys: list<array<string, string>>}
+     */
+    public static function fromPublicKeys(array $publicKeysByKid, string $algorithm): array
+    {
+        $keys = [];
+        foreach ($publicKeysByKid as $keyId => $publicKeyPem) {
+            $keys[] = self::jwk($publicKeyPem, $keyId, $algorithm);
+        }
+
+        return ['keys' => $keys];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function jwk(string $publicKeyPem, string $keyId, string $algorithm): array
+    {
         $key = openssl_pkey_get_public($publicKeyPem);
         if ($key === false) {
             throw new InvalidConfigException('The JWT public key could not be parsed for JWKS.');
@@ -38,16 +64,12 @@ final class JwkSet
         }
 
         return [
-            'keys' => [
-                [
-                    'kty' => 'RSA',
-                    'use' => 'sig',
-                    'alg' => $algorithm,
-                    'kid' => $keyId,
-                    'n' => self::base64UrlEncode((string) $details['rsa']['n']),
-                    'e' => self::base64UrlEncode((string) $details['rsa']['e']),
-                ],
-            ],
+            'kty' => 'RSA',
+            'use' => 'sig',
+            'alg' => $algorithm,
+            'kid' => $keyId,
+            'n' => self::base64UrlEncode((string) $details['rsa']['n']),
+            'e' => self::base64UrlEncode((string) $details['rsa']['e']),
         ];
     }
 

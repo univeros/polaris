@@ -1372,7 +1372,16 @@ final class Module implements
     private function environment(): array
     {
         $env = [];
-        foreach (['APP_KEY', 'AUTH_JWT_PRIVATE_KEY', 'AUTH_JWT_PUBLIC_KEY', 'AUTH_JWT_KID'] as $key) {
+        foreach (
+            [
+            'APP_KEY',
+            'AUTH_JWT_PRIVATE_KEY',
+            'AUTH_JWT_PUBLIC_KEY',
+            'AUTH_JWT_KID',
+            'AUTH_JWT_PREVIOUS_PUBLIC_KEY',
+            'AUTH_JWT_PREVIOUS_KID',
+            ] as $key
+        ) {
             $value = getenv($key);
             if ($value !== false) {
                 $env[$key] = $value;
