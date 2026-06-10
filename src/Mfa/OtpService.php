@@ -6,6 +6,8 @@ namespace Univeros\Polaris\Mfa;
 
 use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
+use Cycle\Database\Injection\Fragment;
+use Cycle\ORM\ORMInterface;
 use DateInterval;
 use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
@@ -47,15 +49,6 @@ final readonly class OtpService
 {
     private const string PEPPER_CONTEXT = 'otp';
 
-    /** Purposes a challenge may be scoped to; isolation keeps an `enroll` code from satisfying a `login_mfa` verify. */
-    private const array VALID_PURPOSES = [
-        OtpChallenge::PURPOSE_LOGIN_MFA,
-        OtpChallenge::PURPOSE_ENROLL,
-        OtpChallenge::PURPOSE_PASSWORD_RESET,
-        OtpChallenge::PURPOSE_EMAIL_VERIFY,
-        OtpChallenge::PURPOSE_STEP_UP,
-    ];
-
     /**
      * @param RepositoryInterface<OtpChallenge> $challenges
      */
@@ -69,6 +62,7 @@ final readonly class OtpService
         private ClockInterface $clock,
         private EventDispatcherInterface $events,
         private CacheInterface $cache,
+        private ?ORMInterface $orm = null,
     ) {
     }
 
@@ -77,10 +71,8 @@ final readonly class OtpService
      *
      * @throws OtpCooldownException the resend cooldown has not yet elapsed
      */
-    public function challenge(string $userId, MfaFactor $factor, string $purpose, ClientContext $client): OtpChallengeResult
+    public function challenge(string $userId, MfaFactor $factor, ChallengePurpose $purpose, ClientContext $client): OtpChallengeResult
     {
-        $this->assertKnownPurpose($purpose);
-
         if (!in_array($factor->type, [MfaFactor::TYPE_SMS, MfaFactor::TYPE_EMAIL], true)) {
             throw new InvalidOtpException('OTP challenges apply only to sms/email factors.');
         }
@@ -92,8 +84,11 @@ final readonly class OtpService
             throw new InvalidOtpException('The factor has no destination to send a code to.');
         }
 
-        $this->throttleAndSupersede($userId, $factor->id, $purpose, $now);
+        // Both guards run before anything is queued on the unit of work, so a throttled request
+        // leaves no half-staged supersessions behind for an unrelated later flush to commit.
+        $this->assertResendCooldown($userId, $factor->id, $purpose, $now);
         $this->assertSendQuota($userId, $destination);
+        $this->supersedePending($userId, $factor->id, $purpose, $now);
 
         $code = $this->generateCode();
 
@@ -101,7 +96,7 @@ final readonly class OtpService
         $challenge->id = Uuid::v7()->toRfc4122();
         $challenge->userId = $userId;
         $challenge->factorId = $factor->id;
-        $challenge->purpose = $purpose;
+        $challenge->purpose = $purpose->value;
         $challenge->channel = $channel;
         $challenge->codeHash = $this->pepper->hash(self::PEPPER_CONTEXT, $code);
         $challenge->destination = $destination;
@@ -123,28 +118,32 @@ final readonly class OtpService
      *
      * @throws InvalidOtpException the code is wrong, expired, attempt-exhausted, or already used
      */
-    public function verify(string $userId, string $factorId, #[SensitiveParameter] string $code, string $purpose): void
+    public function verify(string $userId, string $factorId, #[SensitiveParameter] string $code, ChallengePurpose $purpose): void
     {
-        $this->assertKnownPurpose($purpose);
-
         $now = $this->clock->now();
         $challenge = $this->newestPending($userId, $factorId, $purpose, $now);
 
         // No live challenge, or its attempt budget is spent → the same generic failure as a wrong
         // code (no oracle for whether a challenge exists). The residual timing delta versus the
         // wrong-code path below (which writes) is bounded by the endpoint rate limit, as in
-        // PasswordResetService. Concurrent verifies on one challenge can race the attempt counter
-        // (a non-atomic ++); the per-account/token rate limit (#23) is the compensating control.
+        // PasswordResetService.
         if ($challenge === null || $challenge->attempts >= $challenge->maxAttempts) {
             throw new InvalidOtpException('The verification code is invalid.');
         }
 
         if (!$this->pepper->matches(self::PEPPER_CONTEXT, $code, (string) $challenge->codeHash)) {
-            ++$challenge->attempts;
-            $this->unitOfWork->persist($challenge);
-            $this->unitOfWork->flush();
+            $this->spendAttempt($challenge);
             $this->events->dispatch(new OtpVerifyFailed($userId, $factorId));
 
+            throw new InvalidOtpException('The verification code is invalid.');
+        }
+
+        // Atomic compare-and-swap on consumed_at, like refresh rotation: of two concurrent
+        // presentations of one correct code, exactly one consumes the challenge; the loser gets
+        // the same generic failure as a replayed code. The entity flush below re-writes the
+        // value the CAS just wrote (same instant) — idempotent, and it IS the consumption
+        // write in the ORM-less test wiring.
+        if (!$this->claimConsumption($challenge, $now)) {
             throw new InvalidOtpException('The verification code is invalid.');
         }
 
@@ -154,9 +153,55 @@ final readonly class OtpService
     }
 
     /**
-     * @throws OtpCooldownException
+     * Count a failed verify against the challenge's attempt budget with a single conditional
+     * UPDATE (`attempts < max_attempts` is enforced database-side, so concurrent failures cannot
+     * race the counter past the budget). The in-memory wiring has no database to CAS against and
+     * increments the entity directly.
      */
-    private function throttleAndSupersede(string $userId, string $factorId, string $purpose, DateTimeImmutable $now): void
+    private function spendAttempt(OtpChallenge $challenge): void
+    {
+        if ($this->orm === null) {
+            ++$challenge->attempts;
+            $this->unitOfWork->persist($challenge);
+            $this->unitOfWork->flush();
+
+            return;
+        }
+
+        $source = $this->orm->getSource(OtpChallenge::class);
+        $source->getDatabase()->update(
+            $source->getTable(),
+            ['attempts' => new Fragment('attempts + 1')],
+            ['id' => $challenge->id, 'attempts' => ['<' => $challenge->maxAttempts]],
+        )->run();
+    }
+
+    /**
+     * Claim the challenge for consumption with a single conditional UPDATE; false means another
+     * request consumed it first.
+     */
+    private function claimConsumption(OtpChallenge $challenge, DateTimeImmutable $now): bool
+    {
+        if ($this->orm === null) {
+            // In-memory test wiring has no database to CAS against; the entity-level
+            // consumed check already ran in pending(). Production wiring passes the ORM.
+            return true;
+        }
+
+        $source = $this->orm->getSource(OtpChallenge::class);
+        $affected = $source->getDatabase()->update(
+            $source->getTable(),
+            ['consumed_at' => $now],
+            ['id' => $challenge->id, 'consumed_at' => null],
+        )->run();
+
+        return $affected === 1;
+    }
+
+    /**
+     * @throws OtpCooldownException the resend cooldown has not yet elapsed
+     */
+    private function assertResendCooldown(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): void
     {
         $newest = $this->newestPending($userId, $factorId, $purpose, $now);
         if (
@@ -165,7 +210,14 @@ final readonly class OtpService
         ) {
             throw new OtpCooldownException('Please wait before requesting another code.');
         }
+    }
 
+    /**
+     * Retire every still-pending challenge so only the about-to-be-issued one is live. The stamps
+     * are queued, not flushed — they commit atomically with the new challenge's insert.
+     */
+    private function supersedePending(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): void
+    {
         foreach ($this->pending($userId, $factorId, $purpose, $now) as $challenge) {
             $challenge->consumedAt = $now;
             $this->unitOfWork->persist($challenge);
@@ -229,7 +281,7 @@ final readonly class OtpService
         );
     }
 
-    private function newestPending(string $userId, string $factorId, string $purpose, DateTimeImmutable $now): ?OtpChallenge
+    private function newestPending(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): ?OtpChallenge
     {
         $newest = null;
         foreach ($this->pending($userId, $factorId, $purpose, $now) as $challenge) {
@@ -247,10 +299,10 @@ final readonly class OtpService
      *
      * @return list<OtpChallenge>
      */
-    private function pending(string $userId, string $factorId, string $purpose, DateTimeImmutable $now): array
+    private function pending(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): array
     {
         $pending = [];
-        foreach ($this->challenges->findBy(['userId' => $userId, 'factorId' => $factorId, 'purpose' => $purpose]) as $challenge) {
+        foreach ($this->challenges->findBy(['userId' => $userId, 'factorId' => $factorId, 'purpose' => $purpose->value]) as $challenge) {
             if ($challenge->consumedAt === null && $challenge->expiresAt > $now) {
                 $pending[] = $challenge;
             }
@@ -271,13 +323,6 @@ final readonly class OtpService
         }
 
         $this->mailer->send($destination, 'otp_code', ['code' => $code, 'ttl' => $this->config->ttl]);
-    }
-
-    private function assertKnownPurpose(string $purpose): void
-    {
-        if (!in_array($purpose, self::VALID_PURPOSES, true)) {
-            throw new InvalidOtpException('Unknown OTP purpose.');
-        }
     }
 
     private function generateCode(): string

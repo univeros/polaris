@@ -24,13 +24,6 @@ use DateTimeImmutable;
 #[Entity(table: 'auth_otp_challenges')]
 class OtpChallenge
 {
-    /** `purpose` values. */
-    public const string PURPOSE_LOGIN_MFA = 'login_mfa';
-    public const string PURPOSE_ENROLL = 'enroll';
-    public const string PURPOSE_PASSWORD_RESET = 'password_reset';
-    public const string PURPOSE_EMAIL_VERIFY = 'email_verify';
-    public const string PURPOSE_STEP_UP = 'step_up';
-
     /** `channel` values. */
     public const string CHANNEL_SMS = 'sms';
     public const string CHANNEL_EMAIL = 'email';
@@ -48,7 +41,7 @@ class OtpChallenge
     #[Column(type: 'string(36)', name: 'factor_id', nullable: true)]
     public ?string $factorId = null;
 
-    /** One of `login_mfa`, `enroll`, `password_reset`, `email_verify`, `step_up`. */
+    /** A {@see \Univeros\Polaris\Mfa\ChallengePurpose} backing value. */
     #[Column(type: 'string(20)', name: 'purpose')]
     public string $purpose = '';
 

@@ -22,6 +22,8 @@ use Univeros\Polaris\Exception\RefreshTokenReuseException;
 use Univeros\Polaris\Security\Pepper;
 
 use function base64_encode;
+use function explode;
+use function implode;
 use function random_bytes;
 use function rtrim;
 use function strtr;
@@ -71,6 +73,10 @@ final class TokenService
         $expiresAt = $now->add($this->seconds($this->config->refreshToken->ttl));
 
         $token = $this->newRefreshToken($principal->userId, $principal->organizationId, $familyId, null, $secret, $client, $expiresAt, $now);
+        // Record how the user authenticated on the session row, so refreshes can restore it (#97).
+        $token->mfa = $principal->mfa;
+        $token->amr = implode(',', $principal->amr);
+        $token->authTime = $principal->authTime;
         $this->unitOfWork->persist($token);
         $this->unitOfWork->flush();
 
@@ -116,6 +122,14 @@ final class TokenService
             authTime: $this->clock->now()->getTimestamp(),
         );
 
+        // The strong authentication is a property of the session, not of the one access token
+        // minted here: persist it so subsequent refreshes keep mfa/amr/auth_time (#97).
+        $active->mfa = $principal->mfa;
+        $active->amr = implode(',', $principal->amr);
+        $active->authTime = $principal->authTime;
+        $this->unitOfWork->persist($active);
+        $this->unitOfWork->flush();
+
         return $this->mintAccess($principal, $sessionId);
     }
 
@@ -139,7 +153,7 @@ final class TokenService
         $this->unitOfWork->persist($active);
         $this->unitOfWork->flush();
 
-        $principal = $this->principals->resolve($userId, $organizationId);
+        $principal = $this->withStoredAuthContext($this->principals->resolve($userId, $organizationId), $active);
 
         return $this->mintAccess($principal, $sessionId);
     }
@@ -169,7 +183,10 @@ final class TokenService
             throw new InvalidGrantException('The refresh token has expired.');
         }
 
-        $principal = $this->principals->resolve($current->userId, $current->organizationId);
+        $principal = $this->withStoredAuthContext(
+            $this->principals->resolve($current->userId, $current->organizationId),
+            $current,
+        );
 
         // Without rotation the presented token stays valid; only a fresh access token is minted.
         if (!$this->config->refreshToken->rotation) {
@@ -214,6 +231,10 @@ final class TokenService
             $expiresAt,
             $now,
         );
+        // The session's authentication context survives rotation unchanged (#97).
+        $next->mfa = $current->mfa;
+        $next->amr = $current->amr;
+        $next->authTime = $current->authTime;
         $this->unitOfWork->persist($next);
         $this->unitOfWork->flush();
 
@@ -288,6 +309,28 @@ final class TokenService
         }
 
         $this->unitOfWork->flush();
+    }
+
+    /**
+     * Overlay the session's persisted authentication context onto a freshly resolved principal.
+     * The resolver supplies *authorization* (roles/scope/email_verified), but how the user
+     * authenticated — `mfa`/`amr`/`auth_time` — is a property of the session, recorded at
+     * login and step-up; without this a refreshed token would read `mfa=false` after a
+     * completed MFA login (issue #97). Pre-#97 rows have no stored `amr` and keep the
+     * `['pwd']` default.
+     */
+    private function withStoredAuthContext(SessionPrincipal $resolved, RefreshToken $session): SessionPrincipal
+    {
+        return new SessionPrincipal(
+            userId: $resolved->userId,
+            organizationId: $resolved->organizationId,
+            roles: $resolved->roles,
+            scope: $resolved->scope,
+            emailVerified: $resolved->emailVerified,
+            mfa: $session->mfa,
+            amr: $session->amr === null || $session->amr === '' ? ['pwd'] : explode(',', $session->amr),
+            authTime: $session->authTime,
+        );
     }
 
     private function mintAccess(SessionPrincipal $principal, string $sessionId): string

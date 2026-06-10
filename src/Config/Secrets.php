@@ -5,11 +5,12 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Config;
 
 use Univeros\Polaris\Exception\InvalidConfigException;
+use Univeros\Polaris\Security\Pepper;
 
 use function hash;
 use function implode;
 use function is_string;
-use function substr;
+use function strlen;
 use function trim;
 
 /**
@@ -58,9 +59,17 @@ final readonly class Secrets
             );
         }
 
+        // Everything keyed off APP_KEY (Pepper's HKDF contexts) is only as strong as the key
+        // itself, so a short key is a boot failure, not a warning.
+        if (strlen($appKey) < Pepper::MIN_KEY_BYTES) {
+            throw new InvalidConfigException(
+                'APP_KEY must be at least ' . Pepper::MIN_KEY_BYTES . ' bytes (got ' . strlen($appKey) . ').',
+            );
+        }
+
         $kid = self::read($env, 'AUTH_JWT_KID');
         if ($kid === '') {
-            $kid = substr(hash('sha256', $publicKey), 0, 16);
+            $kid = hash('sha256', $publicKey);
         }
 
         // During a key rotation the retiring public key stays published in the JWKS for one
@@ -68,7 +77,7 @@ final readonly class Secrets
         $previousKey = self::read($env, 'AUTH_JWT_PREVIOUS_PUBLIC_KEY');
         $previousKid = self::read($env, 'AUTH_JWT_PREVIOUS_KID');
         if ($previousKey !== '' && $previousKid === '') {
-            $previousKid = substr(hash('sha256', $previousKey), 0, 16);
+            $previousKid = hash('sha256', $previousKey);
         }
 
         return new self(

@@ -96,9 +96,11 @@ use Univeros\Polaris\Http\Auth\UpdateFactorDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
+use Univeros\Polaris\Http\Middleware\AuthenticatedRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthorizationMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\TokenSubjectKeyResolver;
 use Univeros\Polaris\Http\Middleware\DenylistMiddleware;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
@@ -305,12 +307,13 @@ final class Module implements
         $container->singleton(
             RecoveryCodeService::class,
             static fn(
+                ORMInterface $orm,
                 RecoveryCodeRepository $codes,
                 UnitOfWorkInterface $unitOfWork,
                 Pepper $pepper,
                 ClockInterface $clock,
                 EventDispatcherInterface $events,
-            ): RecoveryCodeService => new RecoveryCodeService($codes, $unitOfWork, $pepper, $clock, $events),
+            ): RecoveryCodeService => new RecoveryCodeService($codes, $unitOfWork, $pepper, $clock, $events, $orm),
         );
         $container->singleton(
             MfaConfirmation::class,
@@ -570,6 +573,7 @@ final class Module implements
         $container->singleton(
             OtpService::class,
             static fn(
+                ORMInterface $orm,
                 OtpChallengeRepository $challenges,
                 SmsSenderInterface $sms,
                 OtpMailerInterface $mailer,
@@ -589,6 +593,7 @@ final class Module implements
                 $clock,
                 $events,
                 $cache,
+                $orm,
             ),
         );
     }
@@ -636,6 +641,9 @@ final class Module implements
             // After the access-token middleware attaches the token: optional instant revocation
             // check (one cache read; a no-op when security.access_token.denylist is off).
             ['middleware' => DenylistMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 7],
+            // After token auth (so `sub` is trustworthy): the global per-user budget across all
+            // authenticated endpoints (#97). No-op on unauthenticated requests.
+            ['middleware' => AuthenticatedRateLimitMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 8],
             // After routing + token auth, before the action: enforce each Action's declared
             // REQUIRES_PERMISSIONS (rbac.md §5a). No-op on routes that declare none.
             ['middleware' => AuthorizationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 10],
@@ -750,6 +758,19 @@ final class Module implements
             AuthorizationMiddleware::class,
             static fn(Gate $gate, ResponseFactoryInterface $responseFactory): AuthorizationMiddleware
                 => new AuthorizationMiddleware($gate, $responseFactory),
+        );
+
+        // The global authenticated budget: one fixed window per user id across every
+        // authenticated endpoint, keyed on the token's `sub` (#97).
+        $container->singleton(
+            AuthenticatedRateLimitMiddleware::class,
+            static fn(
+                RateLimitConfig $limits,
+                CacheInterface $cache,
+                ResponseFactoryInterface $responseFactory,
+            ): AuthenticatedRateLimitMiddleware => new AuthenticatedRateLimitMiddleware(
+                new RateLimitMiddleware($cache, $limits->authenticated, $responseFactory, new TokenSubjectKeyResolver()),
+            ),
         );
 
         $container->singleton(

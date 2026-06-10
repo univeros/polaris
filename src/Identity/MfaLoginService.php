@@ -7,7 +7,7 @@ namespace Univeros\Polaris\Identity;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use SensitiveParameter;
-use Univeros\Polaris\Entity\OtpChallenge;
+use Univeros\Polaris\Mfa\ChallengePurpose;
 use Univeros\Polaris\Event\MfaVerified;
 use Univeros\Polaris\Event\MfaVerifyFailed;
 use Univeros\Polaris\Event\UserLoggedIn;
@@ -79,7 +79,7 @@ final readonly class MfaLoginService
      */
     public function challenge(string $userId, string $factorId, ClientContext $client): OtpChallengeResult
     {
-        return $this->verifier->challenge($userId, $factorId, OtpChallenge::PURPOSE_LOGIN_MFA, $client);
+        return $this->verifier->challenge($userId, $factorId, ChallengePurpose::LoginMfa, $client);
     }
 
     /**
@@ -96,7 +96,7 @@ final readonly class MfaLoginService
         ClientContext $client,
     ): IssuedTokens {
         try {
-            $verifiedFactorId = $this->verifier->verify($userId, $factorId, $code, OtpChallenge::PURPOSE_LOGIN_MFA);
+            $verifiedFactorId = $this->verifier->verify($userId, $factorId, $code, ChallengePurpose::LoginMfa);
         } catch (InvalidOtpException | MfaFactorNotFoundException $failure) {
             $this->events->dispatch(new MfaVerifyFailed($userId));
 

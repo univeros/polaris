@@ -85,12 +85,15 @@ final class RecoveryCodeServicePersistenceTest extends DatabaseTestCase
 
     private function service(?RecordingEventDispatcher $events = null): RecoveryCodeService
     {
+        // The ORM is passed so verify() exercises the conditional-UPDATE spend (issue #97)
+        // against the real driver, exactly as the production wiring does.
         return new RecoveryCodeService(
             new CycleRepository(RecoveryCode::class, $this->orm, $this->unitOfWork),
             $this->unitOfWork,
-            new Pepper('app-key-for-tests'),
+            new Pepper('app-key-for-tests-0123456789abcdef'),
             FrozenClock::at('2026-06-08 12:00:00'),
             $events ?? new RecordingEventDispatcher(),
+            $this->orm,
         );
     }
 }

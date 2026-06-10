@@ -11,6 +11,7 @@ use function ctype_xdigit;
 use function hash_equals;
 use function hash_hkdf;
 use function hash_hmac;
+use function strlen;
 
 /**
  * Keyed hashing for secrets that must be verifiable but never recoverable —
@@ -22,13 +23,18 @@ use function hash_hmac;
  */
 final class Pepper
 {
+    /** HKDF input keying material must carry the full 256 bits of the derived keys' strength. */
+    public const int MIN_KEY_BYTES = 32;
+
     private const ALGO = 'sha256';
     private const INFO_PREFIX = 'polaris:pepper:';
 
     public function __construct(#[SensitiveParameter] private readonly string $appKey)
     {
-        if ($appKey === '') {
-            throw new InvalidConfigException('Pepper requires a non-empty application key.');
+        if (strlen($appKey) < self::MIN_KEY_BYTES) {
+            throw new InvalidConfigException(
+                'Pepper requires an application key of at least ' . self::MIN_KEY_BYTES . ' bytes.',
+            );
         }
     }
 

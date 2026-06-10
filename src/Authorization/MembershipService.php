@@ -63,16 +63,23 @@ final class MembershipService
     }
 
     /**
+     * List the organization's members.
+     *
+     * Invited and suspended members have not consented to (or no longer participate in) the org's
+     * roster, so their emails are withheld unless the caller manages invitations
+     * (`$withPendingEmails`, gated on `members.invite` by the domain — issue #97).
+     *
      * @return list<array<string, mixed>> each member: user_id, email, display_name, status, roles
      */
-    public function listMembers(string $organizationId): array
+    public function listMembers(string $organizationId, bool $withPendingEmails = false): array
     {
         $members = [];
         foreach ($this->memberships->findBy(['organizationId' => $organizationId]) as $membership) {
             $user = $this->users->find($membership->userId);
+            $revealEmail = $withPendingEmails || $membership->status === Membership::STATUS_ACTIVE;
             $members[] = [
                 'user_id' => $membership->userId,
-                'email' => $user instanceof User ? $user->email : null,
+                'email' => $revealEmail && $user instanceof User ? $user->email : null,
                 'display_name' => $user instanceof User ? $user->displayName : null,
                 'status' => $membership->status,
                 'roles' => $this->roleSlugsOf($membership->id),

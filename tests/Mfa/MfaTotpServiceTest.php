@@ -218,7 +218,7 @@ final class MfaTotpServiceTest extends TestCase
             new RecoveryCodeService(
                 new InMemoryRecoveryCodeRepository($unitOfWork),
                 $unitOfWork,
-                new Pepper('app-key'),
+                new Pepper('app-key-for-totp-tests-0123456789'),
                 $clock,
                 new RecordingEventDispatcher(),
             ),

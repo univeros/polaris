@@ -105,7 +105,7 @@ final class StepUpServiceTest extends TestCase
         $factors->method('findBy')->willReturn([]);
 
         $uow = new RecordingUnitOfWork();
-        $pepper = new Pepper('app-key-for-tests');
+        $pepper = new Pepper('app-key-for-tests-0123456789abcdef');
         $this->recovery = new RecoveryCodeService(
             new InMemoryRecoveryCodeRepository($uow),
             $uow,
