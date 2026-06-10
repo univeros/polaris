@@ -128,6 +128,26 @@ final class SessionService
     }
 
     /**
+     * Revoke every session of the user whose **current org context** is the given organization —
+     * an admin suspension must cut org access immediately, but sessions pointed at other orgs
+     * (or at none) are left alone. Rotated ancestors keep a stale `organizationId`, so only
+     * live (non-revoked) tokens identify a family's current context.
+     */
+    public function revokeAllForOrganization(string $userId, string $organizationId, string $reason): void
+    {
+        $families = [];
+        foreach ($this->refreshTokens->findBy(['userId' => $userId, 'organizationId' => $organizationId]) as $token) {
+            if ($token->revokedAt === null) {
+                $families[$token->familyId] = true;
+            }
+        }
+
+        foreach (array_keys($families) as $familyId) {
+            $this->tokens->revokeFamily($familyId, $reason);
+        }
+    }
+
+    /**
      * Revoke a specific session, but only if it belongs to the user. Returns false when no
      * such session exists for them (mapped to a 404 — no cross-user disclosure).
      */
