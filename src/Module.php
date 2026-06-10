@@ -41,6 +41,7 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
+use Univeros\Polaris\Authorization\Gate;
 use Univeros\Polaris\Authorization\OrganizationService;
 use Univeros\Polaris\Authorization\PermissionCatalog;
 use Univeros\Polaris\Authorization\PermissionResolver;
@@ -85,6 +86,7 @@ use Univeros\Polaris\Http\Auth\UpdateFactorDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
 use Univeros\Polaris\Http\Auth\VerifyEmailDomain;
 use Univeros\Polaris\Http\Jwks\JwksDomain;
+use Univeros\Polaris\Http\Middleware\AuthorizationMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
@@ -94,6 +96,7 @@ use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
+use Univeros\Polaris\Http\Orgs\ReadOrganizationDomain;
 use Univeros\Polaris\Http\Rule\AnyRule;
 use Univeros\Polaris\Http\Rule\MethodPathRule;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
@@ -562,7 +565,8 @@ final class Module implements
      * - {@see TokenAuthenticationMiddleware} just after the dispatcher, so it can authenticate
      *   the matched route and attach the access token the protected domains read.
      *
-     * (The `AuthorizationMiddleware` — permission/step-up checks — arrives with the RBAC phase.)
+     * - {@see AuthorizationMiddleware} just after that, enforcing each Action's declared
+     *   `REQUIRES_PERMISSIONS` before the action runs (a no-op on routes that declare none).
      *
      * @return list<array{middleware: class-string, priority: int}>
      */
@@ -579,6 +583,9 @@ final class Module implements
             // After the access-token middleware (so the token is attached) and before the action, it
             // gates the step-up routes on a recent auth_time. Path-scoped; no-op elsewhere.
             ['middleware' => StepUpMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 6],
+            // After routing + token auth, before the action: enforce each Action's declared
+            // REQUIRES_PERMISSIONS (rbac.md §5a). No-op on routes that declare none.
+            ['middleware' => AuthorizationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 10],
         ];
     }
 
@@ -633,6 +640,13 @@ final class Module implements
                 ])],
                 ['ssl' => false, 'onError' => new UnauthorizedResponder()],
             ),
+        );
+
+        $container->singleton(Gate::class, static fn(PermissionResolver $permissions): Gate => new Gate($permissions));
+        $container->singleton(
+            AuthorizationMiddleware::class,
+            static fn(Gate $gate, ResponseFactoryInterface $responseFactory): AuthorizationMiddleware
+                => new AuthorizationMiddleware($gate, $responseFactory),
         );
 
         $container->singleton(
@@ -1036,6 +1050,11 @@ final class Module implements
 
         $container->singleton(CreateOrganizationDomain::class);
         $container->singleton(ListOrganizationsDomain::class);
+        $container->singleton(
+            ReadOrganizationDomain::class,
+            static fn(OrganizationRepository $organizations): ReadOrganizationDomain
+                => new ReadOrganizationDomain($organizations),
+        );
     }
 
     /**
@@ -1077,6 +1096,7 @@ final class Module implements
             ['DELETE', '/auth/mfa/factors/{id}', DeleteFactorDomain::class],
             ['POST', '/orgs', CreateOrganizationDomain::class],
             ['GET', '/orgs', ListOrganizationsDomain::class],
+            ['GET', '/orgs/{id}', ReadOrganizationDomain::class],
         ];
     }
 
