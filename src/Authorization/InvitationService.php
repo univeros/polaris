@@ -13,6 +13,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Entity\Invitation;
 use Univeros\Polaris\Entity\Membership;
+use Univeros\Polaris\Entity\Organization;
 use Univeros\Polaris\Entity\MembershipRole;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\User;
@@ -60,6 +61,7 @@ final class InvitationService
 
     /**
      * @param RepositoryInterface<Invitation>     $invitations
+     * @param RepositoryInterface<Organization>   $organizations
      * @param RepositoryInterface<Membership>     $memberships
      * @param RepositoryInterface<MembershipRole> $membershipRoles
      * @param RepositoryInterface<Role>           $roles
@@ -67,6 +69,7 @@ final class InvitationService
      */
     public function __construct(
         private readonly RepositoryInterface $invitations,
+        private readonly RepositoryInterface $organizations,
         private readonly RepositoryInterface $memberships,
         private readonly RepositoryInterface $membershipRoles,
         private readonly RepositoryInterface $roles,
@@ -224,6 +227,13 @@ final class InvitationService
 
         $now = $this->clock->now();
         if ($invitation->acceptedAt !== null || $invitation->expiresAt <= $now) {
+            throw new InvalidInvitationTokenException('The invitation is invalid or has expired.');
+        }
+
+        // An invitation into a soft-deleted org must not create membership rows that would go
+        // live on a restore; the response is deliberately indistinguishable from a bad token.
+        $organization = $this->organizations->find($invitation->organizationId);
+        if (!$organization instanceof Organization || $organization->status !== Organization::STATUS_ACTIVE) {
             throw new InvalidInvitationTokenException('The invitation is invalid or has expired.');
         }
 

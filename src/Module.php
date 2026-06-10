@@ -104,12 +104,14 @@ use Univeros\Polaris\Http\Orgs\ChangeMemberStatusDomain;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\CreateInviteDomain;
 use Univeros\Polaris\Http\Orgs\CreateRoleDomain;
+use Univeros\Polaris\Http\Orgs\DeleteOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\DeleteRoleDomain;
 use Univeros\Polaris\Http\Orgs\ListInvitesDomain;
 use Univeros\Polaris\Http\Orgs\ListMembersDomain;
 use Univeros\Polaris\Http\Orgs\ListPermissionsDomain;
 use Univeros\Polaris\Http\Orgs\ListRolesDomain;
 use Univeros\Polaris\Http\Orgs\RevokeInviteDomain;
+use Univeros\Polaris\Http\Orgs\UpdateOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\UpdateRoleDomain;
 use Univeros\Polaris\Http\Users\DeleteUserDomain;
 use Univeros\Polaris\Http\Users\DisableUserDomain;
@@ -477,6 +479,11 @@ final class Module implements
                     // regex fragment so it matches the {id} segment.
                     new MethodPathRule('DELETE', new RequestPathRule(['path' => [preg_quote('/users', '@')]])),
                     new MethodPathRule('POST', new RequestPathRule(['path' => ['/users/[^/]+/disable']])),
+                    // Org deletion (#78) needs step-up, but DELETE /orgs/{id}/members|invites|roles
+                    // sub-paths must not. The rule wraps patterns as `@^…(/.*)?$@`, so the
+                    // lookahead `(?!.)` pins the match to the {id} segment (tolerating one
+                    // trailing slash) while any deeper path fails. Deliberately not preg_quote()d.
+                    new MethodPathRule('DELETE', new RequestPathRule(['path' => ['/orgs/[^/]+/?(?!.)']])),
                 ),
                 $verifier,
                 $config,
@@ -921,6 +928,7 @@ final class Module implements
             PermissionResolver::class,
             static fn(
                 UserRepository $users,
+                OrganizationRepository $organizations,
                 MembershipRepository $memberships,
                 MembershipRoleRepository $membershipRoles,
                 RoleRepository $roles,
@@ -928,6 +936,7 @@ final class Module implements
                 PermissionRepository $permissions,
             ): PermissionResolver => new PermissionResolver(
                 $users,
+                $organizations,
                 $memberships,
                 $membershipRoles,
                 $roles,
@@ -1071,6 +1080,7 @@ final class Module implements
                 MembershipRepository $memberships,
                 PermissionRepository $permissions,
                 PermissionCatalog $catalog,
+                SessionService $sessions,
                 UnitOfWorkInterface $unitOfWork,
                 ClockInterface $clock,
                 EventDispatcherInterface $events,
@@ -1079,6 +1089,7 @@ final class Module implements
                 $memberships,
                 $permissions,
                 $catalog,
+                $sessions,
                 $unitOfWork,
                 $clock,
                 $events,
@@ -1092,6 +1103,8 @@ final class Module implements
             static fn(OrganizationRepository $organizations): ReadOrganizationDomain
                 => new ReadOrganizationDomain($organizations),
         );
+        $container->singleton(UpdateOrganizationDomain::class);
+        $container->singleton(DeleteOrganizationDomain::class);
 
         $container->singleton(
             EscalationGuard::class,
@@ -1134,6 +1147,7 @@ final class Module implements
             InvitationService::class,
             static fn(
                 InvitationRepository $invitations,
+                OrganizationRepository $organizations,
                 MembershipRepository $memberships,
                 MembershipRoleRepository $membershipRoles,
                 RoleRepository $roles,
@@ -1146,6 +1160,7 @@ final class Module implements
                 EventDispatcherInterface $events,
             ): InvitationService => new InvitationService(
                 $invitations,
+                $organizations,
                 $memberships,
                 $membershipRoles,
                 $roles,
@@ -1264,6 +1279,8 @@ final class Module implements
             ['POST', '/orgs', CreateOrganizationDomain::class],
             ['GET', '/orgs', ListOrganizationsDomain::class],
             ['GET', '/orgs/{id}', ReadOrganizationDomain::class],
+            ['PATCH', '/orgs/{id}', UpdateOrganizationDomain::class],
+            ['DELETE', '/orgs/{id}', DeleteOrganizationDomain::class],
             ['GET', '/orgs/{id}/members', ListMembersDomain::class],
             ['PATCH', '/orgs/{id}/members/{userId}/roles', ChangeMemberRolesDomain::class],
             ['PATCH', '/orgs/{id}/members/{userId}', ChangeMemberStatusDomain::class],

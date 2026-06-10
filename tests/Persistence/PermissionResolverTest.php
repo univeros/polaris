@@ -13,6 +13,7 @@ use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
 use Univeros\Polaris\Persistence\MembershipRepository;
 use Univeros\Polaris\Persistence\MembershipRoleRepository;
+use Univeros\Polaris\Persistence\OrganizationRepository;
 use Univeros\Polaris\Persistence\PermissionRepository;
 use Univeros\Polaris\Persistence\RolePermissionRepository;
 use Univeros\Polaris\Persistence\RoleRepository;
@@ -95,6 +96,7 @@ final class PermissionResolverTest extends DatabaseTestCase
     {
         return new PermissionResolver(
             new UserRepository($this->orm, $this->unitOfWork),
+            new OrganizationRepository($this->orm, $this->unitOfWork),
             new MembershipRepository($this->orm, $this->unitOfWork),
             new MembershipRoleRepository($this->orm, $this->unitOfWork),
             new RoleRepository($this->orm, $this->unitOfWork),

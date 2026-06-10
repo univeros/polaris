@@ -57,7 +57,9 @@ final class SwitchOrgDomain extends AuthDomain
             return $this->unprocessable(['An organization_id is required.']);
         }
 
-        if (!$this->organizations->find($organizationId) instanceof Organization) {
+        $organization = $this->organizations->find($organizationId);
+        if (!$organization instanceof Organization || $organization->status !== Organization::STATUS_ACTIVE) {
+            // A soft-deleted org is indistinguishable from an unknown one.
             return $this->respond(404, ['error' => 'not_found', 'message' => 'The organization does not exist.']);
         }
 
