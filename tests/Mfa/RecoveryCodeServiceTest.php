@@ -34,7 +34,7 @@ final class RecoveryCodeServiceTest extends TestCase
     public function testStoresCodesAsHashesNotPlaintext(): void
     {
         $unitOfWork = new RecordingUnitOfWork();
-        $pepper = new Pepper('app-key-for-tests');
+        $pepper = new Pepper('app-key-for-tests-0123456789abcdef');
 
         $codes = $this->service($unitOfWork, $pepper)->issue('user-123');
 
@@ -136,7 +136,7 @@ final class RecoveryCodeServiceTest extends TestCase
         return new RecoveryCodeService(
             new InMemoryRecoveryCodeRepository($unitOfWork),
             $unitOfWork,
-            $pepper ?? new Pepper('app-key-for-tests'),
+            $pepper ?? new Pepper('app-key-for-tests-0123456789abcdef'),
             FrozenClock::at('2026-06-08 12:00:00'),
             $events ?? new RecordingEventDispatcher(),
         );

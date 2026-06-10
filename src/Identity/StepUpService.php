@@ -6,7 +6,7 @@ namespace Univeros\Polaris\Identity;
 
 use Psr\EventDispatcher\EventDispatcherInterface;
 use SensitiveParameter;
-use Univeros\Polaris\Entity\OtpChallenge;
+use Univeros\Polaris\Mfa\ChallengePurpose;
 use Univeros\Polaris\Event\MfaStepUpCompleted;
 use Univeros\Polaris\Event\MfaVerifyFailed;
 use Univeros\Polaris\Exception\InvalidOtpException;
@@ -43,7 +43,7 @@ final readonly class StepUpService
      */
     public function challenge(string $userId, string $factorId, ClientContext $client): OtpChallengeResult
     {
-        return $this->verifier->challenge($userId, $factorId, OtpChallenge::PURPOSE_STEP_UP, $client);
+        return $this->verifier->challenge($userId, $factorId, ChallengePurpose::StepUp, $client);
     }
 
     /**
@@ -61,7 +61,7 @@ final readonly class StepUpService
         #[SensitiveParameter] string $code,
     ): string {
         try {
-            $this->verifier->verify($userId, $factorId, $code, OtpChallenge::PURPOSE_STEP_UP);
+            $this->verifier->verify($userId, $factorId, $code, ChallengePurpose::StepUp);
         } catch (InvalidOtpException | MfaFactorNotFoundException $failure) {
             $this->events->dispatch(new MfaVerifyFailed($userId));
 

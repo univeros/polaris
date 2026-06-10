@@ -24,8 +24,9 @@ use function array_values;
  * straight through, unlimited.
  *
  * It sits outermost in the pipeline (before routing and authentication), so it keys on the client
- * IP via {@see \Altair\Http\Middleware\RateLimit\IpKeyResolver}; account- and token-scoped keys
- * belong to middleware that runs after authentication and are deferred to a later phase.
+ * IP via {@see \Altair\Http\Middleware\RateLimit\IpKeyResolver}; the complementary per-user
+ * budget across authenticated endpoints is {@see AuthenticatedRateLimitMiddleware}, which runs
+ * after token authentication.
  */
 final class AuthRateLimitMiddleware implements MiddlewareInterface
 {

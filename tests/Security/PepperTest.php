@@ -15,7 +15,7 @@ final class PepperTest extends TestCase
 {
     private function pepper(): Pepper
     {
-        return new Pepper('application-key-for-tests');
+        return new Pepper('application-key-for-tests-0123456789');
     }
 
     public function testProducesHexSha256Digest(): void
@@ -74,5 +74,12 @@ final class PepperTest extends TestCase
         $this->expectException(InvalidConfigException::class);
 
         new Pepper('');
+    }
+
+    public function testRejectsAnApplicationKeyShorterThan32Bytes(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+
+        new Pepper('only-31-bytes-0123456789abcdef0');
     }
 }

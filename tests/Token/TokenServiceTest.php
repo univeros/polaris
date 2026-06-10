@@ -44,7 +44,7 @@ final class TokenServiceTest extends TestCase
         return new TokenService(
             $this->store,
             $this->store,
-            new Pepper('test-application-key'),
+            new Pepper('test-application-key-0123456789ab'),
             $this->generator,
             new StubSessionPrincipalResolver(roles: ['member']),
             $config ?? AuthConfig::fromArray(['issuer' => 'https://auth.polaris.test']),
@@ -114,6 +114,48 @@ final class TokenServiceTest extends TestCase
         // carried the principal's (empty) roles, the refreshed one carries the resolver's.
         self::assertSame([], $this->generator->claims[0]['roles']);
         self::assertSame(['member'], $this->generator->claims[1]['roles']);
+    }
+
+    public function testRefreshCarriesTheSessionsAuthContextForward(): void
+    {
+        $authTime = (new DateTimeImmutable('2026-06-07 12:00:00'))->getTimestamp();
+        $principal = new SessionPrincipal(
+            userId: 'user-1',
+            organizationId: 'org-1',
+            emailVerified: true,
+            mfa: true,
+            amr: ['pwd', 'otp'],
+            authTime: $authTime,
+        );
+        $issued = $this->serviceAt('2026-06-07 12:00:00')->issue($principal, ClientContext::none());
+
+        $rotated = $this->serviceAt('2026-06-07 12:05:00')->refresh($issued->refreshToken, ClientContext::none());
+        $this->serviceAt('2026-06-07 12:10:00')->refresh($rotated->refreshToken, ClientContext::none());
+
+        // The resolver supplies authorization context only; how the user authenticated is
+        // restored from the session row (issue #97) — a refreshed token still reads mfa=true,
+        // across any number of rotations.
+        foreach ([1, 2] as $i) {
+            self::assertTrue($this->generator->claims[$i]['mfa'], "rotation $i keeps mfa");
+            self::assertSame(['pwd', 'otp'], $this->generator->claims[$i]['amr']);
+            self::assertSame($authTime, $this->generator->claims[$i]['auth_time']);
+        }
+    }
+
+    public function testStepUpUpgradesTheSessionsStoredAuthContext(): void
+    {
+        $service = $this->serviceAt('2026-06-07 12:00:00');
+        $issued = $service->issue($this->principal(), ClientContext::none()); // mfa=false, amr=['pwd']
+        $service->stepUp('user-1', 'org-1', $issued->sessionId);
+
+        $this->serviceAt('2026-06-07 12:10:00')->refresh($issued->refreshToken, ClientContext::none());
+
+        // claims[0]=issue, [1]=step-up, [2]=refresh: the step-up's strong-auth context outlives
+        // the access token it minted, because it was persisted onto the session row.
+        $claims = $this->generator->claims[2];
+        self::assertTrue($claims['mfa'], 'a refresh after step-up keeps the strong-auth context');
+        self::assertSame(['pwd', 'otp'], $claims['amr']);
+        self::assertSame((new DateTimeImmutable('2026-06-07 12:00:00'))->getTimestamp(), $claims['auth_time']);
     }
 
     public function testRotationDisabledKeepsTheSameTokenValid(): void

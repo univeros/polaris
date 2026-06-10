@@ -54,6 +54,18 @@ class RefreshToken
     #[Column(type: 'string(45)', name: 'ip', nullable: true)]
     public ?string $ip = null;
 
+    /** Whether the session's authentication included a second factor; mirrored into refreshed access tokens (#97). */
+    #[Column(type: 'boolean', name: 'mfa', default: false)]
+    public bool $mfa = false;
+
+    /** Comma-joined authentication-method references (e.g. `pwd,otp`); null on pre-#97 rows. */
+    #[Column(type: 'string(64)', name: 'amr', nullable: true)]
+    public ?string $amr = null;
+
+    /** Unix timestamp of the session's last full authentication (login or step-up). */
+    #[Column(type: 'integer', name: 'auth_time', nullable: true)]
+    public ?int $authTime = null;
+
     #[Column(type: 'datetime', name: 'expires_at')]
     public DateTimeImmutable $expiresAt;
 

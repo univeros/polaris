@@ -6,6 +6,7 @@ namespace Univeros\Polaris\Tests\Entity;
 
 use PHPUnit\Framework\TestCase;
 use Univeros\Polaris\Entity\OtpChallenge;
+use Univeros\Polaris\Mfa\ChallengePurpose;
 
 final class OtpChallengeTest extends TestCase
 {
@@ -28,8 +29,8 @@ final class OtpChallengeTest extends TestCase
 
     public function testExposesPurposeAndChannelValues(): void
     {
-        self::assertSame('login_mfa', OtpChallenge::PURPOSE_LOGIN_MFA);
-        self::assertSame('email_verify', OtpChallenge::PURPOSE_EMAIL_VERIFY);
+        self::assertSame('login_mfa', ChallengePurpose::LoginMfa->value);
+        self::assertSame('email_verify', ChallengePurpose::EmailVerify->value);
         self::assertSame('totp', OtpChallenge::CHANNEL_TOTP);
         self::assertSame(5, OtpChallenge::DEFAULT_MAX_ATTEMPTS);
     }

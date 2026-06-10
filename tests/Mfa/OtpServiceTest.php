@@ -14,6 +14,7 @@ use Univeros\Polaris\Event\OtpChallengeSent;
 use Univeros\Polaris\Event\OtpVerifyFailed;
 use Univeros\Polaris\Exception\InvalidOtpException;
 use Univeros\Polaris\Exception\OtpCooldownException;
+use Univeros\Polaris\Mfa\ChallengePurpose;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Support\InMemoryCache;
@@ -29,7 +30,7 @@ use function preg_match;
 final class OtpServiceTest extends TestCase
 {
     private const string INSTANT = '2026-06-08 12:00:00';
-    private const string PEPPER_KEY = 'app-key-for-tests';
+    private const string PEPPER_KEY = 'app-key-for-tests-0123456789abcdef';
 
     public function testChallengeStoresAHashedCodeSendsSmsAndMasksTheDestination(): void
     {
@@ -39,7 +40,7 @@ final class OtpServiceTest extends TestCase
         $events = new RecordingEventDispatcher();
 
         $result = $this->service($uow, sms: $sms, pepper: $pepper, events: $events)
-            ->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext('203.0.113.7'));
+            ->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext('203.0.113.7'));
 
         self::assertSame(OtpChallenge::CHANNEL_SMS, $result->channel);
         self::assertSame('+1 *** *** 0101', $result->maskedDestination);
@@ -70,7 +71,7 @@ final class OtpServiceTest extends TestCase
         $this->expectException(InvalidOtpException::class);
 
         $this->service(new RecordingUnitOfWork())
-            ->challenge('user-1', $totp, OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            ->challenge('user-1', $totp, ChallengePurpose::LoginMfa, new ClientContext(null));
     }
 
     public function testChallengeRejectsAFactorWithoutADestination(): void
@@ -83,15 +84,7 @@ final class OtpServiceTest extends TestCase
         $this->expectException(InvalidOtpException::class);
 
         $this->service(new RecordingUnitOfWork())
-            ->challenge('user-1', $sms, OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
-    }
-
-    public function testRejectsAnUnknownPurpose(): void
-    {
-        $this->expectException(InvalidOtpException::class);
-
-        $this->service(new RecordingUnitOfWork())
-            ->challenge('user-1', $this->smsFactor(), 'not-a-purpose', new ClientContext(null));
+            ->challenge('user-1', $sms, ChallengePurpose::LoginMfa, new ClientContext(null));
     }
 
     public function testChallengeSendsEmailForAnEmailFactor(): void
@@ -99,7 +92,7 @@ final class OtpServiceTest extends TestCase
         $mailer = new RecordingOtpMailer();
 
         $result = $this->service(new RecordingUnitOfWork(), mailer: $mailer)
-            ->challenge('user-1', $this->emailFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            ->challenge('user-1', $this->emailFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
 
         self::assertSame(OtpChallenge::CHANNEL_EMAIL, $result->channel);
         self::assertSame('a***@example.com', $result->maskedDestination);
@@ -115,7 +108,7 @@ final class OtpServiceTest extends TestCase
         $this->expectException(OtpCooldownException::class);
 
         $this->service(new RecordingUnitOfWork(), pending: [$recent])
-            ->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            ->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
     }
 
     public function testChallengeSupersedesAnOlderPendingChallenge(): void
@@ -123,7 +116,7 @@ final class OtpServiceTest extends TestCase
         $old = $this->challenge(createdAt: new DateTimeImmutable('2026-06-08 11:00:00')); // 1h ago > cooldown
 
         $this->service(new RecordingUnitOfWork(), pending: [$old])
-            ->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            ->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
 
         self::assertNotNull($old->consumedAt, 'the older pending challenge is superseded');
     }
@@ -133,7 +126,7 @@ final class OtpServiceTest extends TestCase
         $challenge = $this->challenge(code: '123456');
 
         $this->service(new RecordingUnitOfWork(), pending: [$challenge])
-            ->verify('user-1', 'factor-1', '123456', OtpChallenge::PURPOSE_LOGIN_MFA);
+            ->verify('user-1', 'factor-1', '123456', ChallengePurpose::LoginMfa);
 
         self::assertNotNull($challenge->consumedAt);
     }
@@ -146,7 +139,7 @@ final class OtpServiceTest extends TestCase
         $this->expectException(InvalidOtpException::class);
 
         $this->service(new RecordingUnitOfWork(), pending: [$challenge])
-            ->verify('user-1', 'factor-1', '123456', OtpChallenge::PURPOSE_LOGIN_MFA);
+            ->verify('user-1', 'factor-1', '123456', ChallengePurpose::LoginMfa);
     }
 
     public function testVerifyWithAWrongCodeIncrementsAttempts(): void
@@ -156,7 +149,7 @@ final class OtpServiceTest extends TestCase
 
         try {
             $this->service(new RecordingUnitOfWork(), pending: [$challenge], events: $events)
-                ->verify('user-1', 'factor-1', '000000', OtpChallenge::PURPOSE_LOGIN_MFA);
+                ->verify('user-1', 'factor-1', '000000', ChallengePurpose::LoginMfa);
             self::fail('expected InvalidOtpException');
         } catch (InvalidOtpException) {
             self::assertSame(1, $challenge->attempts);
@@ -174,7 +167,7 @@ final class OtpServiceTest extends TestCase
 
         // Even the correct code is rejected once the attempt budget is spent.
         $this->service(new RecordingUnitOfWork(), pending: [$challenge])
-            ->verify('user-1', 'factor-1', '123456', OtpChallenge::PURPOSE_LOGIN_MFA);
+            ->verify('user-1', 'factor-1', '123456', ChallengePurpose::LoginMfa);
     }
 
     public function testVerifyOfAnExpiredChallengeIsRejected(): void
@@ -185,7 +178,7 @@ final class OtpServiceTest extends TestCase
         $this->expectException(InvalidOtpException::class);
 
         $this->service(new RecordingUnitOfWork(), pending: [$challenge])
-            ->verify('user-1', 'factor-1', '123456', OtpChallenge::PURPOSE_LOGIN_MFA);
+            ->verify('user-1', 'factor-1', '123456', ChallengePurpose::LoginMfa);
     }
 
     public function testSendQuotaThrottlesRepeatedSendsToADestination(): void
@@ -194,11 +187,11 @@ final class OtpServiceTest extends TestCase
         // (sendMax defaults to 5). One service instance shares one cache across the calls.
         $service = $this->service(new RecordingUnitOfWork());
         for ($i = 0; $i < 5; ++$i) {
-            $service->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            $service->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
         }
 
         $this->expectException(OtpCooldownException::class);
-        $service->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+        $service->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
     }
 
     public function testSendQuotaWindowResetsAfterItElapses(): void
@@ -206,13 +199,13 @@ final class OtpServiceTest extends TestCase
         $cache = new InMemoryCache();
         $early = $this->service(new RecordingUnitOfWork(), cache: $cache, at: '2026-06-08 12:00:00');
         for ($i = 0; $i < 5; ++$i) {
-            $early->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+            $early->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
         }
 
         // The window is anchored on the first send, not the cache TTL: a send past `send_window`
         // (3600s) opens a fresh window rather than staying blocked.
         $later = $this->service(new RecordingUnitOfWork(), cache: $cache, at: '2026-06-08 13:00:01');
-        $result = $later->challenge('user-1', $this->smsFactor(), OtpChallenge::PURPOSE_LOGIN_MFA, new ClientContext(null));
+        $result = $later->challenge('user-1', $this->smsFactor(), ChallengePurpose::LoginMfa, new ClientContext(null));
 
         self::assertNotSame('', $result->challengeId, 'a send in a fresh window is allowed');
     }
@@ -275,7 +268,7 @@ final class OtpServiceTest extends TestCase
         $challenge->id = 'challenge-1';
         $challenge->userId = 'user-1';
         $challenge->factorId = 'factor-1';
-        $challenge->purpose = OtpChallenge::PURPOSE_LOGIN_MFA;
+        $challenge->purpose = ChallengePurpose::LoginMfa->value;
         $challenge->channel = OtpChallenge::CHANNEL_SMS;
         $challenge->codeHash = (new Pepper(self::PEPPER_KEY))->hash('otp', $code);
         $challenge->maxAttempts = OtpChallenge::DEFAULT_MAX_ATTEMPTS;

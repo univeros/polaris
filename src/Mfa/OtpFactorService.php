@@ -76,7 +76,7 @@ final readonly class OtpFactorService
         $this->unitOfWork->persist($factor);
         $this->unitOfWork->flush();
 
-        $challenge = $this->otp->challenge($user->id, $factor, OtpChallenge::PURPOSE_ENROLL, $client);
+        $challenge = $this->otp->challenge($user->id, $factor, ChallengePurpose::Enroll, $client);
 
         return new OtpFactorEnrollResult($factor->id, $challenge->channel, $challenge->maskedDestination);
     }
@@ -96,7 +96,7 @@ final readonly class OtpFactorService
             throw new MfaFactorNotFoundException('MFA factor not found.');
         }
 
-        $this->otp->verify($userId, $factorId, $code, OtpChallenge::PURPOSE_ENROLL);
+        $this->otp->verify($userId, $factorId, $code, ChallengePurpose::Enroll);
 
         $factor->lastUsedAt = $this->clock->now();
 

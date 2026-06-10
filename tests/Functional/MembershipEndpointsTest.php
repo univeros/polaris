@@ -39,6 +39,30 @@ final class MembershipEndpointsTest extends FunctionalTestCase
         self::assertContains('member', $roles);
     }
 
+    public function testInvitedAndSuspendedEmailsAreGatedOnMembersInvite(): void
+    {
+        [$org, $ownerToken] = $this->orgOwnedBy('founder@example.com');
+        $memberToken = $this->seedActiveMember($org, 'member@example.com', 'member');
+        $this->login('invited@example.com');
+        $invited = $this->userId('invited@example.com');
+        $this->seedMember($org, $invited, 'member', 'invited');
+        $this->login('suspended@example.com');
+        $suspended = $this->userId('suspended@example.com');
+        $this->seedMember($org, $suspended, 'member', 'suspended');
+
+        // A plain members.read holder sees active members' emails, but not those of
+        // invited/suspended members (issue #97).
+        $emails = $this->emailsByUserId($org, $memberToken);
+        self::assertSame('founder@example.com', $emails[$this->userId('founder@example.com')]);
+        self::assertNull($emails[$invited]);
+        self::assertNull($emails[$suspended]);
+
+        // An owner holds members.invite and sees the full roster.
+        $emails = $this->emailsByUserId($org, $ownerToken);
+        self::assertSame('invited@example.com', $emails[$invited]);
+        self::assertSame('suspended@example.com', $emails[$suspended]);
+    }
+
     public function testOwnerCanChangeAMembersRoles(): void
     {
         [$org, $ownerToken] = $this->orgOwnedBy('founder@example.com');
@@ -174,7 +198,7 @@ final class MembershipEndpointsTest extends FunctionalTestCase
         return $this->switchOrg($access, $org);
     }
 
-    private function seedMember(string $org, string $userId, string $roleSlug): void
+    private function seedMember(string $org, string $userId, string $roleSlug, string $status = 'active'): void
     {
         $now = new DateTimeImmutable('2026-06-10 10:00:00');
         $membershipId = Uuid::v7()->toRfc4122();
@@ -182,7 +206,7 @@ final class MembershipEndpointsTest extends FunctionalTestCase
             'id' => $membershipId,
             'user_id' => $userId,
             'organization_id' => $org,
-            'status' => 'active',
+            'status' => $status,
             'created_at' => $now,
             'updated_at' => $now,
         ])->run();
@@ -190,6 +214,24 @@ final class MembershipEndpointsTest extends FunctionalTestCase
             'membership_id' => $membershipId,
             'role_id' => $this->roleId($org, $roleSlug),
         ])->run();
+    }
+
+    /**
+     * The listed roster as user_id → email (null when the endpoint withheld it).
+     *
+     * @return array<string, string|null>
+     */
+    private function emailsByUserId(string $org, string $token): array
+    {
+        $emails = [];
+        foreach ($this->json($this->authedGet("/orgs/$org/members", $token))['data'] ?? [] as $member) {
+            if (is_array($member) && is_string($member['user_id'] ?? null)) {
+                $email = $member['email'] ?? null;
+                $emails[$member['user_id']] = is_string($email) ? $email : null;
+            }
+        }
+
+        return $emails;
     }
 
     /**

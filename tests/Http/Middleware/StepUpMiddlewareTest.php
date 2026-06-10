@@ -124,7 +124,7 @@ final class StepUpMiddlewareTest extends TestCase
 
         $clock = FrozenClock::at(self::NOW);
         $uow = new RecordingUnitOfWork();
-        $pepper = new Pepper('app-key-for-tests');
+        $pepper = new Pepper('app-key-for-tests-0123456789abcdef');
         $recovery = new RecoveryCodeService(new InMemoryRecoveryCodeRepository($uow), $uow, $pepper, $clock, new RecordingEventDispatcher());
         $confirmation = new MfaConfirmation($factors, $recovery, $uow, $clock, new RecordingEventDispatcher());
         $totp = new MfaTotpService(

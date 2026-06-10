@@ -16,9 +16,10 @@ use function is_array;
  * `docs/auth/security.md §5`; a host overrides any subset via {@see self::fromArray()} (the
  * `auth.rate_limits` config namespace), leaving the rest at their defaults.
  *
- * Only the groups whose routes exist in this phase are modelled (login, register,
- * password/forgot, token/refresh, and MFA TOTP enroll/confirm). The composite IP+account keys and
- * the user-id "global authenticated" budget from the spec arrive with later phases.
+ * Most groups are per-IP budgets over an endpoint group; `authenticated` is the global
+ * per-user budget across every authenticated endpoint (600/min per user id, spec §5), enforced
+ * by {@see \Univeros\Polaris\Http\Middleware\AuthenticatedRateLimitMiddleware} after token
+ * authentication.
  */
 final readonly class RateLimitConfig
 {
@@ -38,6 +39,8 @@ final readonly class RateLimitConfig
     private const int MFA_SEND_WINDOW = 600;
     private const int TOKEN_CONSUME_LIMIT = 10;
     private const int TOKEN_CONSUME_WINDOW = 300;
+    private const int AUTHENTICATED_LIMIT = 600;
+    private const int AUTHENTICATED_WINDOW = 60;
 
     public function __construct(
         public RateLimit $login,
@@ -48,6 +51,7 @@ final readonly class RateLimitConfig
         public RateLimit $mfaConfirm,
         public RateLimit $mfaSend,
         public RateLimit $tokenConsume,
+        public RateLimit $authenticated,
     ) {
     }
 
@@ -59,8 +63,9 @@ final readonly class RateLimitConfig
     /**
      * @param array<string, mixed> $limits the host's `auth.rate_limits` namespace. Each group key
      *   (`login`, `register`, `password_forgot`, `token_refresh`, `mfa_enroll`, `mfa_confirm`,
-     *   `mfa_send`, `token_consume`) takes an array of overrides: `limit` (max requests per window) and `window`
-     *   (window length in seconds). Any group or key left out keeps its default.
+     *   `mfa_send`, `token_consume`, `authenticated`) takes an array of overrides: `limit` (max
+     *   requests per window) and `window` (window length in seconds). Any group or key left out
+     *   keeps its default.
      */
     public static function fromArray(array $limits): self
     {
@@ -108,6 +113,13 @@ final readonly class RateLimitConfig
                 self::MFA_SEND_LIMIT,
                 self::MFA_SEND_WINDOW,
                 'auth.mfa_send',
+            ),
+            authenticated: self::policy(
+                $limits,
+                'authenticated',
+                self::AUTHENTICATED_LIMIT,
+                self::AUTHENTICATED_WINDOW,
+                'auth.authenticated',
             ),
         );
     }

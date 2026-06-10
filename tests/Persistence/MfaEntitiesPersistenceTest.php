@@ -10,6 +10,7 @@ use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Entity\MfaFactor;
 use Univeros\Polaris\Entity\OtpChallenge;
 use Univeros\Polaris\Entity\RecoveryCode;
+use Univeros\Polaris\Mfa\ChallengePurpose;
 
 use function str_repeat;
 
@@ -89,7 +90,7 @@ final class MfaEntitiesPersistenceTest extends DatabaseTestCase
         $challenge = new OtpChallenge();
         $challenge->id = Uuid::v7()->toRfc4122();
         $challenge->userId = Uuid::v7()->toRfc4122();
-        $challenge->purpose = OtpChallenge::PURPOSE_LOGIN_MFA;
+        $challenge->purpose = ChallengePurpose::LoginMfa->value;
         $challenge->channel = OtpChallenge::CHANNEL_SMS;
         $challenge->codeHash = $hash;
         $challenge->destination = '+15551234567';
@@ -103,7 +104,7 @@ final class MfaEntitiesPersistenceTest extends DatabaseTestCase
 
         self::assertInstanceOf(OtpChallenge::class, $found);
         self::assertSame($challenge->userId, $found->userId);
-        self::assertSame(OtpChallenge::PURPOSE_LOGIN_MFA, $found->purpose);
+        self::assertSame(ChallengePurpose::LoginMfa->value, $found->purpose);
         self::assertSame(OtpChallenge::CHANNEL_SMS, $found->channel);
         self::assertSame(0, $found->attempts);
         self::assertSame(5, $found->maxAttempts);

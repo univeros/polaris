@@ -6,6 +6,8 @@ namespace Univeros\Polaris\Mfa;
 
 use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
+use Cycle\ORM\ORMInterface;
+use DateTimeImmutable;
 use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use SensitiveParameter;
@@ -48,6 +50,7 @@ final readonly class RecoveryCodeService
         private Pepper $pepper,
         private ClockInterface $clock,
         private EventDispatcherInterface $events,
+        private ?ORMInterface $orm = null,
     ) {
     }
 
@@ -84,9 +87,9 @@ final readonly class RecoveryCodeService
      * replayed.
      *
      * Every unused row is compared (no early return) so the work — and thus the timing — does not
-     * depend on which code matched. Two concurrent verifies of the same code can race the
-     * non-atomic stamp and double-spend; the per-account verify rate limit (issue #26) is the
-     * compensating control, as in {@see OtpService}.
+     * depend on which code matched. The spend is an atomic compare-and-swap on `used_at` (as in
+     * refresh rotation): of two concurrent verifies of the same code, exactly one spends it and
+     * the other fails as if the code were already used.
      */
     public function verify(string $userId, #[SensitiveParameter] string $code): bool
     {
@@ -103,13 +106,40 @@ final readonly class RecoveryCodeService
             return false;
         }
 
-        $match->usedAt = $this->clock->now();
+        $now = $this->clock->now();
+        if (!$this->claimSpend($match, $now)) {
+            return false;
+        }
+
+        $match->usedAt = $now;
         $this->unitOfWork->persist($match);
         $this->unitOfWork->flush();
 
         $this->events->dispatch(new MfaRecoveryUsed($userId, $unused - 1));
 
         return true;
+    }
+
+    /**
+     * Claim the code's single use with one conditional UPDATE; false means another request spent
+     * it first.
+     */
+    private function claimSpend(RecoveryCode $code, DateTimeImmutable $now): bool
+    {
+        if ($this->orm === null) {
+            // In-memory test wiring has no database to CAS against; the entity-level
+            // used_at check already ran in unusedFor(). Production wiring passes the ORM.
+            return true;
+        }
+
+        $source = $this->orm->getSource(RecoveryCode::class);
+        $affected = $source->getDatabase()->update(
+            $source->getTable(),
+            ['used_at' => $now],
+            ['id' => $code->id, 'used_at' => null],
+        )->run();
+
+        return $affected === 1;
     }
 
     /**

@@ -49,7 +49,7 @@ abstract class FunctionalTestCase extends DatabaseTestCase
         parent::setUp();
 
         $keys = TestKeys::rsa();
-        putenv('APP_KEY=app-key-for-functional-tests');
+        putenv('APP_KEY=app-key-for-functional-tests-0123');
         putenv('AUTH_JWT_PRIVATE_KEY=' . $keys['private']);
         putenv('AUTH_JWT_PUBLIC_KEY=' . $keys['public']);
         putenv('AUTH_ISSUER=https://auth.polaris.test');

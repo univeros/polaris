@@ -75,7 +75,7 @@ final readonly class MfaChallengeVerifier
      * @throws MfaFactorNotFoundException the factor is unknown, unconfirmed, or another user's
      * @throws InvalidOtpException        the factor type does not use a sent challenge
      */
-    public function challenge(string $userId, string $factorId, string $purpose, ClientContext $client): OtpChallengeResult
+    public function challenge(string $userId, string $factorId, ChallengePurpose $purpose, ClientContext $client): OtpChallengeResult
     {
         $factor = $this->requireConfirmedFactor($userId, $factorId);
         if (!in_array($factor->type, [MfaFactor::TYPE_SMS, MfaFactor::TYPE_EMAIL], true)) {
@@ -92,7 +92,7 @@ final readonly class MfaChallengeVerifier
      * @throws MfaFactorNotFoundException the factor is unknown, unconfirmed, or another user's
      * @throws InvalidOtpException        the code is wrong, expired, exhausted, or already used
      */
-    public function verify(string $userId, ?string $factorId, #[SensitiveParameter] string $code, string $purpose): ?string
+    public function verify(string $userId, ?string $factorId, #[SensitiveParameter] string $code, ChallengePurpose $purpose): ?string
     {
         if ($factorId === null || $factorId === '') {
             if (!$this->recovery->verify($userId, $code)) {

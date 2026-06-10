@@ -38,7 +38,7 @@ final class TokenServicePersistenceTest extends DatabaseTestCase
         return new TokenService(
             new RefreshTokenRepository($this->orm, $this->unitOfWork),
             $this->unitOfWork,
-            new Pepper('persistence-test-app-key'),
+            new Pepper('persistence-test-app-key-01234567'),
             new RecordingTokenGenerator(),
             new StubSessionPrincipalResolver(),
             AuthConfig::fromArray(['issuer' => 'https://auth.polaris.test']),

@@ -64,7 +64,7 @@ final class MfaConfirmationTest extends TestCase
             new RecoveryCodeService(
                 new InMemoryRecoveryCodeRepository($unitOfWork),
                 $unitOfWork,
-                new Pepper('app-key-for-tests'),
+                new Pepper('app-key-for-tests-0123456789abcdef'),
                 $clock,
                 new RecordingEventDispatcher(),
             ),
