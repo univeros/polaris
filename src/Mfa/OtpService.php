@@ -84,8 +84,11 @@ final readonly class OtpService
             throw new InvalidOtpException('The factor has no destination to send a code to.');
         }
 
-        $this->throttleAndSupersede($userId, $factor->id, $purpose, $now);
+        // Both guards run before anything is queued on the unit of work, so a throttled request
+        // leaves no half-staged supersessions behind for an unrelated later flush to commit.
+        $this->assertResendCooldown($userId, $factor->id, $purpose, $now);
         $this->assertSendQuota($userId, $destination);
+        $this->supersedePending($userId, $factor->id, $purpose, $now);
 
         $code = $this->generateCode();
 
@@ -137,7 +140,9 @@ final readonly class OtpService
 
         // Atomic compare-and-swap on consumed_at, like refresh rotation: of two concurrent
         // presentations of one correct code, exactly one consumes the challenge; the loser gets
-        // the same generic failure as a replayed code.
+        // the same generic failure as a replayed code. The entity flush below re-writes the
+        // value the CAS just wrote (same instant) — idempotent, and it IS the consumption
+        // write in the ORM-less test wiring.
         if (!$this->claimConsumption($challenge, $now)) {
             throw new InvalidOtpException('The verification code is invalid.');
         }
@@ -194,9 +199,9 @@ final readonly class OtpService
     }
 
     /**
-     * @throws OtpCooldownException
+     * @throws OtpCooldownException the resend cooldown has not yet elapsed
      */
-    private function throttleAndSupersede(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): void
+    private function assertResendCooldown(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): void
     {
         $newest = $this->newestPending($userId, $factorId, $purpose, $now);
         if (
@@ -205,7 +210,14 @@ final readonly class OtpService
         ) {
             throw new OtpCooldownException('Please wait before requesting another code.');
         }
+    }
 
+    /**
+     * Retire every still-pending challenge so only the about-to-be-issued one is live. The stamps
+     * are queued, not flushed — they commit atomically with the new challenge's insert.
+     */
+    private function supersedePending(string $userId, string $factorId, ChallengePurpose $purpose, DateTimeImmutable $now): void
+    {
         foreach ($this->pending($userId, $factorId, $purpose, $now) as $challenge) {
             $challenge->consumedAt = $now;
             $this->unitOfWork->persist($challenge);
