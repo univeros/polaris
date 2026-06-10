@@ -4,9 +4,7 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Tests\Functional;
 
-use Laminas\Diactoros\ServerRequestFactory;
 use OTPHP\TOTP;
-use Psr\Http\Message\ResponseInterface;
 use Univeros\Polaris\Entity\User;
 use Univeros\Polaris\Event\MfaFactorRemoved;
 use Univeros\Polaris\Event\UserRegistered;
@@ -193,16 +191,6 @@ final class MfaManagementEndpointsTest extends FunctionalTestCase
         }
 
         self::fail("Factor $id not found in the list.");
-    }
-
-    private function authedPatch(string $path, array $body, string $accessToken): ResponseInterface
-    {
-        $request = (new ServerRequestFactory())->createServerRequest('PATCH', $path)
-            ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $accessToken)
-            ->withParsedBody($body);
-
-        return $this->harness->handle($request);
     }
 
     private function lastSmsCode(): string

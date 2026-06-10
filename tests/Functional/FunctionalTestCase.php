@@ -121,6 +121,18 @@ abstract class FunctionalTestCase extends DatabaseTestCase
         return $this->harness->handle($this->withToken($request, $accessToken));
     }
 
+    /**
+     * @param array<string, mixed> $body
+     */
+    protected function authedPatch(string $path, array $body, string $accessToken): ResponseInterface
+    {
+        $request = (new ServerRequestFactory())->createServerRequest('PATCH', $path)
+            ->withHeader('Content-Type', 'application/json')
+            ->withParsedBody($body);
+
+        return $this->harness->handle($this->withToken($request, $accessToken));
+    }
+
     protected function authedDelete(string $path, string $accessToken): ResponseInterface
     {
         return $this->harness->handle($this->withToken(

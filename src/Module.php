@@ -96,6 +96,7 @@ use Univeros\Polaris\Http\Middleware\RateLimitGroup;
 use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Http\Orgs\ChangeMemberRolesDomain;
+use Univeros\Polaris\Http\Orgs\ChangeMemberStatusDomain;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\ListMembersDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
@@ -1071,6 +1072,8 @@ final class Module implements
                 UserRepository $users,
                 PermissionResolver $resolver,
                 UnitOfWorkInterface $unitOfWork,
+                SessionService $sessions,
+                ClockInterface $clock,
             ): MembershipService => new MembershipService(
                 $memberships,
                 $membershipRoles,
@@ -1080,10 +1083,13 @@ final class Module implements
                 $users,
                 $resolver,
                 $unitOfWork,
+                $sessions,
+                $clock,
             ),
         );
         $container->singleton(ListMembersDomain::class);
         $container->singleton(ChangeMemberRolesDomain::class);
+        $container->singleton(ChangeMemberStatusDomain::class);
         $container->singleton(RemoveMemberDomain::class);
     }
 
@@ -1129,6 +1135,7 @@ final class Module implements
             ['GET', '/orgs/{id}', ReadOrganizationDomain::class],
             ['GET', '/orgs/{id}/members', ListMembersDomain::class],
             ['PATCH', '/orgs/{id}/members/{userId}/roles', ChangeMemberRolesDomain::class],
+            ['PATCH', '/orgs/{id}/members/{userId}', ChangeMemberStatusDomain::class],
             ['DELETE', '/orgs/{id}/members/{userId}', RemoveMemberDomain::class],
         ];
     }
