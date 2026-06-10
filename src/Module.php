@@ -41,7 +41,9 @@ use Psr\Http\Message\ResponseFactoryInterface;
 use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
+use Univeros\Polaris\Authorization\EscalationGuard;
 use Univeros\Polaris\Authorization\Gate;
+use Univeros\Polaris\Authorization\InvitationService;
 use Univeros\Polaris\Authorization\MembershipService;
 use Univeros\Polaris\Authorization\OrganizationService;
 use Univeros\Polaris\Authorization\PermissionCatalog;
@@ -81,6 +83,7 @@ use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
 use Univeros\Polaris\Http\Auth\StepUpChallengeDomain;
 use Univeros\Polaris\Http\Auth\StepUpVerifyDomain;
+use Univeros\Polaris\Http\Auth\AcceptInviteDomain;
 use Univeros\Polaris\Http\Auth\SwitchOrgDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
 use Univeros\Polaris\Http\Auth\UpdateFactorDomain;
@@ -98,7 +101,10 @@ use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
 use Univeros\Polaris\Http\Orgs\ChangeMemberRolesDomain;
 use Univeros\Polaris\Http\Orgs\ChangeMemberStatusDomain;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
+use Univeros\Polaris\Http\Orgs\CreateInviteDomain;
+use Univeros\Polaris\Http\Orgs\ListInvitesDomain;
 use Univeros\Polaris\Http\Orgs\ListMembersDomain;
+use Univeros\Polaris\Http\Orgs\RevokeInviteDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
 use Univeros\Polaris\Http\Orgs\ReadOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\RemoveMemberDomain;
@@ -126,6 +132,7 @@ use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
+use Univeros\Polaris\Persistence\InvitationRepository;
 use Univeros\Polaris\Persistence\MembershipRepository;
 use Univeros\Polaris\Persistence\MembershipRoleRepository;
 use Univeros\Polaris\Persistence\MfaFactorRepository;
@@ -1062,15 +1069,22 @@ final class Module implements
         );
 
         $container->singleton(
+            EscalationGuard::class,
+            static fn(
+                RolePermissionRepository $rolePermissions,
+                PermissionRepository $permissions,
+            ): EscalationGuard => new EscalationGuard($rolePermissions, $permissions),
+        );
+
+        $container->singleton(
             MembershipService::class,
             static fn(
                 MembershipRepository $memberships,
                 MembershipRoleRepository $membershipRoles,
                 RoleRepository $roles,
-                RolePermissionRepository $rolePermissions,
-                PermissionRepository $permissions,
                 UserRepository $users,
                 PermissionResolver $resolver,
+                EscalationGuard $escalation,
                 UnitOfWorkInterface $unitOfWork,
                 SessionService $sessions,
                 ClockInterface $clock,
@@ -1078,10 +1092,9 @@ final class Module implements
                 $memberships,
                 $membershipRoles,
                 $roles,
-                $rolePermissions,
-                $permissions,
                 $users,
                 $resolver,
+                $escalation,
                 $unitOfWork,
                 $sessions,
                 $clock,
@@ -1091,6 +1104,39 @@ final class Module implements
         $container->singleton(ChangeMemberRolesDomain::class);
         $container->singleton(ChangeMemberStatusDomain::class);
         $container->singleton(RemoveMemberDomain::class);
+
+        $container->singleton(
+            InvitationService::class,
+            static fn(
+                InvitationRepository $invitations,
+                MembershipRepository $memberships,
+                MembershipRoleRepository $membershipRoles,
+                RoleRepository $roles,
+                UserRepository $users,
+                PermissionResolver $resolver,
+                EscalationGuard $escalation,
+                UnitOfWorkInterface $unitOfWork,
+                Pepper $pepper,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): InvitationService => new InvitationService(
+                $invitations,
+                $memberships,
+                $membershipRoles,
+                $roles,
+                $users,
+                $resolver,
+                $escalation,
+                $unitOfWork,
+                $pepper,
+                $clock,
+                $events,
+            ),
+        );
+        $container->singleton(CreateInviteDomain::class);
+        $container->singleton(ListInvitesDomain::class);
+        $container->singleton(RevokeInviteDomain::class);
+        $container->singleton(AcceptInviteDomain::class);
     }
 
     /**
@@ -1137,6 +1183,10 @@ final class Module implements
             ['PATCH', '/orgs/{id}/members/{userId}/roles', ChangeMemberRolesDomain::class],
             ['PATCH', '/orgs/{id}/members/{userId}', ChangeMemberStatusDomain::class],
             ['DELETE', '/orgs/{id}/members/{userId}', RemoveMemberDomain::class],
+            ['POST', '/orgs/{id}/invites', CreateInviteDomain::class],
+            ['GET', '/orgs/{id}/invites', ListInvitesDomain::class],
+            ['DELETE', '/orgs/{id}/invites/{inviteId}', RevokeInviteDomain::class],
+            ['POST', '/auth/invites/accept', AcceptInviteDomain::class],
         ];
     }
 
