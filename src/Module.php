@@ -43,6 +43,8 @@ use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Authorization\OrganizationService;
 use Univeros\Polaris\Authorization\PermissionCatalog;
+use Univeros\Polaris\Authorization\PermissionResolver;
+use Univeros\Polaris\Authorization\RbacSessionPrincipalResolver;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\OtpConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
@@ -77,6 +79,7 @@ use Univeros\Polaris\Http\Auth\SessionsDomain;
 use Univeros\Polaris\Http\Auth\SmsEnrollDomain;
 use Univeros\Polaris\Http\Auth\StepUpChallengeDomain;
 use Univeros\Polaris\Http\Auth\StepUpVerifyDomain;
+use Univeros\Polaris\Http\Auth\SwitchOrgDomain;
 use Univeros\Polaris\Http\Auth\TotpConfirmDomain;
 use Univeros\Polaris\Http\Auth\UpdateFactorDomain;
 use Univeros\Polaris\Http\Auth\TotpEnrollDomain;
@@ -116,6 +119,7 @@ use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
 use Univeros\Polaris\Persistence\MembershipRepository;
+use Univeros\Polaris\Persistence\MembershipRoleRepository;
 use Univeros\Polaris\Persistence\MfaFactorRepository;
 use Univeros\Polaris\Persistence\OrganizationRepository;
 use Univeros\Polaris\Persistence\OtpChallengeRepository;
@@ -123,11 +127,12 @@ use Univeros\Polaris\Persistence\PasswordResetRepository;
 use Univeros\Polaris\Persistence\PermissionRepository;
 use Univeros\Polaris\Persistence\RecoveryCodeRepository;
 use Univeros\Polaris\Persistence\RefreshTokenRepository;
+use Univeros\Polaris\Persistence\RolePermissionRepository;
+use Univeros\Polaris\Persistence\RoleRepository;
 use Univeros\Polaris\Persistence\UserRepository;
 use Univeros\Polaris\Security\Argon2idPasswordHasher;
 use Univeros\Polaris\Security\Pepper;
 use Univeros\Polaris\Support\InMemoryCache;
-use Univeros\Polaris\Token\DefaultSessionPrincipalResolver;
 use Univeros\Polaris\Token\JwtSignerFactory;
 use Univeros\Polaris\Token\MfaLoginTokenService;
 use Univeros\Polaris\Token\PolarisTokenFactory;
@@ -849,9 +854,10 @@ final class Module implements
 
     /**
      * Bind the session machinery: the keyed {@see Pepper} (refresh-token hashing), a
-     * no-op PSR-14 dispatcher (until the host wires listeners in Phase 4), the default
-     * {@see SessionPrincipalResolverInterface} (RBAC rebinds it later), and
-     * {@see TokenService}, which issues and rotates refresh tokens with reuse detection.
+     * no-op PSR-14 dispatcher (until the host wires listeners in Phase 4), the
+     * {@see PermissionResolver} and the {@see RbacSessionPrincipalResolver} (which embeds the active
+     * org's roles/scope into issued tokens), the {@see SwitchOrgDomain}, and {@see TokenService},
+     * which issues and rotates refresh tokens with reuse detection.
      */
     private function bindSessions(Container $container): void
     {
@@ -863,9 +869,41 @@ final class Module implements
             $container->singleton(EventDispatcherInterface::class, NullEventDispatcher::class);
         }
         $container->singleton(
+            PermissionResolver::class,
+            static fn(
+                MembershipRepository $memberships,
+                MembershipRoleRepository $membershipRoles,
+                RoleRepository $roles,
+                RolePermissionRepository $rolePermissions,
+                PermissionRepository $permissions,
+            ): PermissionResolver => new PermissionResolver(
+                $memberships,
+                $membershipRoles,
+                $roles,
+                $rolePermissions,
+                $permissions,
+            ),
+        );
+
+        // The RBAC resolver replaces the Phase-1 default: it embeds the user's roles (and, when
+        // access_token.embed_scope is on, the flattened permission scope) for the active org.
+        $container->singleton(
             SessionPrincipalResolverInterface::class,
-            static fn(UserRepository $users): DefaultSessionPrincipalResolver
-                => new DefaultSessionPrincipalResolver($users),
+            static fn(
+                UserRepository $users,
+                PermissionResolver $permissions,
+                AuthConfig $config,
+            ): RbacSessionPrincipalResolver => new RbacSessionPrincipalResolver($users, $permissions, $config),
+        );
+
+        $container->singleton(
+            SwitchOrgDomain::class,
+            static fn(
+                TokenService $tokens,
+                OrganizationRepository $organizations,
+                MembershipRepository $memberships,
+                AuthConfig $config,
+            ): SwitchOrgDomain => new SwitchOrgDomain($tokens, $organizations, $memberships, $config),
         );
 
         $container->singleton(
@@ -1016,6 +1054,7 @@ final class Module implements
             ['POST', '/auth/token/refresh', RefreshTokenDomain::class],
             ['POST', '/auth/logout', LogoutDomain::class],
             ['POST', '/auth/logout-all', LogoutAllDomain::class],
+            ['POST', '/auth/switch-org', SwitchOrgDomain::class],
             ['GET', '/auth/sessions', SessionsDomain::class],
             ['DELETE', '/auth/sessions/{id}', RevokeSessionDomain::class],
             ['POST', '/auth/password/forgot', ForgotPasswordDomain::class],
