@@ -12,6 +12,7 @@ use SensitiveParameter;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Entity\RecoveryCode;
 use Univeros\Polaris\Event\MfaRecoveryRegenerated;
+use Univeros\Polaris\Event\MfaRecoveryUsed;
 use Univeros\Polaris\Security\Pepper;
 
 use function count;
@@ -90,7 +91,9 @@ final readonly class RecoveryCodeService
     public function verify(string $userId, #[SensitiveParameter] string $code): bool
     {
         $match = null;
+        $unused = 0;
         foreach ($this->unusedFor($userId) as $candidate) {
+            $unused++;
             if ($this->pepper->matches(self::PEPPER_CONTEXT, $code, $candidate->codeHash)) {
                 $match = $candidate;
             }
@@ -103,6 +106,8 @@ final readonly class RecoveryCodeService
         $match->usedAt = $this->clock->now();
         $this->unitOfWork->persist($match);
         $this->unitOfWork->flush();
+
+        $this->events->dispatch(new MfaRecoveryUsed($userId, $unused - 1));
 
         return true;
     }
