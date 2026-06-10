@@ -18,6 +18,10 @@ use function is_int;
  *
  * Entries live exactly one access-token TTL: after that every token they could affect has expired
  * on its own. A cache wipe therefore only shortens the window back to the stateless default.
+ *
+ * Org-scoped revocations (member or organization suspension) intentionally do not watermark:
+ * the Gate already re-resolves authority from the database per request, so the suspended org's
+ * permissions vanish instantly while the user's sessions in other orgs stay untouched.
  */
 final class AccessTokenDenylist
 {
@@ -40,6 +44,11 @@ final class AccessTokenDenylist
 
     /**
      * Whether a token issued at the given time is inside the user's revocation watermark.
+     *
+     * Deliberately fail-closed at the boundary (`iat == watermark` is revoked): a token minted in
+     * the same second as the revocation could belong to the very attacker being evicted. The cost
+     * is that a legitimate re-login within that second gets one `session_ended` and simply signs
+     * in again.
      */
     public function isRevoked(string $userId, DateTimeImmutable $issuedAt): bool
     {

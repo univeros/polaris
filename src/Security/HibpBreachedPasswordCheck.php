@@ -58,8 +58,9 @@ final class HibpBreachedPasswordCheck implements BreachedPasswordCheckInterface
             }
 
             foreach (explode("\n", (string) $response->getBody()) as $line) {
-                [$candidate] = explode(':', strtr($line, ["\r" => '']), 2) + [''];
-                if ($candidate === $suffix) {
+                $parts = explode(':', strtr($line, ["\r" => '']), 2);
+                // Padding rows and dataset removals carry a count of 0 and read as clean.
+                if ($parts[0] === $suffix && (int) ($parts[1] ?? '0') > 0) {
                     return true;
                 }
             }

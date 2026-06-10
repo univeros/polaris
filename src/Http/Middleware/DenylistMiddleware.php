@@ -15,7 +15,6 @@ use Psr\Http\Server\RequestHandlerInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Token\AccessTokenDenylist;
 
-use function is_int;
 use function json_encode;
 
 use const JSON_THROW_ON_ERROR;
@@ -48,16 +47,11 @@ final readonly class DenylistMiddleware implements MiddlewareInterface
             return $handler->handle($request);
         }
 
+        // PolarisTokenParser guarantees sub and a DateTimeImmutable iat on every token it accepts;
+        // a token without them did not come through it, so with the flag on we fail closed.
         $userId = (string) $token->getMetadata('sub');
         $issuedAt = $token->getMetadata('iat');
-        if (is_int($issuedAt)) {
-            $issuedAt = new DateTimeImmutable('@' . $issuedAt);
-        }
-        if ($userId === '' || !$issuedAt instanceof DateTimeImmutable) {
-            return $handler->handle($request);
-        }
-
-        if ($this->denylist->isRevoked($userId, $issuedAt)) {
+        if ($userId === '' || !$issuedAt instanceof DateTimeImmutable || $this->denylist->isRevoked($userId, $issuedAt)) {
             $response = $this->responseFactory->createResponse(401)
                 ->withHeader('Content-Type', 'application/json');
             $response->getBody()->write(json_encode(

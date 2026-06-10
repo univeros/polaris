@@ -37,6 +37,16 @@ final class AccessTokenDenylistTest extends TestCase
         self::assertFalse($this->denylist()->isRevoked('user-1', new DateTimeImmutable(self::NOW)));
     }
 
+    public function testACorruptedWatermarkReadsAsNotRevoked(): void
+    {
+        $cache = $this->arrayCache();
+        $cache->set('polaris.denylist.user.user-1', 'not-a-timestamp');
+
+        $denylist = new AccessTokenDenylist($cache, $this->clock(), 900);
+
+        self::assertFalse($denylist->isRevoked('user-1', new DateTimeImmutable(self::NOW)));
+    }
+
     public function testEntriesExpireWithTheAccessTtl(): void
     {
         $cache = $this->arrayCache();
