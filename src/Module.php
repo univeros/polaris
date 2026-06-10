@@ -42,6 +42,7 @@ use Psr\Log\LoggerInterface;
 use Psr\Log\NullLogger;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Authorization\Gate;
+use Univeros\Polaris\Authorization\MembershipService;
 use Univeros\Polaris\Authorization\OrganizationService;
 use Univeros\Polaris\Authorization\PermissionCatalog;
 use Univeros\Polaris\Authorization\PermissionResolver;
@@ -94,9 +95,12 @@ use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
 use Univeros\Polaris\Http\Middleware\StepUpMiddleware;
 use Univeros\Polaris\Http\Middleware\UnauthorizedResponder;
+use Univeros\Polaris\Http\Orgs\ChangeMemberRolesDomain;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
+use Univeros\Polaris\Http\Orgs\ListMembersDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
 use Univeros\Polaris\Http\Orgs\ReadOrganizationDomain;
+use Univeros\Polaris\Http\Orgs\RemoveMemberDomain;
 use Univeros\Polaris\Http\Rule\AnyRule;
 use Univeros\Polaris\Http\Rule\MethodPathRule;
 use Univeros\Polaris\Identity\CycleIdentityProvider;
@@ -1055,6 +1059,32 @@ final class Module implements
             static fn(OrganizationRepository $organizations): ReadOrganizationDomain
                 => new ReadOrganizationDomain($organizations),
         );
+
+        $container->singleton(
+            MembershipService::class,
+            static fn(
+                MembershipRepository $memberships,
+                MembershipRoleRepository $membershipRoles,
+                RoleRepository $roles,
+                RolePermissionRepository $rolePermissions,
+                PermissionRepository $permissions,
+                UserRepository $users,
+                PermissionResolver $resolver,
+                UnitOfWorkInterface $unitOfWork,
+            ): MembershipService => new MembershipService(
+                $memberships,
+                $membershipRoles,
+                $roles,
+                $rolePermissions,
+                $permissions,
+                $users,
+                $resolver,
+                $unitOfWork,
+            ),
+        );
+        $container->singleton(ListMembersDomain::class);
+        $container->singleton(ChangeMemberRolesDomain::class);
+        $container->singleton(RemoveMemberDomain::class);
     }
 
     /**
@@ -1097,6 +1127,9 @@ final class Module implements
             ['POST', '/orgs', CreateOrganizationDomain::class],
             ['GET', '/orgs', ListOrganizationsDomain::class],
             ['GET', '/orgs/{id}', ReadOrganizationDomain::class],
+            ['GET', '/orgs/{id}/members', ListMembersDomain::class],
+            ['PATCH', '/orgs/{id}/members/{userId}/roles', ChangeMemberRolesDomain::class],
+            ['DELETE', '/orgs/{id}/members/{userId}', RemoveMemberDomain::class],
         ];
     }
 
