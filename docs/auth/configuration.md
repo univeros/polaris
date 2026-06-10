@@ -98,6 +98,8 @@ Secrets come from env / a secret manager, never config files:
 | `AUTH_JWT_PRIVATE_KEY`  | yes      | PEM private key (sign access tokens)               |
 | `AUTH_JWT_PUBLIC_KEY`   | yes      | PEM public key (verify / JWKS)                     |
 | `AUTH_JWT_KID`          | rec.     | key id for rotation (defaults to a hash of pubkey) |
+| `AUTH_JWT_PREVIOUS_PUBLIC_KEY` | no | retiring public key, kept in the JWKS during a rotation (see [key-rotation.md](key-rotation.md)) |
+| `AUTH_JWT_PREVIOUS_KID` | no       | kid of the retiring key (defaults to a hash of it)  |
 | `AUTH_ISSUER`           | rec.     | overrides `auth.issuer`                            |
 | `AUTH_AUDIENCE`         | rec.     | overrides `auth.audience`                          |
 

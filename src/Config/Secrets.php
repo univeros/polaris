@@ -25,6 +25,8 @@ final readonly class Secrets
         public string $jwtPrivateKey,
         public string $jwtPublicKey,
         public string $jwtKid,
+        public ?string $jwtPreviousPublicKey = null,
+        public ?string $jwtPreviousKid = null,
     ) {
     }
 
@@ -61,7 +63,22 @@ final readonly class Secrets
             $kid = substr(hash('sha256', $publicKey), 0, 16);
         }
 
-        return new self($appKey, $privateKey, $publicKey, $kid);
+        // During a key rotation the retiring public key stays published in the JWKS for one
+        // access-TTL window (docs/auth/key-rotation.md); both are optional outside that window.
+        $previousKey = self::read($env, 'AUTH_JWT_PREVIOUS_PUBLIC_KEY');
+        $previousKid = self::read($env, 'AUTH_JWT_PREVIOUS_KID');
+        if ($previousKey !== '' && $previousKid === '') {
+            $previousKid = substr(hash('sha256', $previousKey), 0, 16);
+        }
+
+        return new self(
+            $appKey,
+            $privateKey,
+            $publicKey,
+            $kid,
+            $previousKey === '' ? null : $previousKey,
+            $previousKey === '' ? null : $previousKid,
+        );
     }
 
     /**
