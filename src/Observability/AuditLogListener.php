@@ -19,6 +19,7 @@ use Univeros\Polaris\Event\MemberStatusChanged;
 use Univeros\Polaris\Event\MfaEnrolled;
 use Univeros\Polaris\Event\MfaFactorRemoved;
 use Univeros\Polaris\Event\MfaRecoveryRegenerated;
+use Univeros\Polaris\Event\MfaRecoveryUsed;
 use Univeros\Polaris\Event\MfaStepUpCompleted;
 use Univeros\Polaris\Event\MfaVerified;
 use Univeros\Polaris\Event\MfaVerifyFailed;
@@ -96,6 +97,7 @@ final class AuditLogListener
             $event instanceof MfaVerifyFailed => [MfaVerifyFailed::NAME, $event->userId, null, null, []],
             $event instanceof MfaStepUpCompleted => [MfaStepUpCompleted::NAME, $event->userId, null, null, ['session_id' => $event->sessionId]],
             $event instanceof MfaRecoveryRegenerated => [MfaRecoveryRegenerated::NAME, $event->userId, null, null, []],
+            $event instanceof MfaRecoveryUsed => [MfaRecoveryUsed::NAME, $event->userId, null, null, ['remaining' => $event->remaining]],
             $event instanceof OtpChallengeSent => [OtpChallengeSent::NAME, $event->userId, null, null, ['factor_id' => $event->factorId, 'channel' => $event->channel]],
             $event instanceof OtpVerifyFailed => [OtpVerifyFailed::NAME, $event->userId, null, null, ['factor_id' => $event->factorId]],
             $event instanceof OrganizationCreated => [OrganizationCreated::NAME, $event->ownerUserId, $event->organizationId, null, ['slug' => $event->slug]],
