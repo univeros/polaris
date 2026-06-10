@@ -6,6 +6,7 @@ namespace Univeros\Polaris\Tests\Functional;
 
 use Altair\Http\Contracts\TokenValidatorInterface;
 use DateTimeImmutable;
+use Laminas\Diactoros\ServerRequestFactory;
 use Univeros\Polaris\Entity\User;
 use Univeros\Polaris\Event\UserLocked;
 use Univeros\Polaris\Event\UserLoggedIn;
@@ -54,6 +55,23 @@ final class LoginEndpointTest extends FunctionalTestCase
         $validator = $this->container->get(TokenValidatorInterface::class);
         self::assertInstanceOf(TokenValidatorInterface::class, $validator);
         self::assertTrue($validator->validate((string) $data['access_token']));
+    }
+
+    public function testLoginCarriesTheSanitizedUserAgentIntoTheEvent(): void
+    {
+        $this->registerAndVerify();
+
+        $request = (new ServerRequestFactory())->createServerRequest('POST', '/auth/login')
+            ->withHeader('Content-Type', 'application/json')
+            ->withHeader('User-Agent', 'Browser/1.0 (Functional)')
+            ->withParsedBody(['email' => self::EMAIL, 'password' => self::PASSWORD]);
+        self::assertSame(200, $this->harness->handle($request)->getStatusCode());
+
+        // The ClientContextMiddleware → ClientContext → event chain holds end to end (#90).
+        $logins = $this->events->ofType(UserLoggedIn::class);
+        self::assertCount(1, $logins);
+        self::assertSame('Browser/1.0 (Functional)', $logins[0]->userAgent);
+        self::assertSame(['pwd'], $logins[0]->amr);
     }
 
     public function testWrongPasswordIsAGeneric401(): void

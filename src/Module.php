@@ -100,6 +100,7 @@ use Univeros\Polaris\Http\Middleware\AuthenticatedRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthorizationMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\ClientContextMiddleware;
 use Univeros\Polaris\Http\Middleware\TokenSubjectKeyResolver;
 use Univeros\Polaris\Http\Middleware\DenylistMiddleware;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
@@ -630,6 +631,9 @@ final class Module implements
     {
         return [
             ['middleware' => AuthRateLimitMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 50],
+            // Early in the pipeline: sanitize the User-Agent into a request attribute so every
+            // domain's ClientContext (session rows, audit events #90) reads one bounded value.
+            ['middleware' => ClientContextMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER + 49],
             ['middleware' => TokenAuthenticationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 5],
             // In the (DISPATCHER, ACTION) band: runs after routing resolves the gate route and before
             // the action runs, so the validated ticket is attached before the gate domain reads it.
@@ -759,6 +763,8 @@ final class Module implements
             static fn(Gate $gate, ResponseFactoryInterface $responseFactory): AuthorizationMiddleware
                 => new AuthorizationMiddleware($gate, $responseFactory),
         );
+
+        $container->singleton(ClientContextMiddleware::class);
 
         // The global authenticated budget: one fixed window per user id across every
         // authenticated endpoint, keyed on the token's `sub` (#97).
