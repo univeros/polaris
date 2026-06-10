@@ -8,11 +8,15 @@ use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use InvalidArgumentException;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Univeros\Polaris\Entity\Membership;
 use Univeros\Polaris\Entity\MembershipRole;
 use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\User;
+use Univeros\Polaris\Event\MemberRemoved;
+use Univeros\Polaris\Event\MemberRolesChanged;
+use Univeros\Polaris\Event\MemberStatusChanged;
 use Univeros\Polaris\Exception\AuthorizationException;
 use Univeros\Polaris\Exception\LastOwnerException;
 use Univeros\Polaris\Exception\MemberNotFoundException;
@@ -54,6 +58,7 @@ final class MembershipService
         private readonly UnitOfWorkInterface $unitOfWork,
         private readonly SessionService $sessions,
         private readonly ClockInterface $clock,
+        private readonly EventDispatcherInterface $events,
     ) {
     }
 
@@ -130,6 +135,8 @@ final class MembershipService
             $this->unitOfWork->persist($link);
         }
         $this->unitOfWork->flush();
+
+        $this->events->dispatch(new MemberRolesChanged($organizationId, $targetUserId, $roleSlugs, $actorUserId));
     }
 
     /**
@@ -167,7 +174,8 @@ final class MembershipService
             throw new LastOwnerException('The organization must keep at least one active owner.');
         }
 
-        if ($target->status !== $status) {
+        $changed = $target->status !== $status;
+        if ($changed) {
             $target->status = $status;
             $target->updatedAt = $this->clock->now();
             $this->unitOfWork->persist($target);
@@ -179,6 +187,10 @@ final class MembershipService
         // revocation step failed mid-way recoverable by retrying the request.
         if ($status === Membership::STATUS_SUSPENDED) {
             $this->sessions->revokeAllForOrganization($targetUserId, $organizationId, RefreshToken::REASON_ADMIN);
+        }
+
+        if ($changed) {
+            $this->events->dispatch(new MemberStatusChanged($organizationId, $targetUserId, $status, $actorUserId));
         }
     }
 
@@ -207,6 +219,8 @@ final class MembershipService
         // The auth_membership_roles rows cascade away with the membership (FK ON DELETE CASCADE).
         $this->unitOfWork->remove($target);
         $this->unitOfWork->flush();
+
+        $this->events->dispatch(new MemberRemoved($organizationId, $targetUserId, $actorUserId));
     }
 
     private function memberOrFail(string $organizationId, string $userId): Membership
