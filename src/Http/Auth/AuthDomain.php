@@ -10,6 +10,7 @@ use Altair\Http\Contracts\DomainInterface;
 use Altair\Http\Contracts\MiddlewareInterface;
 use Altair\Http\Contracts\PayloadInterface;
 use Altair\Http\Contracts\TokenInterface;
+use Univeros\Polaris\Http\Middleware\ClientContextMiddleware;
 use Univeros\Polaris\Http\Middleware\MfaTicket;
 use Univeros\Polaris\Token\ClientContext;
 
@@ -21,7 +22,8 @@ use const FILTER_VALIDATE_EMAIL;
 
 /**
  * Shared helpers for the auth HTTP domains: building responses, reading the client
- * context (IP), and reading the authenticated access token the auth middleware attaches.
+ * context (IP + sanitized user agent), and reading the authenticated access token the auth
+ * middleware attaches.
  */
 abstract class AuthDomain implements DomainInterface
 {
@@ -44,8 +46,13 @@ abstract class AuthDomain implements DomainInterface
     protected function client(InputCollection $input): ClientContext
     {
         $ip = $input->get(MiddlewareInterface::ATTRIBUTE_IP_ADDRESS);
+        // Sanitized (bounded, control-char-free) by the ClientContextMiddleware at the edge.
+        $userAgent = $input->get(ClientContextMiddleware::ATTRIBUTE_USER_AGENT);
 
-        return new ClientContext(is_string($ip) ? $ip : null);
+        return new ClientContext(
+            is_string($ip) ? $ip : null,
+            is_string($userAgent) && $userAgent !== '' ? $userAgent : null,
+        );
     }
 
     protected function isEmail(string $email): bool

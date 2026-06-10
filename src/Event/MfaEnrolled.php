@@ -15,7 +15,7 @@ final readonly class MfaEnrolled
     public function __construct(
         public string $userId,
         public string $factorId,
-        public string $type = '',
+        public ?string $type = null,
     ) {
     }
 }
