@@ -133,6 +133,7 @@ use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Identity\UserAdminService;
 use Univeros\Polaris\Identity\StepUpService;
+use Univeros\Polaris\Maintenance\PruneExpiredService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Notification\NotificationListener;
 use Univeros\Polaris\Observability\AuditLogListener;
@@ -692,6 +693,9 @@ final class Module implements
         // the listeners; the host subscribes them to its PSR-14 dispatcher for the
         // Univeros\Polaris\Event\* classes (docs/auth/events.md).
         $container->singleton(AuditLogListener::class);
+
+        // Transient-row pruning (#40); the host wires it to its scheduler (bin/altair job or cron).
+        $container->singleton(PruneExpiredService::class);
         $container->singleton(
             NotificationListener::class,
             static fn(
