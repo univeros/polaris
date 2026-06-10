@@ -1,4 +1,4 @@
-# POST /auth/login — password login. Returns a full token pair, OR an
+# POST /auth/login: password login. Returns a full token pair, OR an
 # mfa_required ticket when the user has confirmed MFA factors / MFA is enforced.
 endpoint:
   method: POST

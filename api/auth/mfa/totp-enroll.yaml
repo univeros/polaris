@@ -1,4 +1,4 @@
-# POST /auth/mfa/totp/enroll — start TOTP enrollment; returns secret + QR.
+# POST /auth/mfa/totp/enroll: start TOTP enrollment; returns secret + QR.
 # Confirm with a code via api/auth/mfa/totp-confirm.yaml before it can satisfy MFA.
 endpoint:
   method: POST

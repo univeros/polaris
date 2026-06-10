@@ -1,4 +1,4 @@
-# POST /auth/register — create an account and trigger email verification.
+# POST /auth/register: create an account and trigger email verification.
 # Generic 202 response regardless of whether the email already exists.
 endpoint:
   method: POST

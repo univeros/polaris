@@ -1,4 +1,4 @@
-# POST /orgs — create an organization; the creator becomes its owner.
+# POST /orgs: create an organization; the creator becomes its owner.
 # Demonstrates a multi-tenant write seeding org-scoped roles from system templates.
 endpoint:
   method: POST

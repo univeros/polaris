@@ -1,4 +1,4 @@
-# POST /auth/token/refresh — rotate a refresh token for a new access+refresh pair.
+# POST /auth/token/refresh: rotate a refresh token for a new access+refresh pair.
 # Replaying an already-rotated token revokes the whole family (theft detection).
 endpoint:
   method: POST

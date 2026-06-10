@@ -1,10 +1,18 @@
-# `api/` — Endpoint specs (source of truth)
+# `api/`: endpoint scaffolding seeds
 
-These YAML files are the **executable** counterpart of [`docs/auth/`](../docs/auth/).
+> **Status:** Phases 1-4 are implemented. The implemented HTTP contracts live in
+> [`docs/auth/api-reference.md`](../docs/auth/api-reference.md), generated from
+> the shipped domains and verified by the functional test suite; where a seed
+> spec here and the reference disagree, **the reference (and the code) win**.
+> These YAML files are retained as worked scaffolding examples for future
+> endpoints. For operating the module as an agent, see
+> [`.ai/skills/polaris/SKILL.md`](../.ai/skills/polaris/SKILL.md).
+
+These YAML files were the scaffolding input for [`docs/auth/`](../docs/auth/).
 Each describes one endpoint; `bin/altair spec:scaffold api/<resource>/<action>.yaml`
 emits the Action, Input DTO, Responder, Domain stub, test, route entry, and
-OpenAPI fragment. Treat the YAML as the source of truth — re-scaffold rather than
-hand-editing generated files (see `.ai/skills/altair/SKILL.md`).
+OpenAPI fragment. The `spec:scaffold`/`spec:lint` tooling (and its skill) ships
+with the **host framework**, not with this module; run it from a host checkout.
 
 ```bash
 bin/altair spec:scaffold api/auth/login.yaml --dry-run   # preview
@@ -14,7 +22,7 @@ bin/altair spec:lint                                     # drift check
 
 ## What's here
 
-This is the **seed set** — the trickiest/most illustrative endpoints, written as
+This is the **seed set**: the trickiest/most illustrative endpoints, written as
 worked examples:
 
 | Spec                          | Endpoint                       | Illustrates                         |

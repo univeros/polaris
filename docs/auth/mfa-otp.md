@@ -11,7 +11,7 @@ login/step-up flow is identical regardless of channel.
 | **SMS**  | Server CSPRNG, 6 digits             | `SmsSenderInterface`        | code **HMAC-hashed**, transient |
 | **Email**| Server CSPRNG, 6 digits             | `OtpMailerInterface`        | code **HMAC-hashed**, transient |
 
-Common parameters (config `otp` / `otp.totp` — see [configuration.md](configuration.md)):
+Common parameters (config `otp` / `otp.totp`; see [configuration.md](configuration.md)):
 
 - OTP code length: **6** digits (config `otp.length`).
 - SMS/email OTP TTL: **300 s**; max attempts: **5**; then the challenge is burned.
@@ -25,7 +25,7 @@ Common parameters (config `otp` / `otp.totp` — see [configuration.md](configur
 
 ---
 
-## 1. Ports — provider-agnostic delivery
+## 1. Ports: provider-agnostic delivery
 
 Polaris does **not** bundle Twilio/SES SDKs. It defines ports and ships dev
 drivers; the host binds real providers in its container.
@@ -48,9 +48,9 @@ interface OtpMailerInterface
 
 Shipped drivers:
 
-- `LogSmsSender` / `LogOtpMailer` — write to the framework logger (dev/test;
+- `LogSmsSender` / `LogOtpMailer`: write to the framework logger (dev/test;
   the OTP appears in logs so developers can complete flows without a provider).
-- `NullSmsSender` / `NullOtpMailer` — no-ops for environments that disable a
+- `NullSmsSender` / `NullOtpMailer`: no-ops for environments that disable a
   channel.
 
 Host binds production adapters (examples documented, **not shipped**):
@@ -175,7 +175,7 @@ POST /auth/mfa/challenge
   Authorization: Bearer <mfa_token>
   {factor_id}
   → creates otp_challenge (purpose=login_mfa), sends code, returns masked dest
-  → (TOTP factors skip this step — code comes from the app)
+  → (TOTP factors skip this step; code comes from the app)
 
 # Complete MFA:
 POST /auth/mfa/verify
@@ -229,7 +229,7 @@ whether the access token is otherwise valid:
 stale, the endpoint returns `401 step_up_required` with a `WWW-Authenticate`-style
 problem detail. The client obtains a fresh factor verification via
 `POST /auth/mfa/step-up` (challenge + verify with `purpose=step_up`), which
-mints a new access token with a refreshed `auth_time` — then retries.
+mints a new access token with a refreshed `auth_time`, then retries.
 
 This is enforced by a small `StepUpGuard` the relevant Actions opt into (declared
 on the Action, checked by `AuthorizationMiddleware`), not duplicated in each
@@ -239,11 +239,11 @@ domain service.
 
 ## 8. MFA management & enforcement
 
-- `GET /auth/mfa/factors` — list the user's factors (type, label, masked
+- `GET /auth/mfa/factors`: list the user's factors (type, label, masked
   destination, confirmed, default).
-- `DELETE /auth/mfa/factors/{id}` — remove a factor (step-up). Removing the last
+- `DELETE /auth/mfa/factors/{id}`: remove a factor (step-up). Removing the last
   factor is blocked while MFA is enforced for the user/org.
-- `PATCH /auth/mfa/factors/{id}` — set label / default.
+- `PATCH /auth/mfa/factors/{id}`: set label / default.
 - **Enforcement:** `mfa.enforce` (global) and per-user `mfa_enforced` and per-org
   policy. When enforced and the user has no confirmed factor, login still
   succeeds for password but issues an access token flagged `mfa=false` and the

@@ -1,4 +1,4 @@
-# POST /auth/password/reset — set a new password using a reset token (link style)
+# POST /auth/password/reset: set a new password using a reset token (link style)
 # or email+code (OTP style). Succeeding revokes EVERY session (logout-everywhere),
 # a core account-takeover containment measure.
 endpoint:
@@ -50,7 +50,7 @@ output:
   responder: Univeros\Polaris\Http\Responders\GenericStatusResponder
   example:
     data:
-      status: password_reset      # all sessions revoked — the client must log in again
+      status: password_reset      # all sessions revoked; the client must log in again
 
 persistence:
   entity: Univeros\Polaris\Entity\PasswordReset

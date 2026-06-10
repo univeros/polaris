@@ -11,17 +11,17 @@ threats and to OWASP ASVS / Top-10 categories.
 | Concern               | Choice                                                                 |
 | --------------------- | --------------------------------------------------------------------- |
 | Password hashing      | **Argon2id** via `password_hash`/`password_verify` (PHP 8.5 + sodium); `password_needs_rehash` on login |
-| Access-token signing  | **Asymmetric** JWT — RS256 (default) or EdDSA (Ed25519). Private key signs, public key verifies (JWKS) |
+| Access-token signing  | **Asymmetric** JWT: RS256 (default) or EdDSA (Ed25519). Private key signs, public key verifies (JWKS) |
 | Refresh tokens        | 256-bit CSPRNG opaque secret; stored as **HMAC-SHA256(secret, pepper)** |
 | OTP / reset / verify codes | CSPRNG; stored as **HMAC-SHA256(code, pepper)**; constant-time `hash_equals` |
 | TOTP shared secret    | 160-bit; **encrypted at rest** with `Altair\Security\Encrypter` (AES-256-CBC + HMAC) |
 | Pepper / app key      | Derived from the app key via **HKDF** (`Altair\Security\Support\HkdfKey`), separate context per use (`refresh`, `otp`, `recovery`) |
-| Randomness            | `random_bytes` / `random_int` only — never `mt_rand`/`uniqid`         |
+| Randomness            | `random_bytes` / `random_int` only; never `mt_rand`/`uniqid`          |
 
 **Why asymmetric JWT?** Resource servers (other Univeros services) verify tokens
 with the **public** key and can never mint them. The signing key lives only in
 the auth service. The framework's `LcobucciTokenGenerator` already implements
-asymmetric signing — Polaris configures it.
+asymmetric signing; Polaris configures it.
 
 **Secrets never stored in plaintext.** Anything that could replay an
 authentication (refresh tokens, OTP codes, reset/verify/invite tokens, recovery
@@ -33,10 +33,10 @@ to verify, are encrypted (reversible) rather than hashed.
 ## 2. Key management & rotation
 
 - **App key** (`APP_KEY`) seeds HKDF-derived peppers for HMAC and the
-  `Encrypter` key. Required at boot — the module **fails fast** if missing
+  `Encrypter` key. Required at boot: the module **fails fast** if missing
   (validated in `Module::apply()`), per the project security rules.
 - **JWT keypair**: private (`AUTH_JWT_PRIVATE_KEY`) + public
-  (`AUTH_JWT_PUBLIC_KEY`), PEM, provided via env / secret manager — never
+  (`AUTH_JWT_PUBLIC_KEY`), PEM, provided via env / secret manager, never
   committed. Each key has a `kid`.
 - **Rotation:** multiple public keys may be published at once at
   `/auth/.well-known/jwks.json` (`AUTH_JWT_PREVIOUS_PUBLIC_KEY` keeps the
@@ -45,7 +45,7 @@ to verify, are encrypted (reversible) rather than hashed.
   new key, switching the active `kid`, then retiring the old key after one
   access-TTL window. Ops procedure: [key-rotation.md](key-rotation.md).
 - **Pepper rotation** requires re-hashing on next use (refresh tokens naturally
-  rotate; OTPs are short-lived) — documented but rarely needed.
+  rotate; OTPs are short-lived). This is documented but rarely needed.
 
 ---
 
@@ -58,9 +58,9 @@ to verify, are encrypted (reversible) rather than hashed.
   `auth.refresh_reuse_detected` → the host can alert/force re-login. This detects
   refresh-token theft.
 - **Token transport:**
-  - *Default* — access + refresh returned in JSON; client stores access in memory
+  - *Default*: access + refresh returned in JSON; client stores access in memory
     and refresh in secure storage; sends `Authorization: Bearer`. No CSRF surface.
-  - *Cookie mode* (`flows.token_delivery: cookie`) — refresh in
+  - *Cookie mode* (`flows.token_delivery: cookie`): refresh in
     `HttpOnly; Secure; SameSite=Strict` cookie; the framework `CsrfMiddleware`
     guards cookie-authenticated mutations. Mitigates XSS token theft at the cost
     of CSRF handling.
@@ -68,7 +68,7 @@ to verify, are encrypted (reversible) rather than hashed.
   rejects them on normal routes by checking the `purpose` claim.
 - **Optional `jti` denylist** (`security.access_token.denylist`) for hosts
   needing instant access-token revocation (logout-everywhere takes effect
-  immediately) — a small cache lookup per request.
+  immediately); the cost is a small cache lookup per request.
 - **Audience/issuer pinning**: tokens carry and are validated against configured
   `iss`/`aud`, so a token for service A isn't accepted by service B.
 
@@ -126,7 +126,7 @@ include a **per-destination** key to prevent OTP-bombing a victim's phone/email.
 - All external input validated in readonly **Input DTOs** with `rules()` before
   reaching domain code (framework `InputParser` + rules). Email normalized;
   phone forced to E.164; enums whitelisted.
-- **SQL injection:** all persistence via Cycle ORM / parameterized queries — no
+- **SQL injection:** all persistence via Cycle ORM / parameterized queries; no
   string-built SQL.
 - **Mass assignment:** Inputs are explicit allow-lists of typed properties; no
   blind hydration of request bodies into entities.
@@ -197,7 +197,7 @@ include a **per-destination** key to prevent OTP-bombing a victim's phone/email.
 
 ## 11. Pre-implementation security checklist
 
-Mirrors the project security rules — to be satisfied before the module is
+Mirrors the project security rules, to be satisfied before the module is
 considered done (tracked in [testing.md](testing.md)):
 
 - [ ] No hardcoded secrets; `APP_KEY` + JWT keys from env, validated at boot.

@@ -1,4 +1,4 @@
-# POST /auth/password/forgot — request a password-reset link/OTP.
+# POST /auth/password/forgot: request a password-reset link/OTP.
 # Always returns a generic 202 whether or not the account exists (anti-enumeration).
 endpoint:
   method: POST
@@ -24,7 +24,7 @@ domain:
   method: forgot
   description: >
     Normalize email and look up the user. If found and active, create a single-use
-    password-reset challenge (token HMAC-hashed, 1h TTL — shorter than verification
+    password-reset challenge (token HMAC-hashed, 1h TTL, shorter than verification
     by design), record the request IP, and dispatch the reset notification. Unknown
     or non-active accounts are silently skipped. Always returns a generic success
     payload (anti-enumeration). Emits user.password_reset_requested.

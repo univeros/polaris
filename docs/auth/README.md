@@ -1,19 +1,19 @@
-# Polaris — Auth & User Management Module Specification
+# Polaris: Auth & User Management Module Specification
 
-> `univeros/polaris` — the drop-in authentication, MFA/OTP, and user/organization
+> `univeros/polaris` is the drop-in authentication, MFA/OTP, and user/organization
 > management module for any [Univeros](https://univeros.io) / Altair host app.
 
 Polaris is a **pluggable Univeros module**. A host registers one class in
 `config/modules.php` and gains a complete, production-grade identity stack:
 registration, email-verified login, JWT access tokens with rotating refresh
 tokens, multi-factor authentication (TOTP/QR, SMS OTP, email OTP), multi-tenant
-RBAC, and self-service account management — contributed as routes, Cycle
+RBAC, and self-service account management, all contributed as routes, Cycle
 entities, migrations, middleware, and container bindings with **no further host
 wiring**.
 
 This directory is the **authoritative specification**. It is written to be
 implemented through the Altair spec-driven workflow (`bin/altair spec:scaffold`),
-not hand-coded. Implementation has not started — these docs define *what* to
+not hand-coded. Implementation has not started; these docs define *what* to
 build and *why* before any code is written.
 
 ---
@@ -42,7 +42,7 @@ build and *why* before any code is written.
   `IdentityLinkInterface`, but no concrete providers ship in v1.
 - Acting as a full OAuth2 / OIDC **provider** for third parties. (A JWKS endpoint
   is included so resource servers can verify our tokens; full OIDC is future
-  work — see [implementation-plan.md](implementation-plan.md).)
+  work; see [implementation-plan.md](implementation-plan.md).)
 - WebAuthn / passkeys (planned v2; the MFA factor model is built to absorb it).
 - A UI. Polaris is a headless JSON API; hosts bring their own frontend.
 
@@ -115,28 +115,30 @@ Design rules (inherited from the project coding standards):
 
 Read in this order:
 
-1. **[data-model.md](data-model.md)** — entities, tables, columns, relationships,
+1. **[data-model.md](data-model.md)**: entities, tables, columns, relationships,
    indexes, and the migration set.
-2. **[flows.md](flows.md)** — registration, email verification, login, refresh
+2. **[flows.md](flows.md)**: registration, email verification, login, refresh
    rotation, sessions/devices, logout, password reset/change, org switching.
-3. **[mfa-otp.md](mfa-otp.md)** — TOTP (QR enrollment), SMS OTP, email OTP,
+3. **[mfa-otp.md](mfa-otp.md)**: TOTP (QR enrollment), SMS OTP, email OTP,
    recovery codes, MFA-on-login, and step-up authentication.
-4. **[rbac.md](rbac.md)** — organizations, memberships, roles, permissions,
+4. **[rbac.md](rbac.md)**: organizations, memberships, roles, permissions,
    invitations, and the authorization guard.
-5. **[api-reference.md](api-reference.md)** — the complete endpoint catalog with
+5. **[api-reference.md](api-reference.md)**: the complete endpoint catalog with
    request/response shapes, auth requirements, and error codes.
-6. **[security.md](security.md)** — threat model, cryptography, key management,
+6. **[security.md](security.md)**: threat model, cryptography, key management,
    rate limiting, lockout, and compliance considerations.
-7. **[configuration.md](configuration.md)** — module config schema, environment
+7. **[configuration.md](configuration.md)**: module config schema, environment
    variables, container bindings, and dependencies to add.
-8. **[events.md](events.md)** — the PSR-14 domain events Polaris emits.
-9. **[testing.md](testing.md)** — test strategy, fixtures, and acceptance criteria.
-10. **[implementation-plan.md](implementation-plan.md)** — phased build order,
+8. **[events.md](events.md)**: the PSR-14 domain events Polaris emits.
+9. **[testing.md](testing.md)**: test strategy, fixtures, and acceptance criteria.
+10. **[implementation-plan.md](implementation-plan.md)**: phased build order,
     composer changes, and the `spec:scaffold` command sequence.
 
-The executable counterpart of this spec lives in [`api/`](../../api/) — the YAML
-endpoint specs that `bin/altair spec:scaffold` turns into Action/Input/Responder/
-Domain/test/OpenAPI/route artifacts.
+The seed scaffolding specs live in [`api/`](../../api/): the YAML endpoint
+specs that `bin/altair spec:scaffold` (host-framework tooling) turns into
+Action/Input/Responder/Domain/test/OpenAPI/route artifacts. Now that the
+module is implemented, the contracts in [api-reference.md](api-reference.md)
+reflect the shipped code and supersede those seeds.
 
 ---
 
@@ -148,7 +150,7 @@ Domain/test/OpenAPI/route artifacts.
 - **Timestamps:** UTC, stored as `datetime`, named `*_at`.
 - **Secrets at rest:** TOTP secrets are **encrypted** (`Altair\Security\Encrypter`);
   refresh tokens, OTP codes, reset/verification tokens, and recovery codes are
-  stored only as **HMAC-SHA256 hashes** (with a server pepper) — never plaintext.
+  stored only as **HMAC-SHA256 hashes** (with a server pepper), never plaintext.
 - **API envelope:** success → `{ "data": … }`; error → RFC 9457 Problem Details
   (`application/problem+json`) with a stable `type`/`code`. See
   [api-reference.md](api-reference.md#error-format).

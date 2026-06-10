@@ -1,4 +1,4 @@
-# POST /auth/mfa/challenge — send an OTP for an sms/email factor during the
+# POST /auth/mfa/challenge: send an OTP for an sms/email factor during the
 # login-MFA or step-up ceremony. Authenticated by the short-lived mfa_token
 # (login) or a normal bearer token (step-up). TOTP factors skip this step.
 endpoint:
