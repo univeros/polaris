@@ -1,49 +1,34 @@
-# POST /auth/mfa/totp/enroll: start TOTP enrollment; returns secret + QR.
-# Confirm with a code via api/auth/mfa/totp-confirm.yaml before it can satisfy MFA.
+# POST /auth/mfa/totp/enroll: start authenticator-app enrollment; returns the secret, otpauth URI and QR.
 endpoint:
   method: POST
   path: /auth/mfa/totp/enroll
   summary: Begin TOTP (authenticator app) enrollment
   tags: [auth, mfa]
-  auth: bearer                     # must be logged in
-  query:
-    format:
-      type: ?string
-      rules: ["in:svg,png"]        # QR render format, default svg
+  auth: bearer
+  rate_limit: mfa_enroll
 
 input:
-  class: Univeros\Polaris\Http\Inputs\TotpEnrollInput
-  source: body
-  fields:
-    label:
-      type: ?string
-      rules: ["max:80"]            # e.g. "iPhone Authenticator"
+  source: none
 
 domain:
-  class: Univeros\Polaris\Domain\MfaService
-  method: enrollTotp
+  class: Univeros\Polaris\Http\Auth\TotpEnrollDomain
   description: >
-    Generate a 160-bit base32 secret (spomky-labs/otphp), persist an UNCONFIRMED
-    totp factor with the secret encrypted (Altair\Security\Encrypter), build the
-    otpauth:// provisioning URI (issuer from otp.totp.issuer) and render it as a
-    QR code (endroid/qr-code; svg default, png on request). The raw secret is
-    returned ONCE for manual entry; never returned after confirmation.
+    Creates an unconfirmed TOTP factor for the authenticated user and returns
+    the factor id, the base32 secret, the otpauth:// provisioning URI for
+    manual or scan setup, and a rendered SVG QR code. The secret is shown only
+    in this response; it is never returned again. The factor cannot satisfy
+    MFA until confirmed via POST /auth/mfa/totp/confirm.
 
 output:
   status: 200
-  responder: Univeros\Polaris\Http\Responders\TotpEnrollResponder
   example:
     data:
-      factor_id: "018f…"
+      factor_id: "018f63a2-7c1e-7a90-b3d4-1f2e3c4d5a6b"
       secret: "JBSWY3DPEHPK3PXP"
-      otpauth_uri: "otpauth://totp/Acme:ada@example.com?secret=JBSW…&issuer=Acme&digits=6&period=30"
-      qr_svg: "<svg …>…</svg>"
-
-persistence:
-  entity: Univeros\Polaris\Entity\MfaFactor
-  table: auth_mfa_factors
-  repository: Univeros\Polaris\Repository\MfaFactorRepository
+      otpauth_uri: "otpauth://totp/Polaris:ada@example.com?secret=JBSWY3DPEHPK3PXP&issuer=Polaris&digits=6&period=30"
+      qr_svg: "<svg xmlns=\"http://www.w3.org/2000/svg\">...</svg>"
 
 errors:
-  - { status: 401, code: invalid_token }
-  - { status: 422, code: validation_failed }
+  - { status: 401, code: unauthorized }
+
+events: []

@@ -1,0 +1,31 @@
+# POST /auth/email/verify/resend: re-issue an email-verification challenge.
+# Always a generic 202 (anti-enumeration).
+endpoint:
+  method: POST
+  path: /auth/email/verify/resend
+  summary: Resend the verification email
+  tags: [auth]
+  auth: public
+  rate_limit: token_consume
+
+input:
+  source: body
+  fields:
+    email: { type: string, rules: [required, email, "max:320"] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\ResendVerificationDomain
+  description: >
+    Re-issues an email-verification challenge. Always returns a generic 202
+    whether or not the account exists; internally the message is resent only
+    for a known, still-unverified account.
+
+output:
+  status: 202
+  example:
+    message: "If the address is registered and unverified, a new verification message has been sent."
+
+errors:
+  - { status: 422, code: validation_failed }
+
+events: []

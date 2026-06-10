@@ -1,0 +1,36 @@
+# DELETE /orgs/{id}/invites/{inviteId}: revoke a pending invitation.
+endpoint:
+  method: DELETE
+  path: /orgs/{id}/invites/{inviteId}
+  summary: Revoke a pending invitation
+  tags: [orgs, invites]
+  auth: bearer
+  requires_permissions: [members.invite]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+    inviteId: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\RevokeInviteDomain
+  description: >
+    Deletes the pending invitation; its emailed token becomes useless. The
+    cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. Revoking another org's invitation is indistinguishable from an
+    unknown one (404), as is an already-accepted invitation.
+
+output:
+  status: 200
+  example:
+    data:
+      revoked: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }
+  - { status: 404, code: not_found }     # unknown, foreign, or already accepted
+
+events: []

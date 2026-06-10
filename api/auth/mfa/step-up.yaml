@@ -1,0 +1,42 @@
+# POST /auth/mfa/step-up: re-verify a factor while logged in; returns a fresh access token with a new auth_time.
+endpoint:
+  method: POST
+  path: /auth/mfa/step-up
+  summary: Complete a step-up re-authentication
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_confirm
+
+input:
+  source: body
+  fields:
+    code: { type: string, rules: [required] }
+    factor_id: { type: string, rules: [optional] }            # omit for the recovery-code path
+    type: { type: string, rules: [optional, "in:recovery"] }  # "recovery" forces the recovery-code path
+
+domain:
+  class: Univeros\Polaris\Http\Auth\StepUpVerifyDomain
+  description: >
+    On a live bearer session, checks the code against the named factor or,
+    when factor_id is omitted or type=recovery, against the user's recovery
+    codes. Success returns a fresh access token for the SAME session (bound to
+    the token's sid) with a new auth_time and no refresh-token rotation; use
+    it to clear 401 step_up_required on the step-up-gated routes. If the
+    session ended (logout) while the access token was still valid, the
+    response is 401.
+
+output:
+  status: 200
+  example:
+    data:
+      access_token: "eyJhbGciOiJSUzI1NiIs..."
+      token_type: Bearer
+
+errors:
+  - { status: 401, code: unauthorized }        # bad token, or the session ended (re-login required)
+  - { status: 404, code: not_found }           # unknown or foreign factor
+  - { status: 422, code: invalid_code }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} when code is missing
+
+events: [mfa.step_up_completed, mfa.recovery_used, mfa.verify_failed, otp.verify_failed]
+# mfa.recovery_used only when a recovery code was spent; *_failed only on failure.

@@ -1,0 +1,40 @@
+# GET /orgs/{id}/invites: list the organization's pending invitations.
+endpoint:
+  method: GET
+  path: /orgs/{id}/invites
+  summary: List pending invitations
+  tags: [orgs, invites]
+  auth: bearer
+  requires_permissions: [members.invite]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ListInvitesDomain
+  description: >
+    Lists pending (unaccepted, unexpired) invitations only; expired rows are
+    hidden, since re-inviting the same email recycles them with a fresh token
+    and expiry. Whoever may send invitations may see the outstanding ones.
+    The cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. Tokens are never returned.
+
+output:
+  status: 200
+  example:
+    data:
+      - id: "018f6f2a-7777-7888-8999-0123456789ef"
+        email: newhire@example.test
+        role_slugs: [member]
+        invited_by: "018f6f2a-1111-7222-8333-0123456789ab"
+        expires_at: "2026-06-18T12:00:00+00:00"
+        created_at: "2026-06-11T12:00:00+00:00"
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }
+
+events: []

@@ -1,0 +1,41 @@
+# PATCH /auth/mfa/factors/{id}: relabel a factor and/or make it the default.
+endpoint:
+  method: PATCH
+  path: /auth/mfa/factors/{id}
+  summary: Update a factor's label or default flag
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_enroll
+
+input:
+  source: body           # plus the {id} path parameter naming the factor
+  fields:
+    label: { type: string, rules: [optional] }       # omitted leaves it unchanged; empty string clears it
+    default: { type: boolean, rules: [optional] }    # true makes this factor the default
+
+domain:
+  class: Univeros\Polaris\Http\Auth\UpdateFactorDomain
+  description: >
+    Updates one of the authenticated user's factors. An omitted label is left
+    unchanged while an empty label clears it; default=true makes the factor
+    the default. Only a confirmed factor may become the default
+    (422 invalid_state otherwise). Returns the updated factor in the
+    management shape. An unknown or foreign factor is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f63a2-7c1e-7a90-b3d4-1f2e3c4d5a6b"
+      type: sms
+      default: true
+      label: "Work phone"
+      destination: "+1 *** *** 0101"
+      confirmed: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 404, code: not_found }        # unknown or foreign factor
+  - { status: 422, code: invalid_state }    # making an unconfirmed factor the default
+
+events: []

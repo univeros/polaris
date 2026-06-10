@@ -1,57 +1,35 @@
 # POST /auth/register: create an account and trigger email verification.
-# Generic 202 response regardless of whether the email already exists.
+# Always a generic 202 whether or not the address was new (no account-existence oracle).
 endpoint:
   method: POST
   path: /auth/register
   summary: Register a new user account
   tags: [auth]
-  auth: none                       # public endpoint (skipped by auth middleware rule)
-  rate_limit:
-    keys: [ip]
-    budget: "5/hour"
+  auth: public
+  rate_limit: register
 
 input:
-  class: Univeros\Polaris\Http\Inputs\RegisterInput
   source: body
   fields:
-    email:
-      type: string
-      rules: [required, email, "max:320", lowercase, trim]
-    password:
-      type: string
-      rules: [required, string, "min:12"]   # breach check applied in domain
-      sensitive: true                        # never logged/echoed
-    display_name:
-      type: ?string
-      rules: ["max:120"]
+    email: { type: string, rules: [required, email, "max:320"] }
+    password: { type: string, rules: [required, password_policy], sensitive: true }
+    display_name: { type: "?string", rules: ["max:120"] }
 
 domain:
-  class: Univeros\Polaris\Domain\RegistrationService
+  class: Univeros\Polaris\Http\Auth\RegisterDomain
   description: >
-    Normalize email, enforce password policy + breach check, hash with Argon2id,
-    create the user (email_verified_at=null), create an email-verification
-    challenge, and dispatch the user.registered event. Always returns a generic
-    success payload (anti-enumeration).
+    Registers the user and triggers email verification. Always returns a generic
+    202 message regardless of whether the address already exists
+    (anti-enumeration); a verification email is sent for new accounts only.
+    A 422 is returned only for invalid input or a password-policy failure,
+    which is about the submitted input, not account existence.
 
 output:
   status: 202
-  responder: Univeros\Polaris\Http\Responders\GenericStatusResponder
   example:
-    data:
-      status: verification_sent
-
-# Cycle entity + repository + migration emitted from this block.
-persistence:
-  entity: Univeros\Polaris\Entity\User
-  table: auth_users
-  repository: Univeros\Polaris\Repository\UserRepository
-
-# Side effects run async on the host's message bus.
-queue:
-  - message: Univeros\Polaris\Message\SendEmailVerification
-    handler: Univeros\Polaris\Handler\SendEmailVerificationHandler
-    description: Sends the verification link/OTP via OtpMailerInterface.
+    message: "If the address can be registered, a verification message has been sent."
 
 errors:
-  - { status: 422, code: validation_failed }
-  - { status: 429, code: too_many_requests }
+  - { status: 422, code: validation_failed }   # body is {"errors": ["..."]}; includes password-policy violations
+
+events: [user.registered]

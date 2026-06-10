@@ -1,0 +1,39 @@
+# POST /auth/switch-org: re-scope the current session to another organization.
+endpoint:
+  method: POST
+  path: /auth/switch-org
+  summary: Switch the active organization
+  tags: [auth]
+  auth: bearer
+
+input:
+  source: body
+  fields:
+    organization_id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\SwitchOrgDomain
+  description: >
+    Re-scopes the current session to an organization the caller is an active
+    member of, returning a fresh access token carrying that org's
+    org/roles/scope claims. The live session is re-pointed too, so subsequent
+    refreshes stay scoped to the new org. A soft-deleted org is
+    indistinguishable from an unknown one (404).
+
+output:
+  status: 200
+  example:
+    data:
+      access_token: "<jwt>"
+      token_type: Bearer
+      expires_in: 900
+      org: "018f..."
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: session_ended }   # the session was revoked mid-flight
+  - { status: 403, code: forbidden }       # not an active member of that organization
+  - { status: 404, code: not_found }       # unknown or soft-deleted organization
+  - { status: 422, code: validation_failed }
+
+events: [auth.org_switched]

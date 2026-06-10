@@ -1,0 +1,31 @@
+# DELETE /auth/sessions/{id}: revoke one session the caller owns.
+endpoint:
+  method: DELETE
+  path: /auth/sessions/{id}
+  summary: Revoke a session
+  tags: [auth]
+  auth: bearer
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }   # the session id (sid / refresh-token family)
+
+domain:
+  class: Univeros\Polaris\Http\Auth\RevokeSessionDomain
+  description: >
+    Revokes a specific session belonging to the authenticated user. A session
+    that does not exist or belongs to another user returns the same 404 (no
+    cross-user disclosure).
+
+output:
+  status: 200
+  example:
+    data: { status: revoked }
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 404, code: not_found }   # unknown session, or owned by someone else
+  - { status: 422, code: validation_failed }
+
+events: []

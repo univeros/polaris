@@ -1,0 +1,46 @@
+# GET /orgs/{id}/roles: list the organization's roles with their permission keys.
+endpoint:
+  method: GET
+  path: /orgs/{id}/roles
+  summary: List the organization's roles
+  tags: [orgs, roles]
+  auth: bearer
+  requires_permissions: [roles.read]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ListRolesDomain
+  description: >
+    Lists every role in the org, both the cloned system templates
+    (owner/admin/member, is_system true) and custom roles, each with its
+    permission keys. The global superadmin role is unreachable through org
+    paths. The cross-tenant active-org guard applies: the path org must
+    equal the caller's active org or the request is 403 forbidden;
+    superadmin is exempt.
+
+output:
+  status: 200
+  example:
+    data:
+      - id: "018f6f2a-aaaa-7bbb-8ccc-0123456789ab"
+        name: Owner
+        slug: owner
+        description: null
+        is_system: true
+        permission_keys: [org.read, org.update, org.delete, members.read, members.invite, members.update, members.remove, roles.read, roles.manage, audit.read]
+      - id: "018f6f2a-bbbb-7ccc-8ddd-0123456789cd"
+        name: Support
+        slug: support
+        description: "Read-only support staff"
+        is_system: false
+        permission_keys: [org.read, members.read]
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }
+
+events: []

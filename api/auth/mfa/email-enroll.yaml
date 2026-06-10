@@ -1,0 +1,37 @@
+# POST /auth/mfa/email/enroll: start email factor enrollment; emails a code to the destination.
+endpoint:
+  method: POST
+  path: /auth/mfa/email/enroll
+  summary: Begin email factor enrollment
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_send
+
+input:
+  source: body
+  fields:
+    email: { type: string, rules: [optional, email, "max:320"] }   # defaults to the account email
+
+domain:
+  class: Univeros\Polaris\Http\Auth\EmailEnrollDomain
+  description: >
+    Creates an unconfirmed email factor for the authenticated user and emails
+    a verification code. The destination defaults to the user's account email
+    when none is given; a supplied address must be a valid email of at most
+    320 octets. Returns the factor id and the masked destination. Confirm at
+    /auth/mfa/email/confirm. A per-destination/per-account send budget or
+    resend cooldown yields 429 rate_limited.
+
+output:
+  status: 200
+  example:
+    data:
+      factor_id: "018f63a2-7c1e-7a90-b3d4-1f2e3c4d5a6b"
+      destination: "a***@example.com"
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} for an invalid address
+  - { status: 429, code: rate_limited }
+
+events: [otp.sent]

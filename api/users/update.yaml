@@ -1,0 +1,39 @@
+# PATCH /users/{id}: update a user's profile (self, or admin scope).
+endpoint:
+  method: PATCH
+  path: /users/{id}
+  summary: Update a user's profile
+  tags: [users]
+  auth: bearer
+
+input:
+  source: body
+  fields:
+    display_name: { type: "?string", rules: [string, "max:120"] }
+
+domain:
+  class: Univeros\Polaris\Http\Users\UpdateUserDomain
+  description: >
+    Updates the profile (currently the display name, 120 characters max).
+    Self-access works without any permission key; updating another user
+    requires the admin-scoped users.manage key (held only by superadmin),
+    resolved from the database. The service enforces self-or-permission, and
+    the permission check runs before any existence check, so non-admins
+    learn nothing about unknown ids (403, not 404).
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f6f2a-1111-7222-8333-0123456789ab"
+      email: ada@example.test
+      display_name: "Ada L."
+      status: active
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # another user's record without users.manage
+  - { status: 404, code: not_found }     # admins (or self) only
+  - { status: 422, code: validation_failed }
+
+events: []

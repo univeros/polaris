@@ -1,0 +1,46 @@
+# POST /orgs/{id}/roles: create a custom role.
+endpoint:
+  method: POST
+  path: /orgs/{id}/roles
+  summary: Create a custom role
+  tags: [orgs, roles]
+  auth: bearer
+  requires_permissions: [roles.manage]
+
+input:
+  source: body
+  fields:
+    name: { type: string, rules: [required, string] }       # non-empty after trimming
+    slug: { type: string, rules: [required, "regex:/^[a-z0-9-]+$/"] }   # unique within the org
+    description: { type: "?string", rules: [] }
+    permission_keys: { type: "list<string>", rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\CreateRoleDomain
+  description: >
+    Creates a custom (non-system) role. Every permission key must exist in
+    the catalog (422 otherwise) and be held by the actor: the escalation
+    guard, enforced from database-resolved authority, forbids granting keys
+    above the actor's own authority (403). The slug must be unique in the
+    org (409 conflict). The cross-tenant active-org guard applies: the path
+    org must equal the caller's active org or the request is 403 forbidden;
+    superadmin is exempt.
+
+output:
+  status: 201
+  example:
+    data:
+      id: "018f6f2a-bbbb-7ccc-8ddd-0123456789cd"
+      name: Support
+      slug: support
+      description: "Read-only support staff"
+      is_system: false
+      permission_keys: [org.read, members.read]
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # escalation guard, or cross-tenant
+  - { status: 409, code: conflict }      # slug already used in this org
+  - { status: 422, code: validation_failed }   # empty name, malformed slug, or unknown permission key
+
+events: [role.created]

@@ -1,0 +1,35 @@
+# POST /users/{id}/enable: re-enable a disabled or locked account.
+endpoint:
+  method: POST
+  path: /users/{id}/enable
+  summary: Re-enable a user account
+  tags: [users]
+  auth: bearer
+  requires_permissions: [users.manage]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }   # empty body
+
+domain:
+  class: Univeros\Polaris\Http\Users\EnableUserDomain
+  description: >
+    Admin tooling: reactivates a disabled (or locked) account and clears the
+    lockout counters. Gated on the admin-scoped users.manage key (held only
+    by superadmin), resolved from the database. Re-enabling a deleted
+    tombstone is refused with 409 conflict.
+
+output:
+  status: 200
+  example:
+    data:
+      status: active
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }
+  - { status: 404, code: not_found }
+  - { status: 409, code: conflict }      # re-enabling a deleted tombstone
+
+events: [user.enabled]

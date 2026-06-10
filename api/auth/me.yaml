@@ -1,0 +1,34 @@
+# GET /auth/me: the authenticated user's identity.
+endpoint:
+  method: GET
+  path: /auth/me
+  summary: Read the authenticated identity
+  tags: [auth]
+  auth: bearer
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Auth\MeDomain
+  description: >
+    Returns the authenticated user's identity record. The orgs and roles
+    fields are returned as empty collections in the current implementation.
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f..."
+      email: "ada@example.com"
+      email_verified: true
+      display_name: "Ada Lovelace"
+      status: active
+      mfa_enforced: false
+      orgs: []
+      roles: []
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: []

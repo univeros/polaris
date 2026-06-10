@@ -1,0 +1,37 @@
+# POST /auth/password/change: change the password while authenticated.
+# Step-up gated; keeps the caller's session and revokes every other one.
+endpoint:
+  method: POST
+  path: /auth/password/change
+  summary: Change the password
+  tags: [auth]
+  auth: bearer
+  step_up: true
+
+input:
+  source: body
+  fields:
+    current_password: { type: string, rules: [required], sensitive: true }
+    new_password: { type: string, rules: [required, password_policy], sensitive: true }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\ChangePasswordDomain
+  description: >
+    Changes the password for the authenticated user after re-verifying the
+    current password. Every other session is revoked; the caller's current
+    session stays alive. Step-up gated: users with a confirmed MFA factor and
+    a stale auth_time get 401 step_up_required first.
+
+output:
+  status: 200
+  example:
+    data: { status: password_changed }   # every other session revoked; this one survives
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }    # stale auth_time; clear via /auth/mfa/step-up
+  - { status: 403, code: invalid_credentials } # wrong current password
+  - { status: 403, code: account_disabled }
+  - { status: 422, code: validation_failed }   # missing fields, or password-policy violations
+
+events: [user.password_changed]   # method: change

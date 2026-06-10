@@ -74,7 +74,7 @@ cannot hold rate limits across workers).
   `POST /auth/switch-org` re-points the session and mints a token with that
   org's `roles`/`scope`. All `/orgs/{id}...` calls must use the active org.
 
-## 4. Route table (53 endpoints)
+## 4. Route table (52 endpoints)
 
 Full contracts (request fields, every status code, envelopes):
 `docs/auth/api-reference.md`. Envelope conventions: success `{"data": ...}`,

@@ -1,0 +1,40 @@
+# DELETE /orgs/{id}: soft-delete the organization.
+endpoint:
+  method: DELETE
+  path: /orgs/{id}
+  summary: Soft-delete the organization
+  tags: [orgs]
+  auth: bearer
+  requires_permissions: [org.delete]
+  step_up: true
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\DeleteOrganizationDomain
+  description: >
+    Soft delete: the organization's status becomes suspended, every member's
+    org authority disappears on their next resolution, org-scoped sessions
+    are revoked, and pending invites die. A soft-deleted org reads as 404
+    everywhere afterwards. Gated on org.delete (held only by owners) plus a
+    recent step-up (a stale auth_time is 401 step_up_required). The
+    cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. Purge-per-retention is ops tooling, not this API.
+
+output:
+  status: 200
+  example:
+    data:
+      deleted: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }
+  - { status: 403, code: forbidden }
+  - { status: 404, code: not_found }     # unknown or already soft-deleted
+
+events: [org.deleted]

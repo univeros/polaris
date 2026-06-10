@@ -149,10 +149,13 @@ With a confirmed factor, the password step does **not** open a session; `200`:
 
 ```json
 {"data": {"mfa_required": true, "mfa_token": "<login_mfa ticket>",
-          "factors": [{"id": "...", "type": "totp|sms|email", "label": null,
-                       "masked_destination": "+1 *** *** 0101",
-                       "is_default": true, "confirmed": true}]}}
+          "factors": [{"id": "...", "type": "totp|sms|email", "default": true,
+                       "label": "iPhone", "destination": "+1 *** *** 0101"}]}}
 ```
+
+(`label` and `destination` appear only when set; `destination` is masked. The
+factor-management list at `GET /auth/mfa/factors` uses the same shape plus a
+`confirmed` flag.)
 
 The client completes the gate via `/auth/mfa/challenge` + `/auth/mfa/verify`
 (or directly `/auth/mfa/verify` for TOTP and recovery codes).
@@ -247,7 +250,7 @@ the caller's stays. `403 invalid_credentials` for a wrong current password,
 only here. `sms/enroll` takes `phone_e164` (E.164 format); `email/enroll`
 takes an optional `email` (defaults to the account address). Both send a code
 and return `{"data":{"factor_id","destination"}}` with the destination masked.
-`422 rate_limited` when the per-destination/per-account send budget or resend
+`429 rate_limited` when the per-destination/per-account send budget or resend
 cooldown applies.
 
 Every `*/confirm` takes `factor_id` + `code` and returns
@@ -373,9 +376,9 @@ claims):
 
 `POST .../invites` takes `email` + `role_slugs`; the escalation guard applies
 to the granted roles. `201` with
-`{"data":{"id","email","role_slugs","expires_at","created_at"}}`; the token is
-delivered by email (via the `member.invited` event), never returned by the
-API. Re-inviting the same email rotates the token and extends the expiry (one
+`{"data":{"id","email","role_slugs","expires_at"}}` (the pending list at
+`GET .../invites` adds `created_at` and `invited_by`); the token is delivered
+by email (via the `member.invited` event), never returned by the API. Re-inviting the same email rotates the token and extends the expiry (one
 pending invite per email per org). `409` when the email is already an active
 member; `422` when the address belongs to a suspended member.
 

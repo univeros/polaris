@@ -1,0 +1,45 @@
+# GET /orgs/{id}/members: list the organization's members with their roles.
+endpoint:
+  method: GET
+  path: /orgs/{id}/members
+  summary: List the organization's members
+  tags: [orgs, members]
+  auth: bearer
+  requires_permissions: [members.read]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ListMembersDomain
+  description: >
+    Lists the members with user_id, email, display_name, status
+    (active|invited|suspended), and role slugs. The cross-tenant active-org
+    guard applies: the path org must equal the caller's active org or the
+    request is 403 forbidden; superadmin is exempt. Email gating: invited and
+    suspended members' emails are null unless the caller also holds
+    members.invite (database-resolved); active members' emails are always
+    present.
+
+output:
+  status: 200
+  example:
+    data:
+      - user_id: "018f6f2a-1111-7222-8333-0123456789ab"
+        email: owner@acme.test
+        display_name: "Ada Owner"
+        status: active
+        roles: [owner]
+      - user_id: "018f6f2a-4444-7555-8666-0123456789cd"
+        email: null                      # invited member, caller lacks members.invite
+        display_name: null
+        status: invited
+        roles: [member]
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # missing members.read, or not the caller's active org
+
+events: []

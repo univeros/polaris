@@ -1,0 +1,34 @@
+# POST /auth/mfa/recovery-codes/regenerate: retire the old recovery codes and return a fresh batch of ten.
+endpoint:
+  method: POST
+  path: /auth/mfa/recovery-codes/regenerate
+  summary: Regenerate the recovery-code batch
+  tags: [auth, mfa]
+  auth: bearer
+  step_up: true          # requires now - auth_time <= security.step_up.max_age
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Auth\RegenerateRecoveryCodesDomain
+  description: >
+    Step-up gated (StepUpMiddleware rejects a stale session with
+    401 step_up_required before the domain runs). Retires the user's prior
+    recovery-code batch and returns ten fresh plaintext codes, shown once and
+    stored hashed.
+
+output:
+  status: 200
+  example:
+    data:
+      recovery_codes:
+        - "k3v9-d72m-q1xz"
+        - "p8wn-44tr-m0ce"
+        - "..."
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }   # stale auth_time; complete /auth/mfa/step-up first
+
+events: [mfa.recovery_regenerated]

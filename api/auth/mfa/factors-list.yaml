@@ -1,0 +1,39 @@
+# GET /auth/mfa/factors: list the authenticated user's MFA factors, including pending ones.
+endpoint:
+  method: GET
+  path: /auth/mfa/factors
+  summary: List the caller's MFA factors
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_enroll
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Auth\MfaFactorsDomain
+  description: >
+    Returns every factor the authenticated user has, confirmed and pending,
+    with masked destinations. Each factor carries id, type, default and
+    confirmed; label and destination appear only when set.
+
+output:
+  status: 200
+  example:
+    data:
+      factors:
+        - id: "018f63a2-7c1e-7a90-b3d4-1f2e3c4d5a6b"
+          type: totp
+          default: true
+          label: "iPhone Authenticator"
+          confirmed: true
+        - id: "018f63a2-9e4f-7b21-8c5d-2a3b4c5d6e7f"
+          type: sms
+          default: false
+          destination: "+1 *** *** 0101"
+          confirmed: false
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: []

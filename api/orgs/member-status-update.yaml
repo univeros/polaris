@@ -1,0 +1,41 @@
+# PATCH /orgs/{id}/members/{userId}: suspend or reactivate a member.
+endpoint:
+  method: PATCH
+  path: /orgs/{id}/members/{userId}
+  summary: Change a member's status (suspend or reactivate)
+  tags: [orgs, members]
+  auth: bearer
+  requires_permissions: [members.update]
+
+input:
+  source: body
+  fields:
+    status: { type: string, rules: [required, "in:active,suspended"] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ChangeMemberStatusDomain
+  description: >
+    Suspends or reactivates a membership. Suspending immediately revokes the
+    member's sessions scoped to this org; a still-invited member cannot be
+    suspended (409). The cross-tenant active-org guard applies: the path org
+    must equal the caller's active org or the request is 403 forbidden;
+    superadmin is exempt. Invariants enforced from database-resolved
+    authority: owner protection (only an owner or superadmin may suspend an
+    owner, 403) and last-owner protection (the last active owner cannot be
+    suspended, 409 conflict, absolute even for superadmins).
+
+output:
+  status: 200
+  example:
+    data:
+      user_id: "018f6f2a-4444-7555-8666-0123456789cd"
+      status: suspended
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # owner-protection guard, or cross-tenant
+  - { status: 404, code: not_found }     # not a member of this org
+  - { status: 409, code: conflict }      # last-owner protection, or suspending an invited member
+  - { status: 422, code: validation_failed }
+
+events: [member.status_changed]

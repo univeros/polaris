@@ -1,0 +1,42 @@
+# POST /auth/mfa/totp/confirm: confirm a pending TOTP factor with a code from the authenticator.
+endpoint:
+  method: POST
+  path: /auth/mfa/totp/confirm
+  summary: Confirm a pending TOTP factor
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_confirm
+
+input:
+  source: body
+  fields:
+    factor_id: { type: string, rules: [required] }
+    code: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\TotpConfirmDomain
+  description: >
+    Verifies the authenticator code against the named pending TOTP factor and
+    marks it confirmed. When this is the user's FIRST confirmed factor, the
+    response also carries the ten one-time recovery codes (shown once, stored
+    hashed); subsequent confirmations return only the status. A wrong,
+    expired, exhausted, or replayed code is 422 invalid_code; an unknown or
+    foreign factor is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      status: confirmed
+      recovery_codes:       # present ONLY when this is the first confirmed factor
+        - "k3v9-d72m-q1xz"
+        - "p8wn-44tr-m0ce"
+        - "..."
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 404, code: not_found }
+  - { status: 422, code: invalid_code }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} for missing fields
+
+events: [mfa.enrolled]   # fires only on the user's first confirmed factor

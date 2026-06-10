@@ -1,0 +1,32 @@
+# GET /permissions: the full permission catalog.
+endpoint:
+  method: GET
+  path: /permissions
+  summary: List the permission catalog
+  tags: [permissions]
+  auth: bearer
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ListPermissionsDomain
+  description: >
+    Returns the full permission catalog (Polaris core plus any
+    host-contributed keys), for building role-management UIs. Authenticated
+    but not permission-gated: the catalog is the same for every tenant and
+    carries no org data, and a member needs it to render role pickers.
+
+output:
+  status: 200
+  example:
+    data:
+      - { key: org.read, description: "View the organization profile" }
+      - { key: org.update, description: "Edit organization name and settings" }
+      - { key: members.read, description: "List organization members" }
+      - { key: roles.manage, description: "Create, update and delete custom roles" }
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: []

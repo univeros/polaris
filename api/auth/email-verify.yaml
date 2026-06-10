@@ -1,0 +1,32 @@
+# POST /auth/email/verify: confirm an email address from its verification token.
+endpoint:
+  method: POST
+  path: /auth/email/verify
+  summary: Verify an email address
+  tags: [auth]
+  auth: public
+  rate_limit: token_consume
+
+input:
+  source: body
+  fields:
+    token: { type: string, rules: [required], sensitive: true }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\VerifyEmailDomain
+  description: >
+    Confirms the email address bound to the single-use verification token.
+    Idempotent: a token for an already-verified user still returns 200. A bad
+    or expired token returns a generic 400 that reveals nothing about which
+    condition failed.
+
+output:
+  status: 200
+  example:
+    message: "Email verified."
+
+errors:
+  - { status: 400, code: null }   # invalid or expired token; body is {"message": "..."} with no error code
+  - { status: 422, code: validation_failed }
+
+events: [user.email_verified]   # first verification only
