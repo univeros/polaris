@@ -5,8 +5,6 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests\Functional;
 
 use DateTimeImmutable;
-use Psr\Http\Message\ResponseInterface;
-use Laminas\Diactoros\ServerRequestFactory;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Event\UserRegistered;
 
@@ -274,18 +272,5 @@ final class MembershipEndpointsTest extends FunctionalTestCase
         }
 
         self::fail("No row in $table for the given criteria.");
-    }
-
-    /**
-     * @param array<string, mixed> $body
-     */
-    private function authedPatch(string $path, array $body, string $token): ResponseInterface
-    {
-        $request = (new ServerRequestFactory())->createServerRequest('PATCH', $path)
-            ->withHeader('Content-Type', 'application/json')
-            ->withHeader('Authorization', 'Bearer ' . $token)
-            ->withParsedBody($body);
-
-        return $this->harness->handle($request);
     }
 }

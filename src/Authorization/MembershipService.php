@@ -7,15 +7,18 @@ namespace Univeros\Polaris\Authorization;
 use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use InvalidArgumentException;
+use Psr\Clock\ClockInterface;
 use Univeros\Polaris\Entity\Membership;
 use Univeros\Polaris\Entity\MembershipRole;
 use Univeros\Polaris\Entity\Permission;
+use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
 use Univeros\Polaris\Entity\User;
 use Univeros\Polaris\Exception\AuthorizationException;
 use Univeros\Polaris\Exception\LastOwnerException;
 use Univeros\Polaris\Exception\MemberNotFoundException;
+use Univeros\Polaris\Identity\SessionService;
 
 use function array_fill_keys;
 use function array_keys;
@@ -55,6 +58,8 @@ final class MembershipService
         private readonly RepositoryInterface $users,
         private readonly PermissionResolver $resolver,
         private readonly UnitOfWorkInterface $unitOfWork,
+        private readonly SessionService $sessions,
+        private readonly ClockInterface $clock,
     ) {
     }
 
@@ -127,6 +132,56 @@ final class MembershipService
             $this->unitOfWork->persist($link);
         }
         $this->unitOfWork->flush();
+    }
+
+    /**
+     * Suspend or reactivate a member (`docs/auth/rbac.md` §7).
+     *
+     * Suspending immediately revokes the member's refresh-token sessions whose current context is
+     * this organization (reason `admin`); their other sessions are untouched. Reactivating restores
+     * the membership — the member regains authority on their next token resolution.
+     *
+     * @throws MemberNotFoundException  the target is not a member of the org
+     * @throws InvalidArgumentException a status other than active/suspended, or the member is still invited
+     * @throws AuthorizationException   a non-owner changing an owner's status
+     * @throws LastOwnerException       suspending the last active owner
+     */
+    public function changeStatus(string $actorUserId, string $organizationId, string $targetUserId, string $status): void
+    {
+        if (!in_array($status, [Membership::STATUS_ACTIVE, Membership::STATUS_SUSPENDED], true)) {
+            throw new InvalidArgumentException('status must be "active" or "suspended".');
+        }
+
+        $target = $this->memberOrFail($organizationId, $targetUserId);
+        if ($target->status === Membership::STATUS_INVITED) {
+            throw new InvalidArgumentException('The member has not accepted their invitation yet.');
+        }
+
+        $actor = $this->resolver->resolve($actorUserId, $organizationId);
+        $targetIsOwner = in_array(PermissionCatalog::ROLE_OWNER, $this->roleSlugsOf($target->id), true);
+
+        if (!$this->isSuperadmin($actor) && $targetIsOwner && !$this->isOwner($actor)) {
+            throw new AuthorizationException("Only an owner can change an owner's status.");
+        }
+
+        $suspending = $status === Membership::STATUS_SUSPENDED && $target->status === Membership::STATUS_ACTIVE;
+        if ($suspending && $targetIsOwner && $this->activeOwnerCount($organizationId) <= 1) {
+            throw new LastOwnerException('The organization must keep at least one active owner.');
+        }
+
+        if ($target->status !== $status) {
+            $target->status = $status;
+            $target->updatedAt = $this->clock->now();
+            $this->unitOfWork->persist($target);
+            $this->unitOfWork->flush();
+        }
+
+        // Revoke on every suspend request, not only on the transition: revocation is idempotent
+        // (only live org-scoped families match), and re-running it makes a suspend whose
+        // revocation step failed mid-way recoverable by retrying the request.
+        if ($status === Membership::STATUS_SUSPENDED) {
+            $this->sessions->revokeAllForOrganization($targetUserId, $organizationId, RefreshToken::REASON_ADMIN);
+        }
     }
 
     /**
