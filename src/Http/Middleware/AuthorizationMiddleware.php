@@ -13,6 +13,7 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Univeros\Polaris\Authorization\Gate;
+use Univeros\Polaris\Authorization\ResolvedAuthority;
 
 use function constant;
 use function defined;
@@ -56,11 +57,14 @@ final readonly class AuthorizationMiddleware implements MiddlewareInterface
             return (new UnauthorizedResponder())($request, $this->responseFactory->createResponse());
         }
 
-        if (!$this->gate->allows($token, ...$required)) {
+        $authority = $this->gate->authority($token);
+        if (!$this->gate->allowsAuthority($authority, ...$required)) {
             return $this->forbidden();
         }
 
-        return $handler->handle($request);
+        // Attach the database-resolved authority so domain guards (e.g. the superadmin exemption
+        // in the cross-tenant check) decide on verified roles, never on stale token claims.
+        return $handler->handle($request->withAttribute(ResolvedAuthority::class, $authority));
     }
 
     /**

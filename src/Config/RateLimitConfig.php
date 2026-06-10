@@ -36,6 +36,8 @@ final readonly class RateLimitConfig
     private const int MFA_CONFIRM_WINDOW = 300;
     private const int MFA_SEND_LIMIT = 5;
     private const int MFA_SEND_WINDOW = 600;
+    private const int TOKEN_CONSUME_LIMIT = 10;
+    private const int TOKEN_CONSUME_WINDOW = 300;
 
     public function __construct(
         public RateLimit $login,
@@ -45,6 +47,7 @@ final readonly class RateLimitConfig
         public RateLimit $mfaEnroll,
         public RateLimit $mfaConfirm,
         public RateLimit $mfaSend,
+        public RateLimit $tokenConsume,
     ) {
     }
 
@@ -56,7 +59,7 @@ final readonly class RateLimitConfig
     /**
      * @param array<string, mixed> $limits the host's `auth.rate_limits` namespace. Each group key
      *   (`login`, `register`, `password_forgot`, `token_refresh`, `mfa_enroll`, `mfa_confirm`,
-     *   `mfa_send`) takes an array of overrides: `limit` (max requests per window) and `window`
+     *   `mfa_send`, `token_consume`) takes an array of overrides: `limit` (max requests per window) and `window`
      *   (window length in seconds). Any group or key left out keeps its default.
      */
     public static function fromArray(array $limits): self
@@ -91,6 +94,13 @@ final readonly class RateLimitConfig
                 self::MFA_CONFIRM_LIMIT,
                 self::MFA_CONFIRM_WINDOW,
                 'auth.mfa_confirm',
+            ),
+            tokenConsume: self::policy(
+                $limits,
+                'token_consume',
+                self::TOKEN_CONSUME_LIMIT,
+                self::TOKEN_CONSUME_WINDOW,
+                'auth.token_consume',
             ),
             mfaSend: self::policy(
                 $limits,

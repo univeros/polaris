@@ -16,6 +16,7 @@ use Univeros\Polaris\Exception\AuthorizationException;
 use function filter_var;
 use function is_array;
 use function is_string;
+use function strlen;
 
 use const FILTER_VALIDATE_EMAIL;
 
@@ -43,12 +44,12 @@ final class CreateInviteDomain extends OrganizationDomain
         }
 
         $organizationId = (string) $input->get('id');
-        if ($this->deniesActiveOrg($token, $organizationId)) {
+        if ($this->deniesActiveOrg($input, $token, $organizationId)) {
             return $this->forbidden('That organization is not your active organization.');
         }
 
         $email = $input->get('email');
-        if (!is_string($email) || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
+        if (!is_string($email) || strlen($email) > 320 || filter_var($email, FILTER_VALIDATE_EMAIL) === false) {
             return $this->unprocessable(['A valid email is required.']);
         }
 

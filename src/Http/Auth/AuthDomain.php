@@ -14,6 +14,7 @@ use Univeros\Polaris\Http\Middleware\MfaTicket;
 use Univeros\Polaris\Token\ClientContext;
 
 use function filter_var;
+use function strlen;
 use function is_string;
 
 use const FILTER_VALIDATE_EMAIL;
@@ -49,7 +50,9 @@ abstract class AuthDomain implements DomainInterface
 
     protected function isEmail(string $email): bool
     {
-        return filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
+        // RFC 5321 caps an address at 320 octets; reject oversized input before it reaches
+        // normalization, hashing, or a column that would silently truncate it.
+        return strlen($email) <= 320 && filter_var($email, FILTER_VALIDATE_EMAIL) !== false;
     }
 
     /**

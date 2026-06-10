@@ -37,7 +37,7 @@ final class Pepper
      */
     public function hash(string $context, #[SensitiveParameter] string $value): string
     {
-        $key = hash_hkdf(self::ALGO, $this->appKey, 0, self::INFO_PREFIX . $context);
+        $key = hash_hkdf(self::ALGO, $this->appKey, 32, self::INFO_PREFIX . $context);
 
         return hash_hmac(self::ALGO, $value, $key);
     }

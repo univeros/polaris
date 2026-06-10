@@ -10,6 +10,7 @@ use Altair\Http\Contracts\DomainInterface;
 use Altair\Http\Contracts\PayloadInterface;
 use Altair\Http\Contracts\TokenInterface;
 use Univeros\Polaris\Authorization\PermissionCatalog;
+use Univeros\Polaris\Authorization\ResolvedAuthority;
 
 use function in_array;
 use function is_array;
@@ -64,11 +65,21 @@ abstract class OrganizationDomain implements DomainInterface
     /**
      * Cross-tenant guard: the path's organization must equal the caller's active org (the token's
      * `org` claim) — a `superadmin` may act on any org. Returns true when the request must be denied.
+     *
+     * The superadmin exemption prefers the database-resolved authority the AuthorizationMiddleware
+     * attaches to the request, so a stale `roles` claim on a not-yet-expired token (e.g. a demoted
+     * platform operator) cannot bypass tenant isolation; the claim is only a fallback for routes
+     * that bypass the middleware (none of the org routes do).
      */
-    protected function deniesActiveOrg(TokenInterface $token, string $organizationId): bool
+    protected function deniesActiveOrg(InputCollection $input, TokenInterface $token, string $organizationId): bool
     {
-        $roles = $token->getMetadata('roles');
-        $isSuperadmin = is_array($roles) && in_array(PermissionCatalog::ROLE_SUPERADMIN, $roles, true);
+        $verified = $input->get(ResolvedAuthority::class);
+        if ($verified instanceof ResolvedAuthority) {
+            $isSuperadmin = in_array(PermissionCatalog::ROLE_SUPERADMIN, $verified->roles, true);
+        } else {
+            $roles = $token->getMetadata('roles');
+            $isSuperadmin = is_array($roles) && in_array(PermissionCatalog::ROLE_SUPERADMIN, $roles, true);
+        }
 
         return !$isSuperadmin && $organizationId !== $token->getMetadata('org');
     }

@@ -34,7 +34,7 @@ final class RevokeInviteDomain extends OrganizationDomain
         }
 
         $organizationId = (string) $input->get('id');
-        if ($this->deniesActiveOrg($token, $organizationId)) {
+        if ($this->deniesActiveOrg($input, $token, $organizationId)) {
             return $this->forbidden('That organization is not your active organization.');
         }
 

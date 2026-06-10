@@ -6,6 +6,7 @@ namespace Univeros\Polaris\Token;
 
 use Altair\Http\Contracts\TokenGeneratorInterface;
 use Altair\Persistence\Contracts\RepositoryInterface;
+use Cycle\ORM\ORMInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use DateInterval;
 use DateTimeImmutable;
@@ -54,6 +55,7 @@ final class TokenService
         private readonly AuthConfig $config,
         private readonly ClockInterface $clock,
         private readonly EventDispatcherInterface $events,
+        private readonly ?ORMInterface $orm = null,
     ) {
     }
 
@@ -151,9 +153,6 @@ final class TokenService
     public function refresh(string $presentedSecret, ClientContext $client): IssuedTokens
     {
         $now = $this->clock->now();
-        // Note: this read-check-write is not row-locked, so two concurrent refreshes of
-        // the *same* token could both rotate. Strict single-use under concurrency needs a
-        // SELECT ... FOR UPDATE around the lookup; tracked as a hardening follow-up.
         $current = $this->refreshTokens->findOneBy([
             'tokenHash' => $this->pepper->hash(self::PEPPER_CONTEXT, $presentedSecret),
         ]);
@@ -187,6 +186,15 @@ final class TokenService
                 $current->expiresAt,
                 $current->familyId,
             );
+        }
+
+        // Atomic compare-and-swap on revoked_at: of two concurrent presentations of the same
+        // secret, exactly one claims the rotation; the loser sees a just-rotated token and goes
+        // down the replay path, firing reuse detection (the safe response to a genuine race).
+        if (!$this->claimForRotation($current, $now)) {
+            $current->revokedAt = $now;
+            $current->revokedReason = RefreshToken::REASON_ROTATED;
+            $this->onRevokedTokenPresented($current, $client, $now);
         }
 
         $current->lastUsedAt = $now;
@@ -225,6 +233,32 @@ final class TokenService
      *
      * @throws RefreshTokenReuseException|InvalidGrantException
      */
+    /**
+     * Claim the token for rotation with a single conditional UPDATE; false means another
+     * request rotated it first.
+     */
+    private function claimForRotation(RefreshToken $current, DateTimeImmutable $now): bool
+    {
+        if ($this->orm === null) {
+            // In-memory test wiring has no database to CAS against; the entity-level
+            // revoked check above already ran. Production wiring always passes the ORM.
+            return true;
+        }
+
+        $source = $this->orm->getSource(RefreshToken::class);
+        $affected = $source->getDatabase()->update(
+            $source->getTable(),
+            [
+                'revoked_at' => $now,
+                'revoked_reason' => RefreshToken::REASON_ROTATED,
+                'last_used_at' => $now,
+            ],
+            ['id' => $current->id, 'revoked_at' => null],
+        )->run();
+
+        return $affected === 1;
+    }
+
     private function onRevokedTokenPresented(RefreshToken $current, ClientContext $client, DateTimeImmutable $now): never
     {
         if ($this->config->refreshToken->reuseDetection && $current->revokedReason === RefreshToken::REASON_ROTATED) {
