@@ -34,12 +34,14 @@ final class JwksDomain implements DomainInterface
     #[Override]
     public function __invoke(InputCollection $input): PayloadInterface
     {
-        $jwks = JwkSet::fromPublicKey(
-            $this->secrets->jwtPublicKey,
-            $this->secrets->jwtKid,
-            $this->config->accessToken->signer,
-        );
+        $keys = [$this->secrets->jwtKid => $this->secrets->jwtPublicKey];
+        if ($this->secrets->jwtPreviousPublicKey !== null && $this->secrets->jwtPreviousKid !== null) {
+            // Rotation overlap: the retiring key stays verifiable for one access-TTL window.
+            $keys[$this->secrets->jwtPreviousKid] = $this->secrets->jwtPreviousPublicKey;
+        }
 
-        return (new Payload())->withStatus(200)->withOutput($jwks);
+        return (new Payload())->withStatus(200)->withOutput(
+            JwkSet::fromPublicKeys($keys, $this->config->accessToken->signer),
+        );
     }
 }
