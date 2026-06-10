@@ -10,6 +10,7 @@ use Univeros\Polaris\Entity\MembershipRole;
 use Univeros\Polaris\Entity\Permission;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
+use Univeros\Polaris\Entity\User;
 
 use function array_keys;
 
@@ -31,6 +32,7 @@ use function array_keys;
 final class PermissionResolver
 {
     /**
+     * @param RepositoryInterface<User>           $users
      * @param RepositoryInterface<Membership>     $memberships
      * @param RepositoryInterface<MembershipRole> $membershipRoles
      * @param RepositoryInterface<Role>           $roles
@@ -38,6 +40,7 @@ final class PermissionResolver
      * @param RepositoryInterface<Permission>     $permissions
      */
     public function __construct(
+        private readonly RepositoryInterface $users,
         private readonly RepositoryInterface $memberships,
         private readonly RepositoryInterface $membershipRoles,
         private readonly RepositoryInterface $roles,
@@ -48,6 +51,14 @@ final class PermissionResolver
 
     public function resolve(string $userId, ?string $organizationId): ResolvedAuthority
     {
+        // An administratively disabled account has no authority at all, no matter what its
+        // not-yet-expired access token claims — the Gate re-resolves here per request, so
+        // disabling takes effect immediately (a disabled admin cannot re-enable themselves).
+        $user = $this->users->find($userId);
+        if ($user instanceof User && $user->status === User::STATUS_DISABLED) {
+            return new ResolvedAuthority([], []);
+        }
+
         if ($this->isSuperadmin($userId)) {
             return new ResolvedAuthority([PermissionCatalog::ROLE_SUPERADMIN], $this->allPermissionKeys());
         }

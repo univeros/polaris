@@ -111,6 +111,11 @@ use Univeros\Polaris\Http\Orgs\ListPermissionsDomain;
 use Univeros\Polaris\Http\Orgs\ListRolesDomain;
 use Univeros\Polaris\Http\Orgs\RevokeInviteDomain;
 use Univeros\Polaris\Http\Orgs\UpdateRoleDomain;
+use Univeros\Polaris\Http\Users\DeleteUserDomain;
+use Univeros\Polaris\Http\Users\DisableUserDomain;
+use Univeros\Polaris\Http\Users\EnableUserDomain;
+use Univeros\Polaris\Http\Users\ReadUserDomain;
+use Univeros\Polaris\Http\Users\UpdateUserDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
 use Univeros\Polaris\Http\Orgs\ReadOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\RemoveMemberDomain;
@@ -124,6 +129,7 @@ use Univeros\Polaris\Identity\PasswordPolicy;
 use Univeros\Polaris\Identity\PasswordResetService;
 use Univeros\Polaris\Identity\RegistrationService;
 use Univeros\Polaris\Identity\SessionService;
+use Univeros\Polaris\Identity\UserAdminService;
 use Univeros\Polaris\Identity\StepUpService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Mfa\LogOtpMailer;
@@ -465,6 +471,12 @@ final class Module implements
                     // Removing a factor needs step-up too, but the path is shared with the GET list and
                     // the PATCH — so gate it by method, not prefix.
                     new MethodPathRule('DELETE', new RequestPathRule(['path' => [preg_quote('/auth/mfa/factors', '@')]])),
+                    // Account deletion (self or admin) and disabling a user are sensitive (#37);
+                    // the /users prefix is shared with reads, so gate by method/sub-path. The
+                    // disable pattern is deliberately NOT preg_quote()d: `[^/]+` must stay a live
+                    // regex fragment so it matches the {id} segment.
+                    new MethodPathRule('DELETE', new RequestPathRule(['path' => [preg_quote('/users', '@')]])),
+                    new MethodPathRule('POST', new RequestPathRule(['path' => ['/users/[^/]+/disable']])),
                 ),
                 $verifier,
                 $config,
@@ -653,7 +665,12 @@ final class Module implements
                 $identityValidator,
                 $responseFactory,
                 [new RequestPathRule([
-                    'path' => [preg_quote('/auth', '@'), preg_quote('/orgs', '@'), preg_quote('/permissions', '@')],
+                    'path' => [
+                        preg_quote('/auth', '@'),
+                        preg_quote('/orgs', '@'),
+                        preg_quote('/permissions', '@'),
+                        preg_quote('/users', '@'),
+                    ],
                     'passthrough' => self::publicPathPatterns(),
                 ])],
                 ['ssl' => false, 'onError' => new UnauthorizedResponder()],
@@ -903,12 +920,14 @@ final class Module implements
         $container->singleton(
             PermissionResolver::class,
             static fn(
+                UserRepository $users,
                 MembershipRepository $memberships,
                 MembershipRoleRepository $membershipRoles,
                 RoleRepository $roles,
                 RolePermissionRepository $rolePermissions,
                 PermissionRepository $permissions,
             ): PermissionResolver => new PermissionResolver(
+                $users,
                 $memberships,
                 $membershipRoles,
                 $roles,
@@ -1169,6 +1188,40 @@ final class Module implements
         $container->singleton(UpdateRoleDomain::class);
         $container->singleton(DeleteRoleDomain::class);
         $container->singleton(ListPermissionsDomain::class);
+
+        $container->singleton(
+            UserAdminService::class,
+            static fn(
+                UserRepository $users,
+                MfaFactorRepository $mfaFactors,
+                OtpChallengeRepository $otpChallenges,
+                EmailVerificationRepository $emailVerifications,
+                PasswordResetRepository $passwordResets,
+                PermissionResolver $resolver,
+                SessionService $sessions,
+                UnitOfWorkInterface $unitOfWork,
+                Pepper $pepper,
+                ClockInterface $clock,
+                EventDispatcherInterface $events,
+            ): UserAdminService => new UserAdminService(
+                $users,
+                $mfaFactors,
+                $otpChallenges,
+                $emailVerifications,
+                $passwordResets,
+                $resolver,
+                $sessions,
+                $unitOfWork,
+                $pepper,
+                $clock,
+                $events,
+            ),
+        );
+        $container->singleton(ReadUserDomain::class);
+        $container->singleton(UpdateUserDomain::class);
+        $container->singleton(DisableUserDomain::class);
+        $container->singleton(EnableUserDomain::class);
+        $container->singleton(DeleteUserDomain::class);
     }
 
     /**
@@ -1224,6 +1277,11 @@ final class Module implements
             ['PATCH', '/orgs/{id}/roles/{roleId}', UpdateRoleDomain::class],
             ['DELETE', '/orgs/{id}/roles/{roleId}', DeleteRoleDomain::class],
             ['GET', '/permissions', ListPermissionsDomain::class],
+            ['GET', '/users/{id}', ReadUserDomain::class],
+            ['PATCH', '/users/{id}', UpdateUserDomain::class],
+            ['POST', '/users/{id}/disable', DisableUserDomain::class],
+            ['POST', '/users/{id}/enable', EnableUserDomain::class],
+            ['DELETE', '/users/{id}', DeleteUserDomain::class],
         ];
     }
 
