@@ -11,13 +11,14 @@
     },
     "require": {
         "php": ">=8.3",
-        "univeros/module": "^2.0",
-        "univeros/http": "^2.0",
-        "univeros/persistence": "^2.0",
-        "univeros/security": "^2.0",
-        "spomky-labs/otphp": "^11.3",
         "endroid/qr-code": "^6.0",
-        "symfony/uid": "^7.0"
+        "spomky-labs/otphp": "^11.3",
+        "symfony/uid": "^7.0",
+        "univeros/http": "^2.0",
+        "univeros/module": "^2.0",
+        "univeros/observability": "^2.0",
+        "univeros/persistence": "^2.0",
+        "univeros/security": "^2.0"
     },
     "require-dev": {
         "phpunit/phpunit": "^12.5",
