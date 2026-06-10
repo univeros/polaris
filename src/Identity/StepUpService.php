@@ -63,7 +63,7 @@ final readonly class StepUpService
         try {
             $this->verifier->verify($userId, $factorId, $code, ChallengePurpose::StepUp);
         } catch (InvalidOtpException | MfaFactorNotFoundException $failure) {
-            $this->events->dispatch(new MfaVerifyFailed($userId));
+            $this->events->dispatch($this->verifyFailed($userId, $factorId));
 
             throw $failure;
         }
@@ -72,5 +72,18 @@ final readonly class StepUpService
         $this->events->dispatch(new MfaStepUpCompleted($userId, $sessionId));
 
         return $accessToken;
+    }
+
+    /**
+     * The enriched gate-failure event: the attempted factor and its type (issue #90); the
+     * factor-less path is a recovery-code attempt.
+     */
+    private function verifyFailed(string $userId, ?string $factorId): MfaVerifyFailed
+    {
+        if ($factorId === null || $factorId === '') {
+            return new MfaVerifyFailed($userId, null, MfaVerifyFailed::TYPE_RECOVERY);
+        }
+
+        return new MfaVerifyFailed($userId, $factorId, $this->verifier->factorType($userId, $factorId));
     }
 }

@@ -14,6 +14,7 @@ use Univeros\Polaris\Token\ClientContext;
 use Univeros\Polaris\Token\TokenService;
 
 use function array_keys;
+use function count;
 
 use const DATE_ATOM;
 
@@ -97,31 +98,34 @@ final class SessionService
      */
     public function logoutAll(string $userId, ClientContext $client): void
     {
-        $this->revokeAll($userId, RefreshToken::REASON_LOGOUT);
+        $count = $this->revokeAll($userId, RefreshToken::REASON_LOGOUT);
 
-        $this->events->dispatch(new SessionsRevoked($userId, $client->ip));
+        $this->events->dispatch(new SessionsRevoked($userId, $client->ip, $count, RefreshToken::REASON_LOGOUT));
     }
 
     /**
-     * Revoke every session for the user with the given reason (no event). Used by the
-     * password reset/change flows (logout-everywhere on a credential change).
+     * Revoke every session for the user with the given reason (no event), returning how many
+     * sessions (families) were revoked. Used by the password reset/change flows
+     * (logout-everywhere on a credential change).
      */
-    public function revokeAll(string $userId, string $reason): void
+    public function revokeAll(string $userId, string $reason): int
     {
-        $this->revokeAllExcept($userId, null, $reason);
+        $count = $this->revokeAllExcept($userId, null, $reason);
 
         // Watermark for the optional instant access-token denylist: when the flag is on, every
         // not-yet-expired access token of the user dies with the sessions. A keep-current
         // revocation (revokeAllExcept with a kept session) must NOT watermark — it would kill
         // the caller's own live access token — so only the full revocation does.
         $this->denylist->revokeAllFor($userId);
+
+        return $count;
     }
 
     /**
-     * Revoke every session for the user except the given one (kept). Used by an
-     * authenticated password change, which leaves the caller's session active.
+     * Revoke every session for the user except the given one (kept), returning how many were
+     * revoked. Used by an authenticated password change, which leaves the caller's session active.
      */
-    public function revokeAllExcept(string $userId, ?string $exceptSessionId, string $reason): void
+    public function revokeAllExcept(string $userId, ?string $exceptSessionId, string $reason): int
     {
         $families = [];
         foreach ($this->refreshTokens->findBy(['userId' => $userId]) as $token) {
@@ -133,6 +137,8 @@ final class SessionService
         foreach (array_keys($families) as $familyId) {
             $this->tokens->revokeFamily($familyId, $reason);
         }
+
+        return count($families);
     }
 
     /**

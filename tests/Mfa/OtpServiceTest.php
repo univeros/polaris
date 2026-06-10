@@ -154,7 +154,9 @@ final class OtpServiceTest extends TestCase
         } catch (InvalidOtpException) {
             self::assertSame(1, $challenge->attempts);
             self::assertNull($challenge->consumedAt);
-            self::assertCount(1, $events->ofType(OtpVerifyFailed::class));
+            $failures = $events->ofType(OtpVerifyFailed::class);
+            self::assertCount(1, $failures);
+            self::assertSame(4, $failures[0]->attemptsLeft, 'one of five attempts spent');
         }
     }
 

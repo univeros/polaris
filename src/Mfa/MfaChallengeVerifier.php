@@ -114,6 +114,20 @@ final readonly class MfaChallengeVerifier
     }
 
     /**
+     * The confirmed factor's type, for audit enrichment (issue #90) — null when the id is
+     * unknown, unconfirmed, or another user's (the verify path reports those as the same
+     * generic failure, so the audit row must not disclose more).
+     */
+    public function factorType(string $userId, string $factorId): ?string
+    {
+        $factor = $this->factors->find($factorId);
+
+        return $factor instanceof MfaFactor && $factor->userId === $userId && $factor->confirmedAt !== null
+            ? $factor->type
+            : null;
+    }
+
+    /**
      * @throws MfaFactorNotFoundException
      */
     private function requireConfirmedFactor(string $userId, string $factorId): MfaFactor

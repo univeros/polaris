@@ -46,7 +46,7 @@ final class DeleteRoleDomain extends OrganizationDomain
         }
 
         try {
-            $this->roles->delete($organizationId, $roleId);
+            $this->roles->delete((string) $token->getMetadata('sub'), $organizationId, $roleId);
         } catch (RoleNotFoundException $exception) {
             return $this->notFound($exception->getMessage());
         } catch (AuthorizationException $exception) {

@@ -12,9 +12,14 @@ final readonly class UserLoginFailed
 {
     public const string NAME = 'user.login_failed';
 
+    /** `reason` values. */
+    public const string REASON_INVALID_CREDENTIALS = 'invalid_credentials';
+
     public function __construct(
         public string $userId,
         public ?string $ip = null,
+        public ?string $userAgent = null,
+        public string $reason = self::REASON_INVALID_CREDENTIALS,
     ) {
     }
 }

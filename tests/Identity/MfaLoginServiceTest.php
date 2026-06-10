@@ -114,7 +114,10 @@ final class MfaLoginServiceTest extends TestCase
         }
 
         self::assertSame([], $this->accessTokens->claims, 'no token is minted on failure');
-        self::assertCount(1, $this->events->ofType(MfaVerifyFailed::class));
+        $failures = $this->events->ofType(MfaVerifyFailed::class);
+        self::assertCount(1, $failures);
+        self::assertNull($failures[0]->factorId);
+        self::assertSame(MfaVerifyFailed::TYPE_RECOVERY, $failures[0]->type, 'the factor-less path is a recovery attempt');
         self::assertCount(0, $this->events->ofType(MfaVerified::class));
     }
 
@@ -130,7 +133,10 @@ final class MfaLoginServiceTest extends TestCase
             // expected
         }
 
-        self::assertCount(1, $this->events->ofType(MfaVerifyFailed::class));
+        $failures = $this->events->ofType(MfaVerifyFailed::class);
+        self::assertCount(1, $failures);
+        self::assertSame('f-1', $failures[0]->factorId);
+        self::assertNull($failures[0]->type, 'an unconfirmed factor must not disclose its type');
         self::assertSame([], $this->accessTokens->claims);
     }
 

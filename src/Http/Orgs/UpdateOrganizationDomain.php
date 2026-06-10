@@ -55,7 +55,7 @@ final class UpdateOrganizationDomain extends OrganizationDomain
         }
 
         try {
-            $organization = $this->service->update($organization, $name);
+            $organization = $this->service->update($organization, $name, (string) $token->getMetadata('sub'));
         } catch (InvalidArgumentException $exception) {
             return $this->unprocessable([$exception->getMessage()]);
         }

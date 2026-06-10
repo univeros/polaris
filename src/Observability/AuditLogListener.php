@@ -25,11 +25,16 @@ use Univeros\Polaris\Event\MfaVerified;
 use Univeros\Polaris\Event\MfaVerifyFailed;
 use Univeros\Polaris\Event\OrganizationCreated;
 use Univeros\Polaris\Event\OrganizationDeleted;
+use Univeros\Polaris\Event\OrganizationSwitched;
+use Univeros\Polaris\Event\OrganizationUpdated;
 use Univeros\Polaris\Event\OtpChallengeSent;
 use Univeros\Polaris\Event\OtpVerifyFailed;
 use Univeros\Polaris\Event\PasswordChanged;
 use Univeros\Polaris\Event\PasswordResetRequested;
 use Univeros\Polaris\Event\RefreshReuseDetected;
+use Univeros\Polaris\Event\RoleCreated;
+use Univeros\Polaris\Event\RoleDeleted;
+use Univeros\Polaris\Event\RoleUpdated;
 use Univeros\Polaris\Event\SessionsRevoked;
 use Univeros\Polaris\Event\TokenRefreshed;
 use Univeros\Polaris\Event\UserDeleted;
@@ -43,6 +48,7 @@ use Univeros\Polaris\Event\UserRegistered;
 
 use function json_encode;
 
+use const DATE_ATOM;
 use const JSON_THROW_ON_ERROR;
 
 /**
@@ -77,36 +83,42 @@ final class AuditLogListener
 
     public function __invoke(object $event): void
     {
+        // Each arm: [event name, actor user id, organization id, ip, user agent, metadata].
         $record = match (true) {
-            $event instanceof UserRegistered => [UserRegistered::NAME, $event->userId, null, null, ['email' => $event->email]],
-            $event instanceof UserEmailVerified => [UserEmailVerified::NAME, $event->userId, null, null, ['email' => $event->email]],
-            $event instanceof UserLoggedIn => [UserLoggedIn::NAME, $event->userId, null, $event->ip, ['session_id' => $event->sessionId]],
-            $event instanceof UserLoginFailed => [UserLoginFailed::NAME, $event->userId, null, $event->ip, []],
-            $event instanceof UserLocked => [UserLocked::NAME, $event->userId, null, $event->ip, []],
-            $event instanceof PasswordChanged => [PasswordChanged::NAME, $event->userId, null, null, ['method' => $event->method]],
-            $event instanceof PasswordResetRequested => [PasswordResetRequested::NAME, $event->userId, null, null, ['email' => $event->email]],
-            $event instanceof UserDisabled => [UserDisabled::NAME, $event->actorUserId, null, null, ['user_id' => $event->userId]],
-            $event instanceof UserEnabled => [UserEnabled::NAME, $event->actorUserId, null, null, ['user_id' => $event->userId]],
-            $event instanceof UserDeleted => [UserDeleted::NAME, $event->actorUserId, null, null, ['user_id' => $event->userId]],
-            $event instanceof TokenRefreshed => [TokenRefreshed::NAME, $event->userId, null, null, ['family_id' => $event->familyId]],
-            $event instanceof RefreshReuseDetected => [RefreshReuseDetected::NAME, $event->userId, null, $event->ip, ['family_id' => $event->familyId]],
-            $event instanceof SessionsRevoked => [SessionsRevoked::NAME, $event->userId, null, $event->ip, []],
-            $event instanceof MfaEnrolled => [MfaEnrolled::NAME, $event->userId, null, null, ['factor_id' => $event->factorId]],
-            $event instanceof MfaFactorRemoved => [MfaFactorRemoved::NAME, $event->userId, null, null, ['factor_id' => $event->factorId]],
-            $event instanceof MfaVerified => [MfaVerified::NAME, $event->userId, null, null, ['factor_id' => $event->factorId]],
-            $event instanceof MfaVerifyFailed => [MfaVerifyFailed::NAME, $event->userId, null, null, []],
-            $event instanceof MfaStepUpCompleted => [MfaStepUpCompleted::NAME, $event->userId, null, null, ['session_id' => $event->sessionId]],
-            $event instanceof MfaRecoveryRegenerated => [MfaRecoveryRegenerated::NAME, $event->userId, null, null, []],
-            $event instanceof MfaRecoveryUsed => [MfaRecoveryUsed::NAME, $event->userId, null, null, ['remaining' => $event->remaining]],
-            $event instanceof OtpChallengeSent => [OtpChallengeSent::NAME, $event->userId, null, null, ['factor_id' => $event->factorId, 'channel' => $event->channel]],
-            $event instanceof OtpVerifyFailed => [OtpVerifyFailed::NAME, $event->userId, null, null, ['factor_id' => $event->factorId]],
-            $event instanceof OrganizationCreated => [OrganizationCreated::NAME, $event->ownerUserId, $event->organizationId, null, ['slug' => $event->slug]],
-            $event instanceof OrganizationDeleted => [OrganizationDeleted::NAME, $event->actorUserId, $event->organizationId, null, []],
-            $event instanceof MemberInvited => [MemberInvited::NAME, $event->invitedBy, $event->organizationId, null, ['email' => $event->email]],
-            $event instanceof MemberJoined => [MemberJoined::NAME, $event->userId, $event->organizationId, null, ['email' => $event->email]],
-            $event instanceof MemberRolesChanged => [MemberRolesChanged::NAME, $event->actorUserId, $event->organizationId, null, ['user_id' => $event->userId, 'role_slugs' => $event->roleSlugs]],
-            $event instanceof MemberStatusChanged => [MemberStatusChanged::NAME, $event->actorUserId, $event->organizationId, null, ['user_id' => $event->userId, 'status' => $event->status]],
-            $event instanceof MemberRemoved => [MemberRemoved::NAME, $event->actorUserId, $event->organizationId, null, ['user_id' => $event->userId]],
+            $event instanceof UserRegistered => [UserRegistered::NAME, $event->userId, null, null, null, ['email' => $event->email]],
+            $event instanceof UserEmailVerified => [UserEmailVerified::NAME, $event->userId, null, null, null, ['email' => $event->email]],
+            $event instanceof UserLoggedIn => [UserLoggedIn::NAME, $event->userId, null, $event->ip, $event->userAgent, ['session_id' => $event->sessionId, 'amr' => $event->amr]],
+            $event instanceof UserLoginFailed => [UserLoginFailed::NAME, $event->userId, null, $event->ip, $event->userAgent, ['reason' => $event->reason]],
+            $event instanceof UserLocked => [UserLocked::NAME, $event->userId, null, $event->ip, null, ['until' => $event->until?->format(DATE_ATOM)]],
+            $event instanceof PasswordChanged => [PasswordChanged::NAME, $event->userId, null, null, null, ['method' => $event->method]],
+            $event instanceof PasswordResetRequested => [PasswordResetRequested::NAME, $event->userId, null, null, null, ['email' => $event->email]],
+            $event instanceof UserDisabled => [UserDisabled::NAME, $event->actorUserId, null, null, null, ['user_id' => $event->userId]],
+            $event instanceof UserEnabled => [UserEnabled::NAME, $event->actorUserId, null, null, null, ['user_id' => $event->userId]],
+            $event instanceof UserDeleted => [UserDeleted::NAME, $event->actorUserId, null, null, null, ['user_id' => $event->userId]],
+            $event instanceof TokenRefreshed => [TokenRefreshed::NAME, $event->userId, null, null, null, ['family_id' => $event->familyId]],
+            $event instanceof RefreshReuseDetected => [RefreshReuseDetected::NAME, $event->userId, null, $event->ip, $event->userAgent, ['family_id' => $event->familyId]],
+            $event instanceof SessionsRevoked => [SessionsRevoked::NAME, $event->userId, null, $event->ip, null, ['count' => $event->count, 'reason' => $event->reason]],
+            $event instanceof OrganizationSwitched => [OrganizationSwitched::NAME, $event->userId, $event->toOrganizationId, null, null, ['from_organization_id' => $event->fromOrganizationId]],
+            $event instanceof MfaEnrolled => [MfaEnrolled::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId, 'type' => $event->type]],
+            $event instanceof MfaFactorRemoved => [MfaFactorRemoved::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId]],
+            $event instanceof MfaVerified => [MfaVerified::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId]],
+            $event instanceof MfaVerifyFailed => [MfaVerifyFailed::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId, 'type' => $event->type]],
+            $event instanceof MfaStepUpCompleted => [MfaStepUpCompleted::NAME, $event->userId, null, null, null, ['session_id' => $event->sessionId]],
+            $event instanceof MfaRecoveryRegenerated => [MfaRecoveryRegenerated::NAME, $event->userId, null, null, null, []],
+            $event instanceof MfaRecoveryUsed => [MfaRecoveryUsed::NAME, $event->userId, null, null, null, ['remaining' => $event->remaining]],
+            $event instanceof OtpChallengeSent => [OtpChallengeSent::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId, 'channel' => $event->channel]],
+            $event instanceof OtpVerifyFailed => [OtpVerifyFailed::NAME, $event->userId, null, null, null, ['factor_id' => $event->factorId, 'attempts_left' => $event->attemptsLeft]],
+            $event instanceof OrganizationCreated => [OrganizationCreated::NAME, $event->ownerUserId, $event->organizationId, null, null, ['slug' => $event->slug]],
+            $event instanceof OrganizationUpdated => [OrganizationUpdated::NAME, $event->actorUserId, $event->organizationId, null, null, []],
+            $event instanceof OrganizationDeleted => [OrganizationDeleted::NAME, $event->actorUserId, $event->organizationId, null, null, []],
+            $event instanceof RoleCreated => [RoleCreated::NAME, $event->actorUserId, $event->organizationId, null, null, ['role_id' => $event->roleId]],
+            $event instanceof RoleUpdated => [RoleUpdated::NAME, $event->actorUserId, $event->organizationId, null, null, ['role_id' => $event->roleId]],
+            $event instanceof RoleDeleted => [RoleDeleted::NAME, $event->actorUserId, $event->organizationId, null, null, ['role_id' => $event->roleId]],
+            $event instanceof MemberInvited => [MemberInvited::NAME, $event->invitedBy, $event->organizationId, null, null, ['email' => $event->email]],
+            $event instanceof MemberJoined => [MemberJoined::NAME, $event->userId, $event->organizationId, null, null, ['email' => $event->email]],
+            $event instanceof MemberRolesChanged => [MemberRolesChanged::NAME, $event->actorUserId, $event->organizationId, null, null, ['user_id' => $event->userId, 'role_slugs' => $event->roleSlugs]],
+            $event instanceof MemberStatusChanged => [MemberStatusChanged::NAME, $event->actorUserId, $event->organizationId, null, null, ['user_id' => $event->userId, 'status' => $event->status]],
+            $event instanceof MemberRemoved => [MemberRemoved::NAME, $event->actorUserId, $event->organizationId, null, null, ['user_id' => $event->userId]],
             default => null,
         };
 
@@ -114,7 +126,7 @@ final class AuditLogListener
             return;
         }
 
-        [$name, $actorUserId, $organizationId, $ip, $metadata] = $record;
+        [$name, $actorUserId, $organizationId, $ip, $userAgent, $metadata] = $record;
 
         $entry = new AuditLogEntry();
         $entry->id = Uuid::v7()->toRfc4122();
@@ -122,6 +134,7 @@ final class AuditLogListener
         $entry->actorUserId = $actorUserId;
         $entry->organizationId = $organizationId;
         $entry->ip = $ip;
+        $entry->userAgent = $userAgent;
         $entry->metadata = $this->encode($metadata);
         $entry->createdAt = $this->clock->now();
 

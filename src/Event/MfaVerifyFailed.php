@@ -15,8 +15,13 @@ final readonly class MfaVerifyFailed
 {
     public const string NAME = 'mfa.verify_failed';
 
+    /** `type` for the factor-less recovery-code path. */
+    public const string TYPE_RECOVERY = 'recovery';
+
     public function __construct(
         public string $userId,
+        public ?string $factorId = null,
+        public ?string $type = null,
     ) {
     }
 }

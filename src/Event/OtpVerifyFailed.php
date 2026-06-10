@@ -15,6 +15,7 @@ final readonly class OtpVerifyFailed
     public function __construct(
         public string $userId,
         public string $factorId,
+        public ?int $attemptsLeft = null,
     ) {
     }
 }
