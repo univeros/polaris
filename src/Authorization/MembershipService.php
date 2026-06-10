@@ -114,8 +114,14 @@ final class MembershipService
             throw new LastOwnerException('The organization must keep at least one owner.');
         }
 
+        // Diff rather than wipe-and-reinsert: the unit of work runs inserts before deletes,
+        // so re-adding a kept role would violate the composite primary key.
         foreach ($this->membershipRoles->findBy(['membershipId' => $target->id]) as $existing) {
-            $this->unitOfWork->remove($existing);
+            if (isset($newRoleIds[$existing->roleId])) {
+                unset($newRoleIds[$existing->roleId]);
+            } else {
+                $this->unitOfWork->remove($existing);
+            }
         }
         foreach (array_keys($newRoleIds) as $roleId) {
             $link = new MembershipRole();

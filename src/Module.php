@@ -48,6 +48,7 @@ use Univeros\Polaris\Authorization\MembershipService;
 use Univeros\Polaris\Authorization\OrganizationService;
 use Univeros\Polaris\Authorization\PermissionCatalog;
 use Univeros\Polaris\Authorization\PermissionResolver;
+use Univeros\Polaris\Authorization\RoleService;
 use Univeros\Polaris\Authorization\RbacSessionPrincipalResolver;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Config\OtpConfig;
@@ -102,9 +103,14 @@ use Univeros\Polaris\Http\Orgs\ChangeMemberRolesDomain;
 use Univeros\Polaris\Http\Orgs\ChangeMemberStatusDomain;
 use Univeros\Polaris\Http\Orgs\CreateOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\CreateInviteDomain;
+use Univeros\Polaris\Http\Orgs\CreateRoleDomain;
+use Univeros\Polaris\Http\Orgs\DeleteRoleDomain;
 use Univeros\Polaris\Http\Orgs\ListInvitesDomain;
 use Univeros\Polaris\Http\Orgs\ListMembersDomain;
+use Univeros\Polaris\Http\Orgs\ListPermissionsDomain;
+use Univeros\Polaris\Http\Orgs\ListRolesDomain;
 use Univeros\Polaris\Http\Orgs\RevokeInviteDomain;
+use Univeros\Polaris\Http\Orgs\UpdateRoleDomain;
 use Univeros\Polaris\Http\Orgs\ListOrganizationsDomain;
 use Univeros\Polaris\Http\Orgs\ReadOrganizationDomain;
 use Univeros\Polaris\Http\Orgs\RemoveMemberDomain;
@@ -647,7 +653,7 @@ final class Module implements
                 $identityValidator,
                 $responseFactory,
                 [new RequestPathRule([
-                    'path' => [preg_quote('/auth', '@'), preg_quote('/orgs', '@')],
+                    'path' => [preg_quote('/auth', '@'), preg_quote('/orgs', '@'), preg_quote('/permissions', '@')],
                     'passthrough' => self::publicPathPatterns(),
                 ])],
                 ['ssl' => false, 'onError' => new UnauthorizedResponder()],
@@ -1137,6 +1143,32 @@ final class Module implements
         $container->singleton(ListInvitesDomain::class);
         $container->singleton(RevokeInviteDomain::class);
         $container->singleton(AcceptInviteDomain::class);
+
+        $container->singleton(
+            RoleService::class,
+            static fn(
+                RoleRepository $roles,
+                RolePermissionRepository $rolePermissions,
+                PermissionRepository $permissions,
+                PermissionResolver $resolver,
+                EscalationGuard $escalation,
+                UnitOfWorkInterface $unitOfWork,
+                ClockInterface $clock,
+            ): RoleService => new RoleService(
+                $roles,
+                $rolePermissions,
+                $permissions,
+                $resolver,
+                $escalation,
+                $unitOfWork,
+                $clock,
+            ),
+        );
+        $container->singleton(ListRolesDomain::class);
+        $container->singleton(CreateRoleDomain::class);
+        $container->singleton(UpdateRoleDomain::class);
+        $container->singleton(DeleteRoleDomain::class);
+        $container->singleton(ListPermissionsDomain::class);
     }
 
     /**
@@ -1187,6 +1219,11 @@ final class Module implements
             ['GET', '/orgs/{id}/invites', ListInvitesDomain::class],
             ['DELETE', '/orgs/{id}/invites/{inviteId}', RevokeInviteDomain::class],
             ['POST', '/auth/invites/accept', AcceptInviteDomain::class],
+            ['GET', '/orgs/{id}/roles', ListRolesDomain::class],
+            ['POST', '/orgs/{id}/roles', CreateRoleDomain::class],
+            ['PATCH', '/orgs/{id}/roles/{roleId}', UpdateRoleDomain::class],
+            ['DELETE', '/orgs/{id}/roles/{roleId}', DeleteRoleDomain::class],
+            ['GET', '/permissions', ListPermissionsDomain::class],
         ];
     }
 

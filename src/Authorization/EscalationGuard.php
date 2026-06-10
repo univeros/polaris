@@ -54,6 +54,29 @@ final class EscalationGuard
     }
 
     /**
+     * Same invariant, key-level: an actor may only put permissions they themselves hold into a
+     * role (creating or editing one) — otherwise editing a role you are assigned is instant
+     * self-escalation. A `superadmin` is exempt.
+     *
+     * @param list<string> $permissionKeys
+     *
+     * @throws AuthorizationException when a key is outside the actor's own authority
+     */
+    public function assertCanGrantPermissionKeys(ResolvedAuthority $actor, array $permissionKeys): void
+    {
+        if (in_array(PermissionCatalog::ROLE_SUPERADMIN, $actor->roles, true)) {
+            return;
+        }
+
+        $held = array_fill_keys($actor->scope, true);
+        foreach ($permissionKeys as $key) {
+            if (!isset($held[$key])) {
+                throw new AuthorizationException('You cannot grant permissions you do not hold.');
+            }
+        }
+    }
+
+    /**
      * @return array<string, string> permission id => key
      */
     private function permissionKeysById(): array
