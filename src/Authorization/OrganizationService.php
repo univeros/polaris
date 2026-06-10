@@ -17,9 +17,13 @@ use Univeros\Polaris\Entity\Organization;
 use Univeros\Polaris\Entity\Permission;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
+use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Event\OrganizationCreated;
+use Univeros\Polaris\Event\OrganizationDeleted;
+use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Exception\OrganizationSlugConflictException;
 
+use function mb_strlen;
 use function preg_replace;
 use function strtolower;
 use function trim;
@@ -44,6 +48,7 @@ final class OrganizationService
         private readonly RepositoryInterface $memberships,
         private readonly RepositoryInterface $permissions,
         private readonly PermissionCatalog $catalog,
+        private readonly SessionService $sessions,
         private readonly UnitOfWorkInterface $unitOfWork,
         private readonly ClockInterface $clock,
         private readonly EventDispatcherInterface $events,
@@ -60,6 +65,8 @@ final class OrganizationService
     {
         $slug = $this->resolveSlug($name, $slug);
 
+        // Suspended (soft-deleted) orgs keep their slug locked until the retention purge —
+        // releasing it earlier would let a stranger take over the identity of a restorable org.
         if ($this->organizations->findOneBy(['slug' => $slug]) !== null) {
             throw new OrganizationSlugConflictException($slug);
         }
@@ -110,12 +117,58 @@ final class OrganizationService
         $organizations = [];
         foreach ($this->memberships->findBy(['userId' => $userId, 'status' => Membership::STATUS_ACTIVE]) as $membership) {
             $organization = $this->organizations->find($membership->organizationId);
-            if ($organization instanceof Organization) {
+            if ($organization instanceof Organization && $organization->status === Organization::STATUS_ACTIVE) {
                 $organizations[] = $organization;
             }
         }
 
         return $organizations;
+    }
+
+    /**
+     * Rename the organization.
+     *
+     * @throws InvalidArgumentException empty or over-long name
+     */
+    public function update(Organization $organization, string $name): Organization
+    {
+        $name = trim($name);
+        if ($name === '' || mb_strlen($name) > 160) {
+            throw new InvalidArgumentException('A name of 1-160 characters is required.');
+        }
+
+        $organization->name = $name;
+        $organization->updatedAt = $this->clock->now();
+        $this->unitOfWork->persist($organization);
+        $this->unitOfWork->flush();
+
+        return $organization;
+    }
+
+    /**
+     * Soft-delete the organization (`docs/auth/rbac.md` §6): `status=suspended`, which strips every
+     * member's org authority on their next resolution (the PermissionResolver skips suspended
+     * orgs), hides it from listings, and blocks switch-org. Rows are purged later per retention
+     * policy (ops tooling). Idempotent: already-suspended orgs emit no second event.
+     */
+    public function softDelete(Organization $organization, string $actorUserId): void
+    {
+        if ($organization->status === Organization::STATUS_SUSPENDED) {
+            return;
+        }
+
+        $organization->status = Organization::STATUS_SUSPENDED;
+        $organization->updatedAt = $this->clock->now();
+        $this->unitOfWork->persist($organization);
+        $this->unitOfWork->flush();
+
+        // Cut every member's org-scoped sessions, mirroring member suspension (#82): without
+        // this, refresh tokens pointed at the dead org keep rotating into empty-authority tokens.
+        foreach ($this->memberships->findBy(['organizationId' => $organization->id]) as $membership) {
+            $this->sessions->revokeAllForOrganization($membership->userId, $organization->id, RefreshToken::REASON_ADMIN);
+        }
+
+        $this->events->dispatch(new OrganizationDeleted($organization->id, $actorUserId));
     }
 
     /**

@@ -7,6 +7,7 @@ namespace Univeros\Polaris\Authorization;
 use Altair\Persistence\Contracts\RepositoryInterface;
 use Univeros\Polaris\Entity\Membership;
 use Univeros\Polaris\Entity\MembershipRole;
+use Univeros\Polaris\Entity\Organization;
 use Univeros\Polaris\Entity\Permission;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
@@ -33,6 +34,7 @@ final class PermissionResolver
 {
     /**
      * @param RepositoryInterface<User>           $users
+     * @param RepositoryInterface<Organization>   $organizations
      * @param RepositoryInterface<Membership>     $memberships
      * @param RepositoryInterface<MembershipRole> $membershipRoles
      * @param RepositoryInterface<Role>           $roles
@@ -41,6 +43,7 @@ final class PermissionResolver
      */
     public function __construct(
         private readonly RepositoryInterface $users,
+        private readonly RepositoryInterface $organizations,
         private readonly RepositoryInterface $memberships,
         private readonly RepositoryInterface $membershipRoles,
         private readonly RepositoryInterface $roles,
@@ -64,6 +67,13 @@ final class PermissionResolver
         }
 
         if ($organizationId === null) {
+            return new ResolvedAuthority([], []);
+        }
+
+        // A soft-deleted org grants nothing (superadmins, handled above, keep their global
+        // override — operators must still be able to inspect a deleted org before purge).
+        $organization = $this->organizations->find($organizationId);
+        if ($organization instanceof Organization && $organization->status === Organization::STATUS_SUSPENDED) {
             return new ResolvedAuthority([], []);
         }
 
