@@ -77,7 +77,7 @@ abstract class FunctionalTestCase extends DatabaseTestCase
 
     protected function tearDown(): void
     {
-        foreach (['APP_KEY', 'AUTH_JWT_PRIVATE_KEY', 'AUTH_JWT_PUBLIC_KEY', 'AUTH_ISSUER', 'AUTH_AUDIENCE', 'AUTH_JWT_KID', 'AUTH_JWT_PREVIOUS_PUBLIC_KEY', 'AUTH_JWT_PREVIOUS_KID'] as $key) {
+        foreach (['APP_KEY', 'AUTH_JWT_PRIVATE_KEY', 'AUTH_JWT_PUBLIC_KEY', 'AUTH_ISSUER', 'AUTH_AUDIENCE', 'AUTH_JWT_KID', 'AUTH_JWT_PREVIOUS_PUBLIC_KEY', 'AUTH_JWT_PREVIOUS_KID', 'AUTH_ACCESS_TOKEN_DENYLIST', 'AUTH_PASSWORD_BREACH_CHECK'] as $key) {
             putenv($key);
         }
 

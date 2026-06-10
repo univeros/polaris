@@ -9,6 +9,7 @@ use Psr\Clock\ClockInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Event\SessionsRevoked;
+use Univeros\Polaris\Token\AccessTokenDenylist;
 use Univeros\Polaris\Token\ClientContext;
 use Univeros\Polaris\Token\TokenService;
 
@@ -36,6 +37,7 @@ final class SessionService
         private readonly TokenService $tokens,
         private readonly ClockInterface $clock,
         private readonly EventDispatcherInterface $events,
+        private readonly AccessTokenDenylist $denylist,
     ) {
     }
 
@@ -107,6 +109,12 @@ final class SessionService
     public function revokeAll(string $userId, string $reason): void
     {
         $this->revokeAllExcept($userId, null, $reason);
+
+        // Watermark for the optional instant access-token denylist: when the flag is on, every
+        // not-yet-expired access token of the user dies with the sessions. A keep-current
+        // revocation (revokeAllExcept with a kept session) must NOT watermark — it would kill
+        // the caller's own live access token — so only the full revocation does.
+        $this->denylist->revokeAllFor($userId);
     }
 
     /**

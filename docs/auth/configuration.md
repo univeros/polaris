@@ -102,6 +102,8 @@ Secrets come from env / a secret manager, never config files:
 | `AUTH_JWT_PREVIOUS_KID` | no       | kid of the retiring key (defaults to a hash of it)  |
 | `AUTH_ISSUER`           | rec.     | overrides `auth.issuer`                            |
 | `AUTH_AUDIENCE`         | rec.     | overrides `auth.audience`                          |
+| `AUTH_ACCESS_TOKEN_DENYLIST` | no  | `1` enables instant access-token revocation (cache watermark per request) |
+| `AUTH_PASSWORD_BREACH_CHECK` | no  | `1` enables breached-password screening (bind an adapter, e.g. the HIBP one) |
 
 `Module::apply()` asserts the required env is present and well-formed and throws
 a clear startup error otherwise (no silent insecure fallback).

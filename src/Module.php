@@ -58,6 +58,7 @@ use Univeros\Polaris\Config\OtpConfig;
 use Univeros\Polaris\Config\RateLimitConfig;
 use Univeros\Polaris\Config\Secrets;
 use Univeros\Polaris\Config\TotpConfig;
+use Univeros\Polaris\Contracts\BreachedPasswordCheckInterface;
 use Univeros\Polaris\Contracts\OtpMailerInterface;
 use Univeros\Polaris\Contracts\PasswordHasherInterface;
 use Univeros\Polaris\Contracts\QrCodeRendererInterface;
@@ -97,6 +98,7 @@ use Univeros\Polaris\Http\Jwks\JwksDomain;
 use Univeros\Polaris\Http\Middleware\AuthorizationMiddleware;
 use Univeros\Polaris\Http\Middleware\AuthRateLimitMiddleware;
 use Univeros\Polaris\Http\Middleware\BearerTokenExtractor;
+use Univeros\Polaris\Http\Middleware\DenylistMiddleware;
 use Univeros\Polaris\Http\Middleware\MfaTokenMiddleware;
 use Univeros\Polaris\Http\Middleware\NullCredentialsExtractor;
 use Univeros\Polaris\Http\Middleware\RateLimitGroup;
@@ -153,6 +155,8 @@ use Univeros\Polaris\Mfa\OtphpTotpProvider;
 use Univeros\Polaris\Mfa\OtpService;
 use Univeros\Polaris\Mfa\RecoveryCodeService;
 use Univeros\Polaris\Persistence\EmailVerificationRepository;
+use Univeros\Polaris\Security\NullBreachedPasswordCheck;
+use Univeros\Polaris\Token\AccessTokenDenylist;
 use Univeros\Polaris\Persistence\InvitationRepository;
 use Univeros\Polaris\Persistence\MembershipRepository;
 use Univeros\Polaris\Persistence\MembershipRoleRepository;
@@ -180,6 +184,7 @@ use Univeros\Polaris\Token\TokenService;
 
 use function array_map;
 use function getenv;
+use function in_array;
 use function preg_quote;
 
 /**
@@ -627,6 +632,9 @@ final class Module implements
             // After the access-token middleware (so the token is attached) and before the action, it
             // gates the step-up routes on a recent auth_time. Path-scoped; no-op elsewhere.
             ['middleware' => StepUpMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 6],
+            // After the access-token middleware attaches the token: optional instant revocation
+            // check (one cache read; a no-op when security.access_token.denylist is off).
+            ['middleware' => DenylistMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 7],
             // After routing + token auth, before the action: enforce each Action's declared
             // REQUIRES_PERMISSIONS (rbac.md §5a). No-op on routes that declare none.
             ['middleware' => AuthorizationMiddleware::class, 'priority' => MiddlewarePriority::DISPATCHER + 10],
@@ -700,6 +708,21 @@ final class Module implements
 
         // Transient-row pruning (#40); the host wires it to its scheduler (bin/altair job or cron).
         $container->singleton(PruneExpiredService::class);
+
+        // Optional instant access-token revocation (#41, security.access_token.denylist).
+        $container->singleton(
+            AccessTokenDenylist::class,
+            static fn(CacheInterface $cache, ClockInterface $clock, AuthConfig $config): AccessTokenDenylist
+                => new AccessTokenDenylist($cache, $clock, $config->accessToken->ttl),
+        );
+        $container->singleton(
+            DenylistMiddleware::class,
+            static fn(
+                AccessTokenDenylist $denylist,
+                AuthConfig $config,
+                ResponseFactoryInterface $responseFactory,
+            ): DenylistMiddleware => new DenylistMiddleware($denylist, $config, $responseFactory),
+        );
 
         // Auth domain metrics (#42): one polaris.auth.events counter, event name as attribute.
         // The framework's ObservabilityConfiguration normally binds the recorder/Meter; default
@@ -844,7 +867,8 @@ final class Module implements
                 TokenService $tokens,
                 ClockInterface $clock,
                 EventDispatcherInterface $events,
-            ): SessionService => new SessionService($refreshTokens, $tokens, $clock, $events),
+                AccessTokenDenylist $denylist,
+            ): SessionService => new SessionService($refreshTokens, $tokens, $clock, $events, $denylist),
         );
 
         $container->singleton(RefreshTokenDomain::class);
@@ -895,9 +919,18 @@ final class Module implements
     private function bindRegistration(Container $container): void
     {
         $container->singleton(PasswordHasherInterface::class, Argon2idPasswordHasher::class);
+        if (!$container->has(BreachedPasswordCheckInterface::class)) {
+            // Hosts enable real screening by binding the HIBP adapter (or their own) and turning
+            // on auth.password.breach_check; the default is an always-clean no-op.
+            $container->singleton(BreachedPasswordCheckInterface::class, NullBreachedPasswordCheck::class);
+        }
         $container->singleton(
             PasswordPolicy::class,
-            static fn(AuthConfig $config): PasswordPolicy => new PasswordPolicy($config->passwordMinLength),
+            static fn(AuthConfig $config, BreachedPasswordCheckInterface $breaches): PasswordPolicy
+                => new PasswordPolicy(
+                    $config->passwordMinLength,
+                    $config->breachCheck ? $breaches : null,
+                ),
         );
 
         $container->singleton(
@@ -1376,9 +1409,13 @@ final class Module implements
         $issuer = getenv('AUTH_ISSUER');
         $audience = getenv('AUTH_AUDIENCE');
 
+        $flag = static fn(string $key): bool => in_array(getenv($key), ['1', 'true', 'on'], true);
+
         return [
             'issuer' => $issuer !== false && $issuer !== '' ? $issuer : 'univeros/polaris',
             'audience' => $audience !== false && $audience !== '' ? $audience : null,
+            'access_token' => ['denylist' => $flag('AUTH_ACCESS_TOKEN_DENYLIST')],
+            'password' => ['breach_check' => $flag('AUTH_PASSWORD_BREACH_CHECK')],
         ];
     }
 
