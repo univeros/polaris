@@ -16,6 +16,7 @@ use Univeros\Polaris\Persistence\MembershipRoleRepository;
 use Univeros\Polaris\Persistence\PermissionRepository;
 use Univeros\Polaris\Persistence\RolePermissionRepository;
 use Univeros\Polaris\Persistence\RoleRepository;
+use Univeros\Polaris\Persistence\UserRepository;
 
 use function is_array;
 use function is_string;
@@ -93,6 +94,7 @@ final class PermissionResolverTest extends DatabaseTestCase
     private function resolver(): PermissionResolver
     {
         return new PermissionResolver(
+            new UserRepository($this->orm, $this->unitOfWork),
             new MembershipRepository($this->orm, $this->unitOfWork),
             new MembershipRoleRepository($this->orm, $this->unitOfWork),
             new RoleRepository($this->orm, $this->unitOfWork),
