@@ -10,17 +10,14 @@ use InvalidArgumentException;
 use Psr\Clock\ClockInterface;
 use Univeros\Polaris\Entity\Membership;
 use Univeros\Polaris\Entity\MembershipRole;
-use Univeros\Polaris\Entity\Permission;
 use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Entity\Role;
-use Univeros\Polaris\Entity\RolePermission;
 use Univeros\Polaris\Entity\User;
 use Univeros\Polaris\Exception\AuthorizationException;
 use Univeros\Polaris\Exception\LastOwnerException;
 use Univeros\Polaris\Exception\MemberNotFoundException;
 use Univeros\Polaris\Identity\SessionService;
 
-use function array_fill_keys;
 use function array_keys;
 use function in_array;
 
@@ -45,18 +42,15 @@ final class MembershipService
      * @param RepositoryInterface<Membership>     $memberships
      * @param RepositoryInterface<MembershipRole> $membershipRoles
      * @param RepositoryInterface<Role>           $roles
-     * @param RepositoryInterface<RolePermission> $rolePermissions
-     * @param RepositoryInterface<Permission>     $permissions
      * @param RepositoryInterface<User>           $users
      */
     public function __construct(
         private readonly RepositoryInterface $memberships,
         private readonly RepositoryInterface $membershipRoles,
         private readonly RepositoryInterface $roles,
-        private readonly RepositoryInterface $rolePermissions,
-        private readonly RepositoryInterface $permissions,
         private readonly RepositoryInterface $users,
         private readonly PermissionResolver $resolver,
+        private readonly EscalationGuard $escalation,
         private readonly UnitOfWorkInterface $unitOfWork,
         private readonly SessionService $sessions,
         private readonly ClockInterface $clock,
@@ -110,12 +104,10 @@ final class MembershipService
         $actor = $this->resolver->resolve($actorUserId, $organizationId);
         $targetWasOwner = in_array(PermissionCatalog::ROLE_OWNER, $this->roleSlugsOf($target->id), true);
 
-        if (!$this->isSuperadmin($actor)) {
-            if ($targetWasOwner && !$this->isOwner($actor)) {
-                throw new AuthorizationException('Only an owner can modify an owner.');
-            }
-            $this->assertNoEscalation($actor, array_keys($newRoleIds));
+        if (!$this->isSuperadmin($actor) && $targetWasOwner && !$this->isOwner($actor)) {
+            throw new AuthorizationException('Only an owner can modify an owner.');
         }
+        $this->escalation->assertCanGrant($actor, array_keys($newRoleIds));
 
         $keepsOwner = isset($newRoleIds[$this->ownerRoleId($organizationId) ?? '']);
         if ($targetWasOwner && !$keepsOwner && $this->activeOwnerCount($organizationId) <= 1) {
@@ -222,26 +214,6 @@ final class MembershipService
     }
 
     /**
-     * @param list<string> $newRoleIds
-     *
-     * @throws AuthorizationException when a requested role grants a permission the actor lacks
-     */
-    private function assertNoEscalation(ResolvedAuthority $actor, array $newRoleIds): void
-    {
-        $held = array_fill_keys($actor->scope, true);
-        $keysById = $this->permissionKeysById();
-
-        foreach ($newRoleIds as $roleId) {
-            foreach ($this->rolePermissions->findBy(['roleId' => $roleId]) as $grant) {
-                $key = $keysById[$grant->permissionId] ?? null;
-                if ($key !== null && !isset($held[$key])) {
-                    throw new AuthorizationException('You cannot grant permissions you do not hold.');
-                }
-            }
-        }
-    }
-
-    /**
      * @return list<string>
      */
     private function roleSlugsOf(string $membershipId): array
@@ -290,18 +262,5 @@ final class MembershipService
     private function isOwner(ResolvedAuthority $authority): bool
     {
         return in_array(PermissionCatalog::ROLE_OWNER, $authority->roles, true);
-    }
-
-    /**
-     * @return array<string, string> permission id => key
-     */
-    private function permissionKeysById(): array
-    {
-        $map = [];
-        foreach ($this->permissions->findAll() as $permission) {
-            $map[$permission->id] = $permission->key;
-        }
-
-        return $map;
     }
 }
