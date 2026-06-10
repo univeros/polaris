@@ -73,7 +73,9 @@ final class PermissionResolver
         // A soft-deleted org grants nothing (superadmins, handled above, keep their global
         // override — operators must still be able to inspect a deleted org before purge).
         $organization = $this->organizations->find($organizationId);
-        if ($organization instanceof Organization && $organization->status === Organization::STATUS_SUSPENDED) {
+        if ($organization instanceof Organization && $organization->status !== Organization::STATUS_ACTIVE) {
+            // Anything but active grants nothing — written as an allow-list so a future status
+            // value cannot silently grant authority.
             return new ResolvedAuthority([], []);
         }
 

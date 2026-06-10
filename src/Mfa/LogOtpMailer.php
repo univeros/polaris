@@ -20,6 +20,11 @@ final readonly class LogOtpMailer implements OtpMailerInterface
 {
     public function __construct(private LoggerInterface $logger)
     {
+        // A WARNING at construction makes a forgotten production binding loud in any log
+        // aggregator: this driver writes live one-time codes to the log instead of delivering.
+        $this->logger->warning(
+            'Polaris is using the development Log email driver; one-time codes will be WRITTEN TO THE LOG, not delivered. Bind a production adapter before going live.',
+        );
     }
 
     /**

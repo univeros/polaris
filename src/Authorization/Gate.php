@@ -39,12 +39,25 @@ final readonly class Gate
 
     public function allows(TokenInterface $token, string ...$permissions): bool
     {
+        return $this->allowsAuthority($this->authority($token), ...$permissions);
+    }
+
+    /**
+     * The caller's database-resolved authority for their active org. The middleware attaches it
+     * to the request so downstream guards never have to trust token claims for role decisions.
+     */
+    public function authority(TokenInterface $token): ResolvedAuthority
+    {
         $organization = $token->getMetadata('org');
-        $authority = $this->permissions->resolve(
+
+        return $this->permissions->resolve(
             (string) $token->getMetadata('sub'),
             is_string($organization) ? $organization : null,
         );
+    }
 
+    public function allowsAuthority(ResolvedAuthority $authority, string ...$permissions): bool
+    {
         $granted = array_fill_keys($authority->scope, true);
         foreach ($permissions as $permission) {
             if (!isset($granted[$permission])) {

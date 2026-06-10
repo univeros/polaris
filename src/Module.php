@@ -34,6 +34,7 @@ use Altair\Observability\Contracts\RecorderInterface;
 use Altair\Observability\Metrics\Meter;
 use Altair\Observability\Recorder\InMemoryRecorder;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
+use Cycle\ORM\ORMInterface;
 use Altair\Security\Contracts\EncrypterInterface;
 use Altair\Security\Encrypter;
 use Altair\Security\Support\HkdfKey;
@@ -762,6 +763,12 @@ final class Module implements
                 self::rateLimitGroup('/auth/register', $limits->register, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/password/forgot', $limits->passwordForgot, $cache, $responseFactory),
                 self::rateLimitGroup('/auth/token/refresh', $limits->tokenRefresh, $cache, $responseFactory),
+                // Single-use-token consumers: each call hashes attacker-supplied input and hits
+                // the database, so they share a per-IP guessing budget. The /auth/email/verify
+                // prefix also covers /auth/email/verify/resend (DB writes + an outbound mail).
+                self::rateLimitGroup('/auth/email/verify', $limits->tokenConsume, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/password/reset', $limits->tokenConsume, $cache, $responseFactory),
+                self::rateLimitGroup('/auth/invites/accept', $limits->tokenConsume, $cache, $responseFactory),
                 // Throttle the brute-forceable 6-digit MFA confirms/verify and cap factor/send churn.
                 // The more specific step-up/challenge path is listed before /step-up so it wins the
                 // first-match: a sent code is throttled as a send, the verify as a confirm.
@@ -1039,6 +1046,7 @@ final class Module implements
         $container->singleton(
             TokenService::class,
             static fn(
+                ORMInterface $orm,
                 RefreshTokenRepository $refreshTokens,
                 UnitOfWorkInterface $unitOfWork,
                 Pepper $pepper,
@@ -1056,6 +1064,7 @@ final class Module implements
                 $config,
                 $clock,
                 $events,
+                $orm,
             ),
         );
     }

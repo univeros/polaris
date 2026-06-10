@@ -43,7 +43,7 @@ final class ReadOrganizationDomain extends OrganizationDomain
             return $this->notFound('The organization does not exist.');
         }
 
-        if ($this->deniesActiveOrg($token, $organizationId)) {
+        if ($this->deniesActiveOrg($input, $token, $organizationId)) {
             return $this->forbidden('That organization is not your active organization.');
         }
 
