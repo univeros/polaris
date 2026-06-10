@@ -30,6 +30,9 @@ use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
 use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Contracts\RoutesProviderInterface;
 use Altair\Module\Migration\MigrationSource;
+use Altair\Observability\Contracts\RecorderInterface;
+use Altair\Observability\Metrics\Meter;
+use Altair\Observability\Recorder\InMemoryRecorder;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use Altair\Security\Contracts\EncrypterInterface;
 use Altair\Security\Encrypter;
@@ -137,6 +140,7 @@ use Univeros\Polaris\Maintenance\PruneExpiredService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
 use Univeros\Polaris\Notification\NotificationListener;
 use Univeros\Polaris\Observability\AuditLogListener;
+use Univeros\Polaris\Observability\MetricsListener;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
 use Univeros\Polaris\Mfa\MfaChallengeVerifier;
@@ -696,6 +700,20 @@ final class Module implements
 
         // Transient-row pruning (#40); the host wires it to its scheduler (bin/altair job or cron).
         $container->singleton(PruneExpiredService::class);
+
+        // Auth domain metrics (#42): one polaris.auth.events counter, event name as attribute.
+        // The framework's ObservabilityConfiguration normally binds the recorder/Meter; default
+        // them only when the host has not, mirroring the LoggerInterface fallback.
+        if (!$container->has(RecorderInterface::class)) {
+            $container->singleton(RecorderInterface::class, InMemoryRecorder::class);
+        }
+        if (!$container->has(Meter::class)) {
+            $container->singleton(Meter::class, static fn(RecorderInterface $recorder): Meter => new Meter($recorder));
+        }
+        $container->singleton(
+            MetricsListener::class,
+            static fn(Meter $meter, LoggerInterface $logger): MetricsListener => new MetricsListener($meter, $logger),
+        );
         $container->singleton(
             NotificationListener::class,
             static fn(
