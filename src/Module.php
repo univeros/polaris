@@ -1290,6 +1290,7 @@ final class Module implements
                 EscalationGuard $escalation,
                 UnitOfWorkInterface $unitOfWork,
                 ClockInterface $clock,
+                EventDispatcherInterface $events,
             ): RoleService => new RoleService(
                 $roles,
                 $rolePermissions,
@@ -1298,6 +1299,7 @@ final class Module implements
                 $escalation,
                 $unitOfWork,
                 $clock,
+                $events,
             ),
         );
         $container->singleton(ListRolesDomain::class);

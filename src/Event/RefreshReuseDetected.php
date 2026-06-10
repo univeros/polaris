@@ -17,6 +17,7 @@ final readonly class RefreshReuseDetected
         public string $userId,
         public string $familyId,
         public ?string $ip = null,
+        public ?string $userAgent = null,
     ) {
     }
 }

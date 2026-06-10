@@ -132,8 +132,11 @@ final readonly class OtpService
         }
 
         if (!$this->pepper->matches(self::PEPPER_CONTEXT, $code, (string) $challenge->codeHash)) {
+            // Computed before the attempt is spent, so it holds in both the CAS and the
+            // in-memory branch (which increments the entity).
+            $attemptsLeft = max(0, $challenge->maxAttempts - $challenge->attempts - 1);
             $this->spendAttempt($challenge);
-            $this->events->dispatch(new OtpVerifyFailed($userId, $factorId));
+            $this->events->dispatch(new OtpVerifyFailed($userId, $factorId, $attemptsLeft));
 
             throw new InvalidOtpException('The verification code is invalid.');
         }

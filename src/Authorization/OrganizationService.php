@@ -20,6 +20,7 @@ use Univeros\Polaris\Entity\RolePermission;
 use Univeros\Polaris\Entity\RefreshToken;
 use Univeros\Polaris\Event\OrganizationCreated;
 use Univeros\Polaris\Event\OrganizationDeleted;
+use Univeros\Polaris\Event\OrganizationUpdated;
 use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Exception\OrganizationSlugConflictException;
 
@@ -126,11 +127,11 @@ final class OrganizationService
     }
 
     /**
-     * Rename the organization.
+     * Rename the organization. Emits `org.updated` (issue #90).
      *
      * @throws InvalidArgumentException empty or over-long name
      */
-    public function update(Organization $organization, string $name): Organization
+    public function update(Organization $organization, string $name, string $actorUserId): Organization
     {
         $name = trim($name);
         if ($name === '' || mb_strlen($name) > 160) {
@@ -141,6 +142,8 @@ final class OrganizationService
         $organization->updatedAt = $this->clock->now();
         $this->unitOfWork->persist($organization);
         $this->unitOfWork->flush();
+
+        $this->events->dispatch(new OrganizationUpdated($organization->id, $actorUserId));
 
         return $organization;
     }

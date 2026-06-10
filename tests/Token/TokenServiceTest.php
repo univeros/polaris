@@ -9,6 +9,7 @@ use PHPUnit\Framework\TestCase;
 use Psr\Clock\ClockInterface;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Entity\RefreshToken;
+use Univeros\Polaris\Event\OrganizationSwitched;
 use Univeros\Polaris\Event\RefreshReuseDetected;
 use Univeros\Polaris\Event\TokenRefreshed;
 use Univeros\Polaris\Exception\InvalidGrantException;
@@ -192,6 +193,21 @@ final class TokenServiceTest extends TestCase
         self::assertSame((new DateTimeImmutable('2026-06-07 12:00:00'))->getTimestamp(), $claims['auth_time']);
     }
 
+    public function testSwitchOrganizationAnnouncesTheRescope(): void
+    {
+        $service = $this->serviceAt('2026-06-07 12:00:00');
+        $issued = $service->issue($this->principal(), ClientContext::none()); // scoped to org-1
+
+        $token = $service->switchOrganization('user-1', 'org-2', $issued->sessionId);
+
+        self::assertNotSame('', $token);
+        $switches = $this->events->ofType(OrganizationSwitched::class);
+        self::assertCount(1, $switches);
+        self::assertSame('user-1', $switches[0]->userId);
+        self::assertSame('org-1', $switches[0]->fromOrganizationId);
+        self::assertSame('org-2', $switches[0]->toOrganizationId);
+    }
+
     public function testStepUpRejectsARevokedSession(): void
     {
         $service = $this->serviceAt('2026-06-07 12:00:00');
@@ -250,7 +266,7 @@ final class TokenServiceTest extends TestCase
 
         // Replaying the now-rotated original token is treated as theft.
         try {
-            $this->serviceAt('2026-06-07 12:06:00')->refresh($issued->refreshToken, new ClientContext('203.0.113.9'));
+            $this->serviceAt('2026-06-07 12:06:00')->refresh($issued->refreshToken, new ClientContext('203.0.113.9', 'Replay/1.0'));
             self::fail('Expected a reuse exception.');
         } catch (RefreshTokenReuseException) {
             // expected
@@ -266,6 +282,7 @@ final class TokenServiceTest extends TestCase
         self::assertSame('user-1', $alerts[0]->userId);
         self::assertSame($issued->sessionId, $alerts[0]->familyId);
         self::assertSame('203.0.113.9', $alerts[0]->ip);
+        self::assertSame('Replay/1.0', $alerts[0]->userAgent);
     }
 
     public function testReuseExceptionIsAnInvalidGrant(): void

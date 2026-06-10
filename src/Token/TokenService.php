@@ -15,6 +15,7 @@ use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Config\AuthConfig;
 use Univeros\Polaris\Entity\RefreshToken;
+use Univeros\Polaris\Event\OrganizationSwitched;
 use Univeros\Polaris\Event\RefreshReuseDetected;
 use Univeros\Polaris\Event\TokenRefreshed;
 use Univeros\Polaris\Exception\InvalidGrantException;
@@ -149,13 +150,17 @@ final class TokenService
             throw new InvalidGrantException('The session is no longer active.');
         }
 
+        $fromOrganizationId = $active->organizationId;
         $active->organizationId = $organizationId;
         $this->unitOfWork->persist($active);
         $this->unitOfWork->flush();
 
         $principal = $this->withStoredAuthContext($this->principals->resolve($userId, $organizationId), $active);
+        $accessToken = $this->mintAccess($principal, $sessionId);
 
-        return $this->mintAccess($principal, $sessionId);
+        $this->events->dispatch(new OrganizationSwitched($userId, $fromOrganizationId, $organizationId));
+
+        return $accessToken;
     }
 
     /**
@@ -284,7 +289,9 @@ final class TokenService
     {
         if ($this->config->refreshToken->reuseDetection && $current->revokedReason === RefreshToken::REASON_ROTATED) {
             $this->revokeFamily($current->familyId, RefreshToken::REASON_REUSE_DETECTED, $now);
-            $this->events->dispatch(new RefreshReuseDetected($current->userId, $current->familyId, $client->ip));
+            $this->events->dispatch(
+                new RefreshReuseDetected($current->userId, $current->familyId, $client->ip, $client->userAgent),
+            );
 
             throw new RefreshTokenReuseException('The refresh token has already been used.');
         }

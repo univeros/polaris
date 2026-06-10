@@ -98,16 +98,29 @@ final readonly class MfaLoginService
         try {
             $verifiedFactorId = $this->verifier->verify($userId, $factorId, $code, ChallengePurpose::LoginMfa);
         } catch (InvalidOtpException | MfaFactorNotFoundException $failure) {
-            $this->events->dispatch(new MfaVerifyFailed($userId));
+            $this->events->dispatch($this->verifyFailed($userId, $factorId));
 
             throw $failure;
         }
 
         $tokens = $this->mint($userId, $client);
         $this->events->dispatch(new MfaVerified($userId, $verifiedFactorId));
-        $this->events->dispatch(new UserLoggedIn($userId, $tokens->sessionId, $client->ip));
+        $this->events->dispatch(new UserLoggedIn($userId, $tokens->sessionId, $client->ip, $client->userAgent, ['pwd', 'otp']));
 
         return $tokens;
+    }
+
+    /**
+     * The enriched gate-failure event: the attempted factor and its type (issue #90); the
+     * factor-less path is a recovery-code attempt.
+     */
+    private function verifyFailed(string $userId, ?string $factorId): MfaVerifyFailed
+    {
+        if ($factorId === null || $factorId === '') {
+            return new MfaVerifyFailed($userId, null, MfaVerifyFailed::TYPE_RECOVERY);
+        }
+
+        return new MfaVerifyFailed($userId, $factorId, $this->verifier->factorType($userId, $factorId));
     }
 
     /**

@@ -63,7 +63,7 @@ final readonly class MfaConfirmation
         $this->unitOfWork->flush();
 
         if ($firstConfirmation) {
-            $this->events->dispatch(new MfaEnrolled($factor->userId, $factor->id));
+            $this->events->dispatch(new MfaEnrolled($factor->userId, $factor->id, $factor->type));
         }
 
         return $codes;

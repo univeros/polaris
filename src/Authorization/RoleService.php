@@ -8,10 +8,14 @@ use Altair\Persistence\Contracts\RepositoryInterface;
 use Altair\Persistence\Contracts\UnitOfWorkInterface;
 use InvalidArgumentException;
 use Psr\Clock\ClockInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
 use Symfony\Component\Uid\Uuid;
 use Univeros\Polaris\Entity\Permission;
 use Univeros\Polaris\Entity\Role;
 use Univeros\Polaris\Entity\RolePermission;
+use Univeros\Polaris\Event\RoleCreated;
+use Univeros\Polaris\Event\RoleDeleted;
+use Univeros\Polaris\Event\RoleUpdated;
 use Univeros\Polaris\Exception\AuthorizationException;
 use Univeros\Polaris\Exception\RoleNotFoundException;
 use Univeros\Polaris\Exception\RoleSlugConflictException;
@@ -51,6 +55,7 @@ final class RoleService
         private readonly EscalationGuard $escalation,
         private readonly UnitOfWorkInterface $unitOfWork,
         private readonly ClockInterface $clock,
+        private readonly EventDispatcherInterface $events,
     ) {
     }
 
@@ -125,6 +130,8 @@ final class RoleService
         }
         $this->unitOfWork->flush();
 
+        $this->events->dispatch(new RoleCreated($organizationId, $role->id, $actorUserId));
+
         return $this->shape($role, array_flip($idsByKey));
     }
 
@@ -190,6 +197,8 @@ final class RoleService
         $this->unitOfWork->persist($role);
         $this->unitOfWork->flush();
 
+        $this->events->dispatch(new RoleUpdated($organizationId, $role->id, $actorUserId));
+
         return $this->shape($role, $this->permissionKeysById());
     }
 
@@ -199,7 +208,7 @@ final class RoleService
      * @throws RoleNotFoundException  unknown id, another org's role, or a global system role
      * @throws AuthorizationException an immutable role, or a cloned template (owner/admin/member)
      */
-    public function delete(string $organizationId, string $roleId): void
+    public function delete(string $actorUserId, string $organizationId, string $roleId): void
     {
         $role = $this->orgRoleOrFail($organizationId, $roleId);
         $this->assertMutable($role);
@@ -211,6 +220,8 @@ final class RoleService
 
         $this->unitOfWork->remove($role);
         $this->unitOfWork->flush();
+
+        $this->events->dispatch(new RoleDeleted($organizationId, $roleId, $actorUserId));
     }
 
     /**

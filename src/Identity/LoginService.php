@@ -144,7 +144,7 @@ final class LoginService
 
         $tokens = $this->issueTokens($user, $now->getTimestamp(), $client);
 
-        $this->events->dispatch(new UserLoggedIn($user->id, $tokens->sessionId, $client->ip));
+        $this->events->dispatch(new UserLoggedIn($user->id, $tokens->sessionId, $client->ip, $client->userAgent, ['pwd']));
 
         return new LoginResult($user->id, $user->email, $user->emailVerifiedAt !== null, $tokens);
     }
@@ -189,9 +189,14 @@ final class LoginService
         $this->unitOfWork->persist($user);
         $this->unitOfWork->flush();
 
-        $this->events->dispatch(new UserLoginFailed($user->id, $client->ip));
+        $this->events->dispatch(new UserLoginFailed(
+            $user->id,
+            $client->ip,
+            $client->userAgent,
+            UserLoginFailed::REASON_INVALID_CREDENTIALS,
+        ));
         if ($locked) {
-            $this->events->dispatch(new UserLocked($user->id, $client->ip));
+            $this->events->dispatch(new UserLocked($user->id, $client->ip, $user->lockedUntil));
         }
     }
 
