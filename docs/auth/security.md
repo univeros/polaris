@@ -140,11 +140,19 @@ include a **per-destination** key to prevent OTP-bombing a victim's phone/email.
 - Security events ([events.md](events.md)) are persisted append-only to
   `auth_audit_log` via a PSR-14 listener, with actor, org, IP, UA, and non-secret
   metadata.
-- High-signal events to alert on: `user.login_failed` spikes, `user.locked`,
-  `auth.refresh_reuse_detected`, `mfa.verify_failed` spikes, role/permission
-  changes, `org.deleted`, `users.disable`.
+- Every domain event also increments the `polaris.auth.events` counter
+  (`MetricsListener`, via `univeros/observability`) with the catalog name as the
+  `event` attribute, so alert rules are simple attribute filters.
+- High-signal alerts to configure (filter the counter, or the audit log):
+  any `auth.refresh_reuse_detected` (token theft indicator); spikes of
+  `user.login_failed`, `user.locked`, `mfa.verify_failed` or
+  `mfa.otp_verify_failed` (credential stuffing / brute force);
+  `mfa.recovery_used` (sign-in without the primary factor);
+  `member.roles_changed` and `role.*` anomalies (privilege changes);
+  `user.disabled`, `user.deleted` and `org.deleted` (destructive admin actions).
 - The framework observability layer (`observability:tail`/`stats`) surfaces auth
-  span latencies and error rates; OTLP export is available.
+  span latencies and error rates via its request middleware; OTLP export is
+  available. Polaris contributes the domain-level counter above.
 
 ---
 
