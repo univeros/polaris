@@ -1,0 +1,38 @@
+# POST /users/{id}/disable: disable an account, revoking all its sessions.
+endpoint:
+  method: POST
+  path: /users/{id}/disable
+  summary: Disable a user account
+  tags: [users]
+  auth: bearer
+  requires_permissions: [users.manage]
+  step_up: true
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }   # empty body
+
+domain:
+  class: Univeros\Polaris\Http\Users\DisableUserDomain
+  description: >
+    Admin tooling: disables the account, revokes every session, and blocks
+    login. Gated on the admin-scoped users.manage key (held only by
+    superadmin) plus a recent step-up (a stale auth_time is 401
+    step_up_required). Self-disablement is refused with 409 conflict so an
+    operator cannot lock themselves out mid-session.
+
+output:
+  status: 200
+  example:
+    data:
+      status: disabled
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }
+  - { status: 403, code: forbidden }
+  - { status: 404, code: not_found }
+  - { status: 409, code: conflict }      # disabling yourself
+
+events: [user.disabled]

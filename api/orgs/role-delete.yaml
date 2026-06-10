@@ -1,0 +1,36 @@
+# DELETE /orgs/{id}/roles/{roleId}: delete a custom role.
+endpoint:
+  method: DELETE
+  path: /orgs/{id}/roles/{roleId}
+  summary: Delete a custom role
+  tags: [orgs, roles]
+  auth: bearer
+  requires_permissions: [roles.manage]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+    roleId: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\DeleteRoleDomain
+  description: >
+    Deletes a custom role; the database cascade detaches it from all
+    memberships. The cloned owner/admin/member templates and system roles
+    cannot be deleted (403). The cross-tenant active-org guard applies: the
+    path org must equal the caller's active org or the request is 403
+    forbidden; superadmin is exempt. An unknown or foreign role is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      deleted: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # protected template role, or cross-tenant
+  - { status: 404, code: not_found }
+
+events: [role.deleted]

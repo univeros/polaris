@@ -1,0 +1,42 @@
+# PATCH /orgs/{id}/members/{userId}/roles: replace a member's roles.
+endpoint:
+  method: PATCH
+  path: /orgs/{id}/members/{userId}/roles
+  summary: Replace a member's roles
+  tags: [orgs, members]
+  auth: bearer
+  requires_permissions: [members.update]
+
+input:
+  source: body
+  fields:
+    role_slugs: { type: "list<string>", rules: [required] }   # the full replacement set
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ChangeMemberRolesDomain
+  description: >
+    Replaces (not merges) the member's role set with the given slugs. The
+    cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. Invariants enforced from database-resolved authority: no
+    escalation (the actor may only grant roles they themselves hold, 403),
+    owner protection (only an owner or superadmin may modify an owner, 403),
+    and last-owner protection (the last active owner cannot be demoted,
+    409 conflict, absolute even for superadmins). Unknown role slugs are 422;
+    an unknown member is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      user_id: "018f6f2a-4444-7555-8666-0123456789cd"
+      roles: [admin, support]
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # escalation or owner-protection guard, or cross-tenant
+  - { status: 404, code: not_found }     # not a member of this org
+  - { status: 409, code: conflict }      # last-owner protection
+  - { status: 422, code: validation_failed }
+
+events: [member.roles_changed]

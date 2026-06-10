@@ -1,0 +1,34 @@
+# GET /orgs: list the caller's organizations.
+endpoint:
+  method: GET
+  path: /orgs
+  summary: List the organizations the caller belongs to
+  tags: [orgs]
+  auth: bearer
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ListOrganizationsDomain
+  description: >
+    Returns the organizations in which the authenticated caller holds an
+    active membership, restricted to active (not soft-deleted) organizations.
+    No permission key required; the list is scoped to the caller's own
+    memberships, so there is nothing cross-tenant to guard.
+
+output:
+  status: 200
+  example:
+    data:
+      - id: "018f6f2a-aaaa-7bbb-8ccc-0123456789ab"
+        name: "Acme Inc"
+        slug: acme
+      - id: "018f6f2a-dddd-7eee-8fff-0123456789cd"
+        name: "Globex"
+        slug: globex
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: []

@@ -1,0 +1,37 @@
+# DELETE /auth/mfa/factors/{id}: remove a factor; the last confirmed factor is protected.
+endpoint:
+  method: DELETE
+  path: /auth/mfa/factors/{id}
+  summary: Remove an MFA factor
+  tags: [auth, mfa]
+  auth: bearer
+  step_up: true          # requires now - auth_time <= security.step_up.max_age
+  rate_limit: mfa_enroll
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }   # the factor id
+
+domain:
+  class: Univeros\Polaris\Http\Auth\DeleteFactorDomain
+  description: >
+    Step-up gated (StepUpMiddleware rejects a stale session with
+    401 step_up_required before the domain runs). Removes one of the
+    authenticated user's factors. Removing the last confirmed factor is
+    blocked while MFA is enforced for the user (409 last_factor_protected).
+    An unknown or foreign factor is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      status: removed
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }      # stale auth_time; complete /auth/mfa/step-up first
+  - { status: 404, code: not_found }             # unknown or foreign factor
+  - { status: 409, code: last_factor_protected }
+
+events: [mfa.factor_removed]

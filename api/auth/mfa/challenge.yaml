@@ -1,53 +1,38 @@
-# POST /auth/mfa/challenge — send an OTP for an sms/email factor during the
-# login-MFA or step-up ceremony. Authenticated by the short-lived mfa_token
-# (login) or a normal bearer token (step-up). TOTP factors skip this step.
+# POST /auth/mfa/challenge: during the login gate, send the OTP for an sms/email factor.
 endpoint:
   method: POST
   path: /auth/mfa/challenge
-  summary: Send an OTP code for a chosen factor
+  summary: Send a login-gate OTP for a chosen factor
   tags: [auth, mfa]
-  auth: mfa_token                  # or bearer for step-up; purpose claim checked
-  rate_limit:
-    keys: [account, "body.factor_id", destination]
-    budget: "5/10min"
-    cooldown: "30s"                # OTP-bombing protection
+  auth: mfa_token        # the short-lived login_mfa ticket returned by POST /auth/login
+  rate_limit: mfa_send
 
 input:
-  class: Univeros\Polaris\Http\Inputs\MfaChallengeInput
   source: body
   fields:
-    factor_id:
-      type: string
-      rules: [required, uuid]
-    purpose:
-      type: ?string
-      rules: ["in:login_mfa,step_up"]   # default login_mfa
+    factor_id: { type: string, rules: [required] }
 
 domain:
-  class: Univeros\Polaris\Domain\OtpService
-  method: challenge
+  class: Univeros\Polaris\Http\Auth\MfaChallengeDomain
   description: >
-    Resolve the factor for the authenticated user, generate a 6-digit CSPRNG code,
-    persist an otp_challenge (code HMAC-hashed, 5-min TTL, max 5 attempts), and
-    deliver via SmsSenderInterface or OtpMailerInterface depending on channel.
-    Returns the masked destination. Emits otp.sent. Enforces resend cooldown.
+    Authenticated by the login_mfa ticket (not an access token). Generates and
+    sends the OTP for the named sms or email factor and returns the channel
+    and the masked destination. TOTP factors take their code from the app, so
+    a challenge for one (or any non-sendable factor) is 422 unsupported_factor.
+    The resend cooldown yields 429 too_many_requests.
 
 output:
   status: 200
-  responder: Univeros\Polaris\Http\Responders\OtpChallengeResponder
   example:
     data:
-      challenge_id: "018f…"
       channel: sms
       destination: "+1 *** *** 0101"
-      expires_in: 300
-
-persistence:
-  entity: Univeros\Polaris\Entity\OtpChallenge
-  table: auth_otp_challenges
-  repository: Univeros\Polaris\Repository\OtpChallengeRepository
 
 errors:
-  - { status: 401, code: invalid_token }       # missing/expired mfa_token
-  - { status: 404, code: not_found }           # factor not owned by user
-  - { status: 429, code: too_many_requests }   # send limit / cooldown
+  - { status: 401, code: unauthorized }          # missing or expired mfa_token
+  - { status: 404, code: not_found }             # unknown or foreign factor
+  - { status: 422, code: unsupported_factor }    # TOTP or other non-sendable factor
+  - { status: 422, code: validation_failed }     # envelope is {"errors": ["..."]} when factor_id is missing
+  - { status: 429, code: too_many_requests }     # resend cooldown
+
+events: [otp.sent]

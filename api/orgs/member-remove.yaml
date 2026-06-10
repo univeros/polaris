@@ -1,0 +1,39 @@
+# DELETE /orgs/{id}/members/{userId}: remove a member from the organization.
+endpoint:
+  method: DELETE
+  path: /orgs/{id}/members/{userId}
+  summary: Remove a member from the organization
+  tags: [orgs, members]
+  auth: bearer
+  requires_permissions: [members.remove]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+    userId: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\RemoveMemberDomain
+  description: >
+    Removes the membership. The cross-tenant active-org guard applies: the
+    path org must equal the caller's active org or the request is 403
+    forbidden; superadmin is exempt. Invariants enforced from
+    database-resolved authority: owner protection (only an owner or
+    superadmin may remove an owner, 403) and last-owner protection (the last
+    active owner cannot be removed, 409 conflict, absolute even for
+    superadmins). An unknown member is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      removed: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # owner-protection guard, or cross-tenant
+  - { status: 404, code: not_found }     # not a member of this org
+  - { status: 409, code: conflict }      # last-owner protection
+
+events: [member.removed]

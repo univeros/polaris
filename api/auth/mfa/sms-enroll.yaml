@@ -1,0 +1,36 @@
+# POST /auth/mfa/sms/enroll: start SMS factor enrollment; texts a code to the given number.
+endpoint:
+  method: POST
+  path: /auth/mfa/sms/enroll
+  summary: Begin SMS factor enrollment
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_send
+
+input:
+  source: body
+  fields:
+    phone_e164: { type: string, rules: [required, e164] }   # strict E.164 format
+
+domain:
+  class: Univeros\Polaris\Http\Auth\SmsEnrollDomain
+  description: >
+    Validates the E.164 phone number, creates an unconfirmed SMS factor for
+    the authenticated user, and texts a verification code to it. Returns the
+    factor id and the masked destination. Confirm at /auth/mfa/sms/confirm.
+    A per-destination/per-account send budget or resend cooldown yields
+    429 rate_limited.
+
+output:
+  status: 200
+  example:
+    data:
+      factor_id: "018f63a2-7c1e-7a90-b3d4-1f2e3c4d5a6b"
+      destination: "+1 *** *** 0101"
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} for an invalid number
+  - { status: 429, code: rate_limited }
+
+events: [otp.sent]

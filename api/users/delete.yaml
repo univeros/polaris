@@ -1,0 +1,39 @@
+# DELETE /users/{id}: delete (anonymize) an account, leaving a tombstone.
+endpoint:
+  method: DELETE
+  path: /users/{id}
+  summary: Delete (anonymize) a user account
+  tags: [users]
+  auth: bearer
+  step_up: true
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Users\DeleteUserDomain
+  description: >
+    The right-to-erasure flow: anonymizes the account rather than dropping
+    the row. The email becomes a hash at deleted.invalid, the profile is
+    nulled, the status set to disabled, and every session revoked; the row
+    survives as a tombstone for referential and audit integrity. Self-access
+    works without any permission key; deleting another user requires the
+    admin-scoped users.manage key (held only by superadmin), enforced by the
+    service before any existence check. Step-up gated: a stale auth_time is
+    401 step_up_required.
+
+output:
+  status: 200
+  example:
+    data:
+      deleted: true
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 401, code: step_up_required }
+  - { status: 403, code: forbidden }     # another user's account without users.manage
+  - { status: 404, code: not_found }     # admins (or self) only
+
+events: [user.deleted]

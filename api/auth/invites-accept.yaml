@@ -1,0 +1,38 @@
+# POST /auth/invites/accept: accept an organization invitation from its emailed token.
+endpoint:
+  method: POST
+  path: /auth/invites/accept
+  summary: Accept an organization invitation
+  tags: [auth, invites]
+  auth: bearer
+  rate_limit: "token_consume: 10 per 300s per IP"
+
+input:
+  source: body
+  fields:
+    token: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\AcceptInviteDomain
+  description: >
+    Accepts an invitation by its emailed one-time token. Authenticated but
+    not permission-gated, since the caller has no standing in the org yet.
+    The invitation's email must match the caller's account email (403 on
+    mismatch); the token is single-use and expiring, and an unknown,
+    consumed, or expired token is a uniform 400 (mirroring email
+    verification). On success the caller becomes an active member with
+    exactly the invited roles.
+
+output:
+  status: 200
+  example:
+    data:
+      organization_id: "018f6f2a-aaaa-7bbb-8ccc-0123456789ab"
+
+errors:
+  - { status: 400, code: bad_request }   # plain {"message": "..."} body; invalid, consumed, or expired token
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # invitation email does not match the caller's account email
+  - { status: 422, code: validation_failed }
+
+events: [member.joined]

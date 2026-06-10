@@ -1,0 +1,42 @@
+# POST /auth/mfa/email/confirm: confirm a pending email factor with the emailed code.
+endpoint:
+  method: POST
+  path: /auth/mfa/email/confirm
+  summary: Confirm a pending email factor
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_confirm
+
+input:
+  source: body
+  fields:
+    factor_id: { type: string, rules: [required] }
+    code: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\OtpFactorConfirmDomain
+  description: >
+    Verifies the delivered code against the named pending factor's own
+    challenge and marks the factor confirmed (one domain serves both the sms
+    and email confirm routes; the factor is resolved by id). When this is the
+    user's FIRST confirmed factor, the response also carries the ten one-time
+    recovery codes (shown once, stored hashed). A wrong, expired, exhausted,
+    or replayed code is 422 invalid_code; an unknown or foreign factor is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      status: confirmed
+      recovery_codes:       # present ONLY when this is the first confirmed factor
+        - "k3v9-d72m-q1xz"
+        - "p8wn-44tr-m0ce"
+        - "..."
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 404, code: not_found }
+  - { status: 422, code: invalid_code }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} for missing fields
+
+events: [mfa.enrolled]   # fires only on the user's first confirmed factor

@@ -1,0 +1,37 @@
+# GET /orgs/{id}: read a single organization.
+endpoint:
+  method: GET
+  path: /orgs/{id}
+  summary: Read the organization profile
+  tags: [orgs]
+  auth: bearer
+  requires_permissions: [org.read]
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\ReadOrganizationDomain
+  description: >
+    Returns the organization's id, name, slug, and status. The cross-tenant
+    active-org guard applies: the path org must equal the caller's active org
+    (the token's org claim) or the request is 403 forbidden; a
+    database-resolved superadmin is exempt. An unknown organization is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f6f2a-aaaa-7bbb-8ccc-0123456789ab"
+      name: "Acme Inc"
+      slug: acme
+      status: active
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # missing org.read, or not the caller's active org
+  - { status: 404, code: not_found }
+
+events: []

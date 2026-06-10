@@ -1,0 +1,39 @@
+# GET /users/{id}: read a user record (self, or admin scope).
+endpoint:
+  method: GET
+  path: /users/{id}
+  summary: Read a user
+  tags: [users]
+  auth: bearer
+
+input:
+  source: path
+  fields:
+    id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Users\ReadUserDomain
+  description: >
+    Self-access works without any permission key; reading another user
+    requires the admin-scoped users.read key (held only by superadmin),
+    resolved from the database for the caller's active org. Not
+    permission-gated by the middleware because self-access must work without
+    users.read; the service enforces self-or-permission, and the permission
+    check runs before any existence check, so non-admins learn nothing about
+    unknown ids (403, not 404).
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f6f2a-1111-7222-8333-0123456789ab"
+      email: ada@example.test
+      display_name: "Ada Lovelace"
+      status: active
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # another user's record without users.read
+  - { status: 404, code: not_found }     # admins (or self) only
+
+events: []

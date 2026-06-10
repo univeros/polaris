@@ -77,13 +77,13 @@ return [
             'invitation'             => [ 'ttl' => 604800 ], // 7 days
         ],
 
-        'rate_limits' => [ /* per-group overrides — see security.md §5 */ ],
+        'rate_limits' => [ /* per-group overrides; see security.md §5 */ ],
     ],
 ];
 ```
 
 A typed `AuthConfig` value object wraps this (validated at boot); domain services
-depend on `AuthConfig`, never on raw arrays — fail-fast on invalid/missing
+depend on `AuthConfig`, never on raw arrays; fail-fast on invalid/missing
 required values (issuer, keys).
 
 ---
@@ -190,7 +190,7 @@ As shipped (issue #15), the wiring uses:
 - a **`BearerTokenExtractor`** that reads `Authorization: Bearer <jwt>` (the
   framework's `HeaderTokenExtractor` returns the scheme too, which the parser
   can't read); and a **`NullCredentialsExtractor`** that disables the
-  credential-minting path — only a *pre-issued* bearer token authenticates a
+  credential-minting path: only a *pre-issued* bearer token authenticates a
   protected route, so login stays the sole credential entry point with its
   lockout / verified-email / timing / MFA gates.
 - **`ssl => false`** on the middleware options: Polaris runs behind the host's
@@ -199,19 +199,19 @@ As shipped (issue #15), the wiring uses:
   the edge** (HSTS / redirect); transport security is not Polaris's layer.
 - an **`onError`** responder that renders any auth failure as a `401` JSON
   envelope (`{"error":"unauthorized", …}`) plus a `WWW-Authenticate: Bearer`
-  challenge — matching what the protected domains emit.
+  challenge, matching what the protected domains emit.
 
 `AuthorizationMiddleware` (permission / step-up) arrives with the RBAC phase.
 
 > **Rate limiting requires a shared cache in production.** `AuthRateLimitMiddleware`
 > reuses the framework `RateLimitMiddleware` (one fixed-window limiter per
-> endpoint group — login, register, password/forgot, token/refresh — budgets in
+> endpoint group: login, register, password/forgot, token/refresh; budgets in
 > `RateLimitConfig`, defaults from [security.md §5](security.md#5-rate-limiting)).
 > It keys on the client IP via `IpKeyResolver`, which reads `REMOTE_ADDR`; a host
 > behind a proxy that needs the real client IP must wire `IpAddressMiddleware`
 > with a **trusted-proxy allow-list** before it (never trust a raw
 > `X-Forwarded-For`). The module binds an in-process `InMemoryCache` as the
-> `CacheInterface` **only when the host has not bound one** — that default does
+> `CacheInterface` **only when the host has not bound one**; that default does
 > **not** persist across PHP worker processes, so a production host MUST bind a
 > shared cache (Redis / APCu / Memcached) for the limits to hold. The in-memory
 > default keeps the module bootable in dev/test, where one instance lives across
@@ -232,8 +232,8 @@ licenses; versions to be pinned at implementation time):
 
 Already available (no new dep):
 
-- `lcobucci/jwt` + `lcobucci/clock` — JWT signing/verification (via `univeros/http`).
-- `Altair\Security\Encrypter`, `HkdfKey`, `Salt` — encryption + key derivation.
+- `lcobucci/jwt` + `lcobucci/clock`: JWT signing/verification (via `univeros/http`).
+- `Altair\Security\Encrypter`, `HkdfKey`, `Salt`: encryption + key derivation.
 - Cycle ORM + migrations (via `univeros/persistence`).
 - `password_hash`/`password_verify` (PHP core, Argon2id with sodium).
 
@@ -304,7 +304,7 @@ bin/altair doctor
 ```
 
 That single module registration contributes all `/auth`, `/users`, `/orgs`
-routes, the entities, the migrations, the middleware, and the bindings — **no
+routes, the entities, the migrations, the middleware, and the bindings: **no
 per-module host wiring**, per the Univeros module contract.
 
 > The only host-level prerequisite (shared by every module, not specific to

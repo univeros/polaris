@@ -1,0 +1,46 @@
+# PATCH /orgs/{id}/roles/{roleId}: update a role's name, description, and/or permission set.
+endpoint:
+  method: PATCH
+  path: /orgs/{id}/roles/{roleId}
+  summary: Update a role
+  tags: [orgs, roles]
+  auth: bearer
+  requires_permissions: [roles.manage]
+
+input:
+  source: body
+  fields:
+    name: { type: "?string", rules: [] }              # unchanged when omitted
+    description: { type: "?string", rules: [] }       # unchanged when omitted
+    permission_keys: { type: "?list<string>", rules: [] }   # full replacement set when present
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\UpdateRoleDomain
+  description: >
+    Partially updates a role: name, description, and/or the permission set
+    (replaced wholesale when present). The slug is immutable, and the org's
+    cloned owner role and system templates are protected from edits. New
+    permission keys must exist in the catalog and be held by the actor (the
+    escalation guard, database-resolved, 403). The cross-tenant active-org
+    guard applies: the path org must equal the caller's active org or the
+    request is 403 forbidden; superadmin is exempt. An unknown or foreign
+    role is 404.
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f6f2a-bbbb-7ccc-8ddd-0123456789cd"
+      name: Support Tier 2
+      slug: support
+      description: "Support staff with member management"
+      is_system: false
+      permission_keys: [org.read, members.read, members.update]
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # escalation guard, protected role, or cross-tenant
+  - { status: 404, code: not_found }
+  - { status: 422, code: validation_failed }
+
+events: [role.updated]

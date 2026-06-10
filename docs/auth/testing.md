@@ -2,7 +2,7 @@
 
 Polaris is security-critical; the bar is **≥ 80% coverage** across unit,
 integration, and a small E2E layer, with TDD (write the failing test first) per
-the project testing rules. Tests double as documentation — the framework's
+the project testing rules. Tests double as documentation; the framework's
 manifests surface a "tests as documentation" list per package.
 
 ## 1. Test pyramid
@@ -26,7 +26,7 @@ Pure domain logic and crypto, with ports mocked:
   case.
 - **Gate/policies:** last-owner protection, admin-can't-edit-owner, grant-only-
   what-you-have.
-- **Input DTOs:** every `rules()` set — required/format/length/enum/E.164.
+- **Input DTOs:** every `rules()` set (required/format/length/enum/E.164).
 
 ### Integration (real container + SQLite/Postgres + migrations)
 
@@ -101,8 +101,10 @@ PHPUnit `source` is already scoped to `src/` (see `phpunit.xml.dist`).
 
 The module is "done" when **all** hold:
 
-- [ ] All endpoints in [api-reference.md](api-reference.md) implemented, scaffolded
-      from `api/*.yaml`, `spec:lint` clean (no drift).
+- [ ] All endpoints in [api-reference.md](api-reference.md) implemented and
+      covered by functional tests. (The `api/*.yaml` seeds and `spec:lint` are
+      host-framework scaffolding tooling; the implemented contracts are the
+      source of truth.)
 - [ ] Migrations apply cleanly forward and roll back
       (`db:migrate` / `db:migrate:rollback`); `db:migrate:status` green.
 - [ ] Coverage ≥ targets above; `composer qa` green; `bin/altair doctor` green.

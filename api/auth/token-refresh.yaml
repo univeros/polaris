@@ -1,44 +1,39 @@
-# POST /auth/token/refresh — rotate a refresh token for a new access+refresh pair.
-# Replaying an already-rotated token revokes the whole family (theft detection).
+# POST /auth/token/refresh: rotate a refresh token for a fresh access+refresh pair.
+# Replaying an already-rotated token revokes the whole family (reuse detection).
 endpoint:
   method: POST
   path: /auth/token/refresh
-  summary: Rotate refresh token
+  summary: Rotate the refresh token
   tags: [auth]
-  auth: none                       # the refresh token itself is the credential
-  rate_limit:
-    keys: [ip]
-    budget: "60/min"
+  auth: public                     # the refresh token itself is the credential
+  rate_limit: token_refresh
 
 input:
-  class: Univeros\Polaris\Http\Inputs\RefreshInput
-  source: body                     # or HttpOnly cookie in cookie-delivery mode
+  source: body
   fields:
-    refresh_token:
-      type: string
-      rules: [required, string]
-      sensitive: true
+    refresh_token: { type: string, rules: [required], sensitive: true }
 
 domain:
-  class: Univeros\Polaris\Domain\TokenService
-  method: refresh
+  class: Univeros\Polaris\Http\Auth\RefreshTokenDomain
   description: >
-    HMAC-hash the presented token and look it up. Unknown/expired → invalid_grant.
-    Found-but-revoked → REUSE DETECTED: revoke the entire family_id, emit
-    auth.refresh_reuse_detected, return invalid_grant. Valid → revoke current
-    (reason=rotated), mint a new refresh in the same family (parent linkage) and
-    a new access JWT with freshly resolved org/roles. Emits auth.token_refreshed.
+    Exchanges a refresh token for a fresh access token and (with rotation on,
+    the default) a new refresh token; the presented one is consumed. Replaying
+    a rotated token revokes the whole family and returns 401 invalid_grant
+    (reuse detection); expired or unknown tokens are the same generic 401.
+    The refreshed access token re-resolves roles/scope from the database and
+    preserves mfa/amr/auth_time from the session.
 
 output:
   status: 200
-  responder: Univeros\Polaris\Http\Responders\TokenPairResponder
   example:
     data:
       access_token: "<jwt>"
       token_type: Bearer
       expires_in: 900
-      refresh_token: "<new-opaque>"
+      refresh_token: "<new opaque>"
 
 errors:
-  - { status: 401, code: invalid_grant }   # unknown / expired / reuse-detected (all generic)
-  - { status: 429, code: too_many_requests }
+  - { status: 401, code: invalid_grant }   # unknown, expired, or replayed (all generic)
+  - { status: 422, code: validation_failed }
+
+events: [auth.token_refreshed, auth.refresh_reuse_detected]

@@ -1,4 +1,4 @@
-# Authorization — Organizations & RBAC
+# Authorization: Organizations & RBAC
 
 Polaris is **multi-tenant**: identity (a `User`) is global, but authority is
 scoped to an **organization** via a **membership** that carries **roles**, and
@@ -15,14 +15,14 @@ User ──< Membership >── Organization
 
 ## 1. Concepts
 
-- **Organization** — a tenant boundary. Owns its members, roles (beyond the
+- **Organization**: a tenant boundary. Owns its members, roles (beyond the
   system templates), invitations, and resources.
-- **Membership** — the user's relationship to one org (`invited`/`active`/
+- **Membership**: the user's relationship to one org (`invited`/`active`/
   `suspended`). Deleting it removes all the user's authority in that org.
-- **Role** — a named bundle of permissions, scoped to an org (or a **system
+- **Role**: a named bundle of permissions, scoped to an org (or a **system
   role** when `organization_id IS NULL`). A membership can hold several roles;
   effective permissions are the **union**.
-- **Permission** — an atomic capability keyed `resource.action`
+- **Permission**: an atomic capability keyed `resource.action`
   (e.g. `members.invite`). The catalog is code-defined (single source of truth)
   and seeded into `auth_permissions`.
 
@@ -65,12 +65,12 @@ created, so each org can later customize its own copy without affecting others.
 | `owner`      | per-org | **all** org permissions, incl. `org.delete`, ownership transfer  |
 | `admin`      | per-org | everything except `org.delete` / ownership transfer              |
 | `member`     | per-org | `org.read`, `members.read`, `roles.read`                          |
-| `superadmin` | system  | global override — bypasses org checks (platform operators)        |
+| `superadmin` | system  | global override; bypasses org checks (platform operators)         |
 
 Rules:
 
 - The org **creator** is granted `owner` on creation. An org must always have
-  **≥1 owner** — the last owner cannot be removed/demoted (enforced in the
+  **≥1 owner**; the last owner cannot be removed/demoted (enforced in the
   membership domain service).
 - `superadmin` is a system role (`organization_id NULL`) assigned out-of-band
   (seed/admin tooling), never self-granted via the API.
@@ -93,7 +93,7 @@ effective_permissions(user, org) =
 A `PermissionResolver` domain service performs this with a single query
 (memberships→roles→permissions joined) and caches per-request. The result is:
 
-- embedded in the access token as `roles` (slugs) — compact, the default; and/or
+- embedded in the access token as `roles` (slugs), which is compact and the default; and/or
 - as `scope` (flattened permission keys) when `security.access_token.embed_scope`
   is true (larger token, zero server lookups on check).
 
@@ -110,7 +110,7 @@ Two complementary mechanisms:
 ### a) Declarative, at the HTTP edge
 
 Actions declare what they need; an action-aware `AuthorizationMiddleware`
-(priority `MiddlewarePriority::DISPATCHER + 10` — after routing, before the
+(priority `MiddlewarePriority::DISPATCHER + 10`, after routing, before the
 action) enforces it before the domain runs:
 
 ```php
@@ -152,13 +152,13 @@ express (e.g. "can't remove the last owner", "admins can't modify owners").
 
 ## 6. Organization lifecycle
 
-- `POST /orgs {name, slug?}` — any authenticated, verified user may create an
+- `POST /orgs {name, slug?}`: any authenticated, verified user may create an
   org; becomes `owner`. Slug auto-derived from name if omitted, uniqueness
   enforced. Emits `org.created`.
-- `GET /orgs` — orgs the caller is an active member of.
-- `GET /orgs/{id}` — `org.read`.
-- `PATCH /orgs/{id}` — `org.update`.
-- `DELETE /orgs/{id}` — `org.delete` + step-up; soft-delete (`status=suspended`)
+- `GET /orgs`: orgs the caller is an active member of.
+- `GET /orgs/{id}`: `org.read`.
+- `PATCH /orgs/{id}`: `org.update`.
+- `DELETE /orgs/{id}`: `org.delete` + step-up; soft-delete (`status=suspended`)
   then purge per retention policy. Emits `org.deleted`.
 
 ---
@@ -200,8 +200,8 @@ Invariants enforced in the membership service:
 GET    /orgs/{id}/roles                 (roles.read)
 POST   /orgs/{id}/roles                  (roles.manage)  {name, slug, permission_keys[]}
 PATCH  /orgs/{id}/roles/{roleId}         (roles.manage)
-DELETE /orgs/{id}/roles/{roleId}         (roles.manage)  — system roles immutable
-GET    /permissions                      (authenticated) — the catalog for UI building
+DELETE /orgs/{id}/roles/{roleId}         (roles.manage)  (system roles immutable)
+GET    /permissions                      (authenticated) (the catalog for UI building)
 ```
 
 Custom roles may only reference permission keys available to the org

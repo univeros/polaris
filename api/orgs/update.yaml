@@ -1,0 +1,39 @@
+# PATCH /orgs/{id}: rename the organization.
+endpoint:
+  method: PATCH
+  path: /orgs/{id}
+  summary: Update (rename) the organization
+  tags: [orgs]
+  auth: bearer
+  requires_permissions: [org.update]
+
+input:
+  source: body
+  fields:
+    name: { type: string, rules: [required, string, "max:160"] }   # 1-160 characters after trimming
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\UpdateOrganizationDomain
+  description: >
+    Renames the organization (the slug is not changed by this endpoint). The
+    cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. A soft-deleted or unknown organization reads as 404. Emits
+    org.updated.
+
+output:
+  status: 200
+  example:
+    data:
+      id: "018f6f2a-aaaa-7bbb-8ccc-0123456789ab"
+      name: "Acme Incorporated"
+      slug: acme
+      status: active
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }
+  - { status: 404, code: not_found }
+  - { status: 422, code: validation_failed }
+
+events: [org.updated]

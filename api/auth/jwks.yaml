@@ -1,0 +1,28 @@
+# GET /auth/.well-known/jwks.json: the public signing keys as a JWK Set.
+endpoint:
+  method: GET
+  path: /auth/.well-known/jwks.json
+  summary: JWKS document
+  tags: [auth]
+  auth: public
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Jwks\JwksDomain
+  description: >
+    Serves the public access-token signing key as a JWK Set keyed by kid, so
+    resource servers can verify access tokens. During a key rotation the
+    retiring public key stays listed for one access-TTL window. No data
+    envelope: the response body is the raw JWKS document.
+
+output:
+  status: 200
+  example:
+    keys:
+      - { kty: RSA, use: sig, alg: RS256, kid: "2026-06-key", n: "<base64url modulus>", e: AQAB }
+
+errors: []
+
+events: []

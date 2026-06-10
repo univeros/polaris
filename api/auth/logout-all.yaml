@@ -1,0 +1,27 @@
+# POST /auth/logout-all: revoke every session for the authenticated user.
+endpoint:
+  method: POST
+  path: /auth/logout-all
+  summary: Log out everywhere
+  tags: [auth]
+  auth: bearer
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Auth\LogoutAllDomain
+  description: >
+    Revokes every session for the authenticated user (the sub from the access
+    token), for example after a security scare. Emits auth.sessions_revoked
+    with the revoked-session count.
+
+output:
+  status: 200
+  example:
+    data: { status: logged_out_all }
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: [auth.sessions_revoked]

@@ -1,0 +1,46 @@
+# POST /orgs/{id}/invites: invite someone to the organization by email.
+endpoint:
+  method: POST
+  path: /orgs/{id}/invites
+  summary: Create (or refresh) a membership invitation
+  tags: [orgs, invites]
+  auth: bearer
+  requires_permissions: [members.invite]
+
+input:
+  source: body
+  fields:
+    email: { type: string, rules: [required, email, "max:320"] }
+    role_slugs: { type: "list<string>", rules: [required] }   # the roles granted on acceptance
+
+domain:
+  class: Univeros\Polaris\Http\Orgs\CreateInviteDomain
+  description: >
+    Invites someone (who may not yet have an account) to the organization.
+    The cross-tenant active-org guard applies: the path org must equal the
+    caller's active org or the request is 403 forbidden; superadmin is
+    exempt. The escalation guard applies to the granted roles: the inviter
+    may only grant roles they themselves hold (database-resolved, 403). The
+    invite token is delivered by email via the member.invited event, never
+    returned by the API. Re-inviting the same email rotates the token and
+    extends the expiry (one pending invite per email per org). Inviting an
+    already-active member is 409; an address belonging to a suspended member
+    is also 409 (reactivation is an explicit status change, not an
+    invitation).
+
+output:
+  status: 201
+  example:
+    data:
+      id: "018f6f2a-7777-7888-8999-0123456789ef"
+      email: newhire@example.test
+      role_slugs: [member]
+      expires_at: "2026-06-18T12:00:00+00:00"
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 403, code: forbidden }     # escalation guard, or cross-tenant
+  - { status: 409, code: conflict }      # already an active (or suspended) member
+  - { status: 422, code: validation_failed }
+
+events: [member.invited]

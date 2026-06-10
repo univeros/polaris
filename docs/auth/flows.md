@@ -39,14 +39,14 @@ Client                       Polaris
 - **Password policy** is enforced *before* hashing: min length (default 12), not
   in the breached-password set (optional `BreachedPasswordCheckInterface`, e.g.
   HIBP k-anonymity; default no-op). Returns `422` with a problem detail listing
-  failed rules — this is *not* enumeration (it's about the submitted password).
+  failed rules; this is *not* enumeration (it's about the submitted password).
 - **Hashing:** `password_hash($pw, PASSWORD_ARGON2ID)` via a
   `PasswordHasherInterface` port so the algorithm/cost is configurable and
   swappable. Verification uses `password_verify` (matches the framework's
   `RepositoryIdentityValidator`) and **rehashes on login** when
   `password_needs_rehash()` reports an outdated cost.
 - Registration does **not** create an organization. Org creation is a separate,
-  authenticated step (or an invitation acceptance) — see [rbac.md](rbac.md).
+  authenticated step (or an invitation acceptance); see [rbac.md](rbac.md).
 - An unverified user may log in (configurable: `flows.require_verified_email`),
   but until verified receives a token whose `email_verified` claim is `false`;
   the host can gate features on it. Default: **verification required** before
@@ -65,7 +65,7 @@ Two interchangeable styles (config `flows.email_verification.style`):
   Backed by `auth_otp_challenges` (`purpose=email_verify`).
 
 On success: set `email_verified_at`, consume the challenge, emit
-`user.email_verified`. Idempotent — re-verifying an already-verified email
+`user.email_verified`. Idempotent: re-verifying an already-verified email
 returns `200` without error.
 
 `POST /auth/email/verify/resend` always returns `202` generic; internally it
@@ -82,7 +82,7 @@ Client                         Polaris
   ├──────────────────────────────►│ 1. Lookup user by normalized email
   │                              │ 2. Constant-time password_verify
   │                              │    (run a dummy verify when user missing,
-  │                              │     to equalize timing — anti-enumeration)
+  │                              │     to equalize timing, anti-enumeration)
   │                              │ 3. Check status (disabled/locked) + lockout
   │                              │ 4. On failure: increment failed_login_count,
   │                              │    maybe lock, emit user.login_failed → 401
@@ -102,12 +102,12 @@ Client                         Polaris
   `/auth/mfa/verify` (see [mfa-otp.md](mfa-otp.md)). Only on successful MFA does
   Polaris mint the real token pair.
 
-**Token issuance (step 7) — on full success:**
+**Token issuance (step 7), on full success:**
 
 1. Determine **active org**: the user's last-used org, else their only org, else
    `null` (no org context yet). Carried as the `org` claim.
 2. Resolve roles/permissions for that org (see [rbac.md](rbac.md)).
-3. Mint **access JWT** (`LcobucciTokenGenerator`) — claims in §6.
+3. Mint **access JWT** (`LcobucciTokenGenerator`); claims in §6.
 4. Mint **refresh token**: 256-bit CSPRNG opaque secret; store its HMAC hash in
    `auth_refresh_tokens` with a fresh `family_id`, the active org, device UA/IP,
    and `expires_at = now + refresh_ttl`.
@@ -151,7 +151,7 @@ wired with Polaris's `TokenFactory`/`TokenParser`/`TokenValidator`:
    (`TokenInterface::TOKEN_KEY`). Its metadata exposes `sub`, `org`, `roles`,
    `mfa`, `auth_time`, `jti`, `sid`.
 4. Authorization (permission checks) runs in a separate `AuthorizationMiddleware`
-   downstream — see [rbac.md](rbac.md#enforcement).
+   downstream; see [rbac.md](rbac.md#enforcement).
 
 Access-token validation is **stateless** (no DB hit) for throughput. Revocation
 is handled at the refresh boundary (short access TTL bounds the blast radius);
@@ -209,7 +209,7 @@ Minted by `LcobucciTokenGenerator` (asymmetric, RS256 or EdDSA):
 | `roles`        | role slugs in the active org, e.g. `["admin"]`             |
 | `scope`        | flattened permission keys (optional; off by default to keep tokens small) |
 | `email_verified` | bool                                                     |
-| `mfa`          | bool — whether this session satisfied MFA                  |
+| `mfa`          | bool; whether this session satisfied MFA                   |
 | `amr`          | auth methods, e.g. `["pwd","otp"]`                         |
 | `auth_time`    | unix ts of the last full authentication (for step-up)     |
 
@@ -220,15 +220,15 @@ from the JWKS endpoint.
 
 ## 7. Sessions & logout
 
-- `GET /auth/sessions` — lists the user's active (non-revoked, non-expired)
+- `GET /auth/sessions`: lists the user's active (non-revoked, non-expired)
   refresh tokens as devices: id, masked UA, IP, `created_at`, `last_used_at`,
   and `current: true` for the calling session (matched by `sid`).
-- `DELETE /auth/sessions/{id}` — revoke a specific session
+- `DELETE /auth/sessions/{id}`: revoke a specific session
   (`revoked_reason=admin`/user); the device's next refresh fails.
-- `POST /auth/logout` — revoke the **current** session (by `sid`/refresh).
+- `POST /auth/logout`: revoke the **current** session (by `sid`/refresh).
   Stateless access tokens remain valid until `exp`; enable the `jti` denylist for
   immediate cutoff.
-- `POST /auth/logout-all` — revoke every session for the user (e.g. after a
+- `POST /auth/logout-all`: revoke every session for the user (e.g. after a
   security scare). Emits `auth.sessions_revoked`.
 
 ---
@@ -267,7 +267,7 @@ POST /auth/password/change {current_password, new_password}
   → emit user.password_changed
 ```
 
-Resetting/changing a password **always** invalidates other sessions — a core
+Resetting/changing a password **always** invalidates other sessions, a core
 account-takeover containment measure.
 
 ---
@@ -299,4 +299,4 @@ bearer token and continues.
   `locked_until` passes; a successful login resets the counter.
 - Lockout is **per-account**; IP-based throttling (separate, via rate limiter)
   defends the broader surface so a single attacker can't lock many accounts as a
-  DoS — see [security.md](security.md#account-lockout-vs-dos).
+  DoS; see [security.md](security.md#account-lockout-vs-dos).

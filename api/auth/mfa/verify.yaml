@@ -1,0 +1,43 @@
+# POST /auth/mfa/verify: complete an MFA login; mints the real access + refresh pair.
+endpoint:
+  method: POST
+  path: /auth/mfa/verify
+  summary: Verify the MFA code and mint the real session
+  tags: [auth, mfa]
+  auth: mfa_token        # the short-lived login_mfa ticket returned by POST /auth/login
+  rate_limit: mfa_confirm
+
+input:
+  source: body
+  fields:
+    code: { type: string, rules: [required] }
+    factor_id: { type: string, rules: [optional] }            # omit for the recovery-code path
+    type: { type: string, rules: [optional, "in:recovery"] }  # "recovery" forces the recovery-code path
+
+domain:
+  class: Univeros\Polaris\Http\Auth\MfaVerifyDomain
+  description: >
+    Authenticated by the login_mfa ticket. Checks the code against the named
+    factor (TOTP, sms, or email) or, when factor_id is omitted or
+    type=recovery, against the user's recovery codes. On success the real
+    access + refresh token pair is minted (same shape as a normal login) with
+    mfa=true, amr=["pwd","otp"], and a fresh auth_time. A wrong, expired,
+    exhausted, or replayed code is 422 invalid_code.
+
+output:
+  status: 200
+  example:
+    data:
+      access_token: "eyJhbGciOiJSUzI1NiIs..."
+      token_type: Bearer
+      expires_in: 900
+      refresh_token: "8d1c2f0a4b..."
+
+errors:
+  - { status: 401, code: unauthorized }        # missing or expired mfa_token
+  - { status: 404, code: not_found }           # unknown or foreign factor
+  - { status: 422, code: invalid_code }
+  - { status: 422, code: validation_failed }   # envelope is {"errors": ["..."]} when code is missing
+
+events: [mfa.verified, user.logged_in, mfa.recovery_used, mfa.verify_failed, otp.verify_failed]
+# mfa.recovery_used only when a recovery code was spent; *_failed only on failure.

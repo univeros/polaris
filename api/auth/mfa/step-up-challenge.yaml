@@ -1,0 +1,38 @@
+# POST /auth/mfa/step-up/challenge: while logged in, send the step-up OTP for an sms/email factor.
+endpoint:
+  method: POST
+  path: /auth/mfa/step-up/challenge
+  summary: Send a step-up OTP for a chosen factor
+  tags: [auth, mfa]
+  auth: bearer
+  rate_limit: mfa_send
+
+input:
+  source: body
+  fields:
+    factor_id: { type: string, rules: [required] }
+
+domain:
+  class: Univeros\Polaris\Http\Auth\StepUpChallengeDomain
+  description: >
+    On a live bearer session, generates and sends a step_up-purpose OTP for
+    the named sms or email factor so the user can re-authenticate; returns the
+    channel and the masked destination. TOTP factors take their code from the
+    app, so a challenge for one is 422 unsupported_factor. The resend cooldown
+    yields 429 too_many_requests.
+
+output:
+  status: 200
+  example:
+    data:
+      channel: email
+      destination: "a***@example.com"
+
+errors:
+  - { status: 401, code: unauthorized }
+  - { status: 404, code: not_found }             # unknown or foreign factor
+  - { status: 422, code: unsupported_factor }    # TOTP or other non-sendable factor
+  - { status: 422, code: validation_failed }     # envelope is {"errors": ["..."]} when factor_id is missing
+  - { status: 429, code: too_many_requests }     # resend cooldown
+
+events: [otp.sent]

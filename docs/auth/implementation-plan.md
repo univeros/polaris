@@ -1,7 +1,7 @@
 # Implementation Plan
 
 How to build Polaris from this spec, in dependency order, using the Altair
-spec-driven workflow. **No code has been written yet** — this is the build
+spec-driven workflow. **No code has been written yet**; this is the build
 sequence. Each phase ends green (`composer qa` + `bin/altair doctor`) before the
 next begins.
 
@@ -14,7 +14,7 @@ next begins.
 
 ---
 
-## Phase 0 — Project hygiene
+## Phase 0: Project hygiene
 
 1. Fix `composer.json` name/namespace/deps (see
    [configuration.md](configuration.md#composerjson-fix-required)):
@@ -31,7 +31,7 @@ next begins.
 
 ---
 
-## Phase 1 — Identity core (register, verify, login, tokens)
+## Phase 1: Identity core (register, verify, login, tokens)
 
 Foundational; everything else depends on users + tokens.
 
@@ -56,7 +56,7 @@ out; reuse detection works; anti-enumeration verified.
 
 ---
 
-## Phase 2 — MFA & OTP
+## Phase 2: MFA & OTP
 
 Layer MFA onto login + step-up. (User-prioritized: SMS, TOTP/QR, email.)
 
@@ -80,7 +80,7 @@ a real authenticator app; step-up gates sensitive ops.
 
 ---
 
-## Phase 3 — Multi-tenant RBAC
+## Phase 3: Multi-tenant RBAC
 
 Organizations, memberships, roles, permissions, authorization.
 
@@ -104,7 +104,7 @@ invitations work.
 
 ---
 
-## Phase 4 — Hardening, observability, ops
+## Phase 4: Hardening, observability, ops
 
 - `AuditLogListener` + `NotificationListener` (PSR-14) → `auth_audit_log` + ports.
 - `PruneExpiredService` maintenance command for transient-row cleanup.
@@ -137,7 +137,7 @@ the `Log*` drivers in dev without any of these.
 ## Future work (post-v1)
 
 - **WebAuthn / passkeys** as a fourth `auth_mfa_factors` type (model already
-  accommodates it) — likely strongest factor, enables passwordless.
+  accommodates it); likely strongest factor, enables passwordless.
 - **Social / OIDC client login** via `IdentityLinkInterface` (Google, GitHub,
   Apple) linking to existing users.
 - **Full OIDC provider** mode (authorization-code + PKCE) so Polaris can be an

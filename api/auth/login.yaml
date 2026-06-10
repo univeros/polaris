@@ -1,58 +1,56 @@
-# POST /auth/login — password login. Returns a full token pair, OR an
-# mfa_required ticket when the user has confirmed MFA factors / MFA is enforced.
+# POST /auth/login: password login. Returns a full token pair, OR an
+# mfa_required ticket when the user has a confirmed MFA factor.
 endpoint:
   method: POST
   path: /auth/login
-  summary: Authenticate with email + password
+  summary: Authenticate with email and password
   tags: [auth]
-  auth: none
-  rate_limit:
-    keys: [ip, "body.email"]
-    budget: "10/5min"
+  auth: public
+  rate_limit: login
 
 input:
-  class: Univeros\Polaris\Http\Inputs\LoginInput
   source: body
   fields:
-    email:
-      type: string
-      rules: [required, email, lowercase, trim]
-    password:
-      type: string
-      rules: [required, string]
-      sensitive: true
+    email: { type: string, rules: [required, email, "max:320"] }
+    password: { type: string, rules: [required], sensitive: true }
 
 domain:
-  class: Univeros\Polaris\Domain\LoginService
+  class: Univeros\Polaris\Http\Auth\LoginDomain
   description: >
-    Constant-time password verification (with dummy-verify on missing user for
-    timing parity), status/lockout checks, failed-attempt accounting. On success
-    either mints access+refresh (no MFA) or returns a short-lived mfa_token plus
-    the masked factor list (MFA required). Emits user.logged_in / user.login_failed.
+    Verifies the password with timing parity for unknown accounts and tracks
+    failed attempts (repeated failures lock the account for
+    auth.lockout.duration). Without a confirmed MFA factor it mints an
+    access + refresh token pair; with one, the password step does not open a
+    session and instead returns a short-lived login_mfa ticket plus the
+    confirmed factor list, to be completed via /auth/mfa/challenge and
+    /auth/mfa/verify. Wrong password, unknown account, and live lockout
+    collapse to one generic 401.
 
 output:
   status: 200
-  responder: Univeros\Polaris\Http\Responders\LoginResponder
-  oneOf:
-    - name: tokens
-      example:
-        data:
-          access_token: "<jwt>"
-          token_type: Bearer
-          expires_in: 900
-          refresh_token: "<opaque>"
-          user: { id: "018f…", email: "ada@example.com", email_verified: true }
-          active_org: { id: "018f…", slug: acme, roles: [owner] }
-    - name: mfa_required
-      example:
-        data:
-          mfa_required: true
-          mfa_token: "<jwt purpose=login_mfa>"
-          factors:
-            - { id: "…", type: totp, label: Authenticator, default: true }
-            - { id: "…", type: sms,  destination: "+1 *** *** 0101" }
+  # No confirmed MFA factor: a full session is opened.
+  example:
+    data:
+      access_token: "<jwt>"
+      token_type: Bearer
+      expires_in: 900
+      refresh_token: "<opaque>"
+      user: { id: "018f...", email: "ada@example.com", email_verified: true }
+  # Confirmed MFA factor: no session yet, complete the gate with the mfa_token.
+  # Factor entries always carry id/type/default; label and destination (masked)
+  # appear only when present (a TOTP factor has no destination).
+  example_mfa_required:
+    data:
+      mfa_required: true
+      mfa_token: "<jwt purpose=login_mfa>"
+      factors:
+        - { id: "018f...", type: totp, default: true, label: Authenticator }
+        - { id: "018f...", type: sms, default: false, destination: "+1 *** *** 0101" }
 
 errors:
-  - { status: 401, code: invalid_credentials }   # generic
-  - { status: 403, code: email_unverified }
-  - { status: 429, code: too_many_requests }
+  - { status: 401, code: invalid_credentials }   # wrong password, unknown account, or live lockout (indistinguishable)
+  - { status: 403, code: email_unverified }      # only when auth.require_verified_email is on; includes a "resend" pointer
+  - { status: 403, code: account_disabled }
+  - { status: 422, code: validation_failed }
+
+events: [user.logged_in, user.login_failed, user.locked]

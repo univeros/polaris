@@ -49,7 +49,7 @@ Relationships:
 
 ## 2. Tables
 
-### `auth_users` — the identity record
+### `auth_users`: the identity record
 
 | Column                | Type                    | Notes                                                        |
 | --------------------- | ----------------------- | ------------------------------------------------------------ |
@@ -72,7 +72,7 @@ row as an array including `email` and `password_hash`, so the framework's
 `RepositoryIdentityValidator` (configured `username→email`, `hash→password_hash`)
 can `password_verify()` against it unchanged.
 
-### `auth_organizations` — tenant
+### `auth_organizations`: tenant
 
 | Column        | Type                | Notes                                  |
 | ------------- | ------------------- | -------------------------------------- |
@@ -85,7 +85,7 @@ can `password_verify()` against it unchanged.
 
 Indexes: `unique(slug)`, `index(status)`.
 
-### `auth_memberships` — user ⇄ org
+### `auth_memberships`: user ⇄ org
 
 | Column            | Type                  | Notes                                        |
 | ----------------- | --------------------- | -------------------------------------------- |
@@ -134,7 +134,7 @@ truth) on migrate; see [rbac.md](rbac.md#permission-catalog).
 `membership_id` (fk), `role_id` (fk); **pk(membership_id, role_id)**;
 `ON DELETE CASCADE`. This is what binds a user's roles *within a specific org*.
 
-### `auth_refresh_tokens` — sessions / devices
+### `auth_refresh_tokens`: sessions / devices
 
 The heart of the rotating-refresh strategy.
 
@@ -180,7 +180,7 @@ stolen token → **revoke the entire `family_id`** and emit
 
 Indexes: `index(user_id, type)`, `index(user_id, confirmed_at)`.
 
-### `auth_otp_challenges` — transient SMS/email OTP + MFA tickets
+### `auth_otp_challenges`: transient SMS/email OTP + MFA tickets
 
 | Column         | Type                  | Notes                                                          |
 | -------------- | --------------------- | ------------------------------------------------------------- |
@@ -201,8 +201,8 @@ Indexes: `index(user_id, type)`, `index(user_id, confirmed_at)`.
 Indexes: `index(user_id, purpose, consumed_at)`, `index(expires_at)`.
 
 > The short-lived **`mfa_token`** returned by `/auth/login` when MFA is required
-> is itself a signed, single-purpose JWT (`purpose=login_mfa`, ~5 min) — *not* a
-> DB row — that references the user; the OTP challenge row holds the actual code.
+> is itself a signed, single-purpose JWT (`purpose=login_mfa`, ~5 min), *not* a
+> DB row, that references the user; the OTP challenge row holds the actual code.
 
 ### `auth_recovery_codes`
 
@@ -246,7 +246,7 @@ Identical shape (single-use, hashed token):
 
 Index: `index(organization_id)`, `index(email)`, `unique(token_hash)`.
 
-### `auth_audit_log` — append-only security trail
+### `auth_audit_log`: append-only security trail
 
 | Column            | Type               | Notes                                              |
 | ----------------- | ------------------ | -------------------------------------------------- |
@@ -261,7 +261,7 @@ Index: `index(organization_id)`, `index(email)`, `unique(token_hash)`.
 
 Indexes: `index(actor_user_id, created_at)`, `index(event, created_at)`,
 `index(organization_id, created_at)`. Written by a PSR-14 listener subscribing to
-the domain events — not inline in domain services — so auditing stays a
+the domain events (not inline in domain services) so auditing stays a
 cross-cutting concern.
 
 ---
@@ -284,7 +284,7 @@ it to its scheduler. (Polaris does not assume a scheduler exists.)
 
 ## 4. Migration set
 
-One migration per table (generated, never hand-written — see the Altair skill).
+One migration per table (generated, never hand-written; see the Altair skill).
 Ordering respects FKs:
 
 ```

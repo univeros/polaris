@@ -1,0 +1,28 @@
+# POST /auth/logout: revoke the caller's current session.
+endpoint:
+  method: POST
+  path: /auth/logout
+  summary: Log out the current session
+  tags: [auth]
+  auth: bearer
+
+input:
+  source: none
+
+domain:
+  class: Univeros\Polaris\Http\Auth\LogoutDomain
+  description: >
+    Revokes the caller's current session (the sid carried by the access
+    token). The stateless access token stays valid until it expires; the
+    device can no longer refresh. Fails closed: a token without a sid cannot
+    end a session and gets 401.
+
+output:
+  status: 200
+  example:
+    data: { status: logged_out }
+
+errors:
+  - { status: 401, code: unauthorized }
+
+events: []
