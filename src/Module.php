@@ -134,6 +134,7 @@ use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Identity\UserAdminService;
 use Univeros\Polaris\Identity\StepUpService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
+use Univeros\Polaris\Observability\AuditLogListener;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
 use Univeros\Polaris\Mfa\MfaChallengeVerifier;
@@ -685,6 +686,10 @@ final class Module implements
         );
 
         $container->singleton(Gate::class, static fn(PermissionResolver $permissions): Gate => new Gate($permissions));
+
+        // The append-only audit trail (#38). Polaris ships the listener; the host subscribes it
+        // to its PSR-14 dispatcher for the Univeros\Polaris\Event\* classes (docs/auth/events.md).
+        $container->singleton(AuditLogListener::class);
         $container->singleton(
             AuthorizationMiddleware::class,
             static fn(Gate $gate, ResponseFactoryInterface $responseFactory): AuthorizationMiddleware
@@ -1126,6 +1131,7 @@ final class Module implements
                 UnitOfWorkInterface $unitOfWork,
                 SessionService $sessions,
                 ClockInterface $clock,
+                EventDispatcherInterface $events,
             ): MembershipService => new MembershipService(
                 $memberships,
                 $membershipRoles,
@@ -1136,6 +1142,7 @@ final class Module implements
                 $unitOfWork,
                 $sessions,
                 $clock,
+                $events,
             ),
         );
         $container->singleton(ListMembersDomain::class);
