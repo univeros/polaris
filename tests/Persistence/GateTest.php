@@ -16,6 +16,7 @@ use Univeros\Polaris\Entity\RolePermission;
 use Univeros\Polaris\Exception\AuthorizationException;
 use Univeros\Polaris\Persistence\MembershipRepository;
 use Univeros\Polaris\Persistence\MembershipRoleRepository;
+use Univeros\Polaris\Persistence\OrganizationRepository;
 use Univeros\Polaris\Persistence\PermissionRepository;
 use Univeros\Polaris\Persistence\RolePermissionRepository;
 use Univeros\Polaris\Persistence\RoleRepository;
@@ -56,6 +57,7 @@ final class GateTest extends DatabaseTestCase
     {
         return new Gate(new PermissionResolver(
             new UserRepository($this->orm, $this->unitOfWork),
+            new OrganizationRepository($this->orm, $this->unitOfWork),
             new MembershipRepository($this->orm, $this->unitOfWork),
             new MembershipRoleRepository($this->orm, $this->unitOfWork),
             new RoleRepository($this->orm, $this->unitOfWork),
