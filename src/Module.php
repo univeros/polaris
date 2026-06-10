@@ -134,6 +134,7 @@ use Univeros\Polaris\Identity\SessionService;
 use Univeros\Polaris\Identity\UserAdminService;
 use Univeros\Polaris\Identity\StepUpService;
 use Univeros\Polaris\Mfa\EndroidQrRenderer;
+use Univeros\Polaris\Notification\NotificationListener;
 use Univeros\Polaris\Observability\AuditLogListener;
 use Univeros\Polaris\Mfa\LogOtpMailer;
 use Univeros\Polaris\Mfa\LogSmsSender;
@@ -687,9 +688,18 @@ final class Module implements
 
         $container->singleton(Gate::class, static fn(PermissionResolver $permissions): Gate => new Gate($permissions));
 
-        // The append-only audit trail (#38). Polaris ships the listener; the host subscribes it
-        // to its PSR-14 dispatcher for the Univeros\Polaris\Event\* classes (docs/auth/events.md).
+        // The append-only audit trail (#38) and user-facing notifications (#39). Polaris ships
+        // the listeners; the host subscribes them to its PSR-14 dispatcher for the
+        // Univeros\Polaris\Event\* classes (docs/auth/events.md).
         $container->singleton(AuditLogListener::class);
+        $container->singleton(
+            NotificationListener::class,
+            static fn(
+                OtpMailerInterface $mailer,
+                UserRepository $users,
+                LoggerInterface $logger,
+            ): NotificationListener => new NotificationListener($mailer, $users, $logger),
+        );
         $container->singleton(
             AuthorizationMiddleware::class,
             static fn(Gate $gate, ResponseFactoryInterface $responseFactory): AuthorizationMiddleware
