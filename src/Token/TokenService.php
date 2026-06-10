@@ -118,6 +118,31 @@ final class TokenService
     }
 
     /**
+     * Re-scope an existing session to a different organization (issue #35). Mints a fresh access
+     * token whose `org`/`roles`/`scope` reflect the new org, and re-points the live refresh token's
+     * org context so subsequent refreshes stay scoped to it. Like {@see stepUp()} it mints without
+     * rotating the refresh token, and — for the same reason — requires the session to still be live.
+     * The caller must already have verified the user is an active member of the target org.
+     *
+     * @throws InvalidGrantException the session has ended (no unrevoked token in the family)
+     */
+    public function switchOrganization(string $userId, string $organizationId, string $sessionId): string
+    {
+        $active = $this->refreshTokens->findOneBy(['familyId' => $sessionId, 'revokedAt' => null]);
+        if (!$active instanceof RefreshToken) {
+            throw new InvalidGrantException('The session is no longer active.');
+        }
+
+        $active->organizationId = $organizationId;
+        $this->unitOfWork->persist($active);
+        $this->unitOfWork->flush();
+
+        $principal = $this->principals->resolve($userId, $organizationId);
+
+        return $this->mintAccess($principal, $sessionId);
+    }
+
+    /**
      * Exchange a refresh token for a fresh pair, rotating it within its family.
      *
      * @throws RefreshTokenReuseException when an already-rotated token is replayed
