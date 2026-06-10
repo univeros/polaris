@@ -30,14 +30,19 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
         $this->seedOtpChallenge(consumedAt: null, expiresAt: '2026-06-10 11:00:00');
         $live = $this->seedOtpChallenge(consumedAt: null, expiresAt: '2026-06-10 13:00:00');
 
-        // Email verifications / password resets: one dead, one live each.
+        // Email verifications / password resets: expired, consumed-but-unexpired, and live.
         $this->seedChallengeRow('auth_email_verifications', expiresAt: '2026-06-09 00:00:00');
+        $this->seedChallengeRow('auth_email_verifications', expiresAt: '2026-06-11 00:00:00', consumedAt: self::NOW);
         $liveVerification = $this->seedChallengeRow('auth_email_verifications', expiresAt: '2026-06-11 00:00:00');
-        $this->seedChallengeRow('auth_password_resets', expiresAt: '2026-06-09 00:00:00');
+        $this->seedChallengeRow('auth_password_resets', expiresAt: '2026-06-11 00:00:00', consumedAt: self::NOW);
 
-        // Refresh tokens: long-expired (pruned), expired within grace (kept), live (kept).
+        // Refresh tokens: long-expired (pruned), revoked-long-ago-but-unexpired (pruned —
+        // a logged-out sliding session must not accumulate), expired within grace (kept),
+        // freshly revoked (kept for forensics), live (kept).
         $this->seedRefreshToken(expiresAt: '2026-06-01 00:00:00');
+        $this->seedRefreshToken(expiresAt: '2027-01-01 00:00:00', revokedAt: '2026-05-20 00:00:00');
         $inGrace = $this->seedRefreshToken(expiresAt: '2026-06-08 00:00:00');
+        $freshRevoked = $this->seedRefreshToken(expiresAt: '2027-01-01 00:00:00', revokedAt: '2026-06-09 00:00:00');
         $liveToken = $this->seedRefreshToken(expiresAt: '2026-06-20 00:00:00');
 
         // Audit rows are never pruned.
@@ -46,14 +51,14 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
         $deleted = $this->service()->prune();
 
         self::assertSame(2, $deleted['auth_otp_challenges']);
-        self::assertSame(1, $deleted['auth_email_verifications']);
+        self::assertSame(2, $deleted['auth_email_verifications']);
         self::assertSame(1, $deleted['auth_password_resets']);
-        self::assertSame(1, $deleted['auth_refresh_tokens']);
+        self::assertSame(2, $deleted['auth_refresh_tokens']);
 
         self::assertSame([$live], $this->ids('auth_otp_challenges'));
         self::assertSame([$liveVerification], $this->ids('auth_email_verifications'));
         self::assertSame([], $this->ids('auth_password_resets'));
-        self::assertEqualsCanonicalizing([$inGrace, $liveToken], $this->ids('auth_refresh_tokens'));
+        self::assertEqualsCanonicalizing([$inGrace, $freshRevoked, $liveToken], $this->ids('auth_refresh_tokens'));
         self::assertCount(1, $this->ids('auth_audit_log'));
     }
 
@@ -99,7 +104,7 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
         return $id;
     }
 
-    private function seedChallengeRow(string $table, string $expiresAt): string
+    private function seedChallengeRow(string $table, string $expiresAt, ?string $consumedAt = null): string
     {
         $id = Uuid::v7()->toRfc4122();
         $this->connection()->insert($table)->values([
@@ -107,6 +112,7 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
             'user_id' => Uuid::v7()->toRfc4122(),
             'email' => 'someone@example.com',
             'token_hash' => bin2hex(random_bytes(32)),
+            'consumed_at' => $consumedAt === null ? null : new DateTimeImmutable($consumedAt),
             'expires_at' => new DateTimeImmutable($expiresAt),
             'created_at' => new DateTimeImmutable('2026-06-10 10:00:00'),
         ])->run();
@@ -114,7 +120,7 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
         return $id;
     }
 
-    private function seedRefreshToken(string $expiresAt): string
+    private function seedRefreshToken(string $expiresAt, ?string $revokedAt = null): string
     {
         $id = Uuid::v7()->toRfc4122();
         $this->connection()->insert('auth_refresh_tokens')->values([
@@ -122,6 +128,8 @@ final class PruneExpiredServiceTest extends DatabaseTestCase
             'user_id' => Uuid::v7()->toRfc4122(),
             'family_id' => Uuid::v7()->toRfc4122(),
             'token_hash' => bin2hex(random_bytes(32)),
+            'revoked_at' => $revokedAt === null ? null : new DateTimeImmutable($revokedAt),
+            'revoked_reason' => $revokedAt === null ? null : 'logout',
             'expires_at' => new DateTimeImmutable($expiresAt),
             'created_at' => new DateTimeImmutable('2026-06-01 00:00:00'),
         ])->run();

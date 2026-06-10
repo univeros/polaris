@@ -61,9 +61,18 @@ final class PruneExpiredService
                 ->run();
         }
 
+        // A token is prunable once it has been dead — naturally expired OR explicitly revoked —
+        // for longer than the grace window. Keying on expiry alone would keep revoked long-TTL
+        // (or sliding-mode) session rows forever. A row exactly on the cutoff is still in grace.
         $database = $this->databaseFor(RefreshToken::class);
         $deleted['auth_refresh_tokens'] = $database->delete('auth_refresh_tokens')
-            ->where('expires_at', '<', $refreshCutoff)
+            ->where(static function ($query) use ($refreshCutoff): void {
+                $query->where('expires_at', '<', $refreshCutoff)
+                    ->orWhere(static function ($revoked) use ($refreshCutoff): void {
+                        $revoked->where('revoked_at', '!=', null)
+                            ->where('revoked_at', '<', $refreshCutoff);
+                    });
+            })
             ->run();
 
         return $deleted;
