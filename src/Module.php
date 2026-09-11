@@ -53,7 +53,7 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
     #[Override]
     public function apply(Container $container): void
     {
-        $env = new Env();
+        $env = self::env($container);
         $prefix = PolarisConfig::pathPrefix($env);
 
         if (!$container->has(ResponseFactoryInterface::class)) {
@@ -87,6 +87,19 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
         $container->singleton(CredentialsExtractorInterface::class, NullCredentialsExtractor::class);
         $container->singleton(TokenAuthenticationMiddleware::class)
             ->withParameters(['options' => ['ssl' => false, 'onError' => new UnauthorizedResponder()]]);
+    }
+
+    /**
+     * The environment through the container: `EnvironmentConfiguration` loads `.env` when `Env` is
+     * resolved, so resolving it here (rather than `new Env()`) makes a `.env` key visible to the
+     * module; without that configuration the container builds a plain `Env`.
+     */
+    public static function env(Container $container): Env
+    {
+        $env = $container->get(Env::class);
+        \assert($env instanceof Env);
+
+        return $env;
     }
 
     /**

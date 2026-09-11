@@ -51,9 +51,10 @@ hand-off this work applies. What follows is what was decided while applying it.
   `POLARIS_DB_USER` and `POLARIS_DB_PASSWORD`); the `sqlserver` driver of `DatabaseSettings` is refused
   because `polaris/pdo` has no schema for it.
 - 2026-09-11 · WP1 · The environment is read through the framework's `Altair\Configuration\Support\Env`
-  (`$_ENV`, `$_SERVER`, then `getenv()`): `EnvironmentConfiguration` loads `.env` with
-  `Dotenv::createImmutable()`, which fills `$_ENV` and `$_SERVER` but not `getenv()`, so
-  `EnvironmentConfig::secrets()`'s default would miss a `.env` key. The default issuer without
+  (`$_ENV`, `$_SERVER`, then `getenv()`), resolved from the container (`Module::env()`):
+  `EnvironmentConfiguration` binds `Env` and loads `.env` with `Dotenv::createImmutable()` when `Env` is
+  resolved, filling `$_ENV` and `$_SERVER` but not `getenv()`, so a `new Env()` or
+  `EnvironmentConfig::secrets()`'s `getenv()` default could read before the load or miss a `.env` key. The default issuer without
   `AUTH_ISSUER` is core's `polaris` (1.x minted `univeros/polaris`); no token outlives the upgrade, the
   UPGRADE text will say so.
 - 2026-09-11 · WP1 · `ResponseFactoryInterface` is bound to `Laminas\Diactoros\ResponseFactory` when the host

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Tests\Http;
 
+use Altair\Configuration\Support\Env;
 use Laminas\Diactoros\Response\TextResponse;
 use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\Diactoros\StreamFactory;
@@ -14,11 +15,11 @@ use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Univeros\Polaris\Http\PolarisMiddleware;
+use Univeros\Polaris\Tests\Support\ArrayEnv;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 
 use function json_decode;
 use function json_encode;
-use function putenv;
 
 final class PolarisMiddlewareTest extends TestCase
 {
@@ -29,11 +30,6 @@ final class PolarisMiddlewareTest extends TestCase
     {
         $this->mailer = new RecordingOtpMailer();
         $this->middleware = $this->boot();
-    }
-
-    protected function tearDown(): void
-    {
-        putenv('POLARIS_PATH_PREFIX');
     }
 
     public function testAManifestPathRunsThePolarisPipeline(): void
@@ -82,8 +78,7 @@ final class PolarisMiddlewareTest extends TestCase
 
     public function testThePathPrefixMountsThePolarisRoutesUnderIt(): void
     {
-        putenv('POLARIS_PATH_PREFIX=/api');
-        $middleware = $this->boot();
+        $middleware = $this->boot(new ArrayEnv(['POLARIS_PATH_PREFIX' => '/api']));
 
         $mounted = $middleware->process((new ServerRequestFactory())->createServerRequest('GET', '/api/auth/.well-known/jwks.json'), $this->handler());
         $bare = $middleware->process((new ServerRequestFactory())->createServerRequest('GET', '/auth/.well-known/jwks.json'), $this->handler());
@@ -92,9 +87,13 @@ final class PolarisMiddlewareTest extends TestCase
         self::assertSame('framework', (string) $bare->getBody());
     }
 
-    private function boot(): PolarisMiddleware
+    private function boot(?Env $env = null): PolarisMiddleware
     {
-        $middleware = TestPolaris::boot([OtpMailerInterface::class => $this->mailer])->get(PolarisMiddleware::class);
+        $instances = [OtpMailerInterface::class => $this->mailer];
+        if ($env !== null) {
+            $instances[Env::class] = $env;
+        }
+        $middleware = TestPolaris::boot($instances)->get(PolarisMiddleware::class);
         \assert($middleware instanceof PolarisMiddleware);
 
         return $middleware;

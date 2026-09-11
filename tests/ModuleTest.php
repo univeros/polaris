@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Tests;
 
+use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
 use Altair\Http\Contracts\CredentialsExtractorInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
@@ -34,6 +35,7 @@ use Univeros\Polaris\Http\NullCredentialsExtractor;
 use Univeros\Polaris\Http\NullIdentityValidator;
 use Univeros\Polaris\Http\PolarisMiddleware;
 use Univeros\Polaris\Module;
+use Univeros\Polaris\Tests\Support\ArrayEnv;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 use Univeros\Polaris\Token\DualToken;
 use Univeros\Polaris\Token\TokenFactoryBridge;
@@ -147,6 +149,20 @@ final class ModuleTest extends TestCase
 
         self::assertSame(200, $scoped->process($this->request('GET', 'http://api.example.com/ping'), $this->handler())->getStatusCode());
         self::assertSame(401, $scoped->process($this->request('GET', 'http://api.example.com/app/me'), $this->handler())->getStatusCode());
+    }
+
+    public function testTheEnvironmentIsReadThroughTheContainersEnv(): void
+    {
+        // EnvironmentConfiguration binds Env and loads .env when it is resolved; a bound Env is the environment.
+        $container = TestPolaris::boot([Env::class => new ArrayEnv(['POLARIS_PATH_PREFIX' => '/api'])]);
+        $middleware = $container->get(PolarisMiddleware::class);
+        self::assertInstanceOf(PolarisMiddleware::class, $middleware);
+
+        $mounted = $middleware->process($this->request('GET', '/api/auth/.well-known/jwks.json'), $this->handler());
+        $bare = $middleware->process($this->request('GET', '/auth/.well-known/jwks.json'), $this->handler());
+
+        self::assertSame(200, $mounted->getStatusCode());
+        self::assertSame('ok', (string) $bare->getBody());
     }
 
     public function testNothingIsBuiltBeforeTheFirstResolution(): void
