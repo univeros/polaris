@@ -51,7 +51,7 @@
             "@putenv POLARIS_HARNESS=Univeros\\Polaris\\Tests\\Harness",
             "phpunit --testsuite functional"
         ],
-        "qa": ["@cs", "@stan", "@test"]
+        "qa": ["@cs", "@stan", "@test", "@test:contract"]
     },
     "config": {
         "sort-packages": true,

@@ -100,3 +100,15 @@ hand-off this work applies. What follows is what was decided while applying it.
   (PostgreSQL in CI, the way `db:migrate` runs there) and on a SQLite file otherwise; it discovers the
   module's directory through the container tag as `ModuleMigrationDirectories` does, applies through
   Cycle's `Migrator`, proves parity with `SchemaDiff`, rolls back.
+- 2026-09-11 · WP3 · `tests/Harness.php` implements `Polaris\Tests\Functional\Harness` as the hand-off
+  describes: an `Altair\Container\Container` with the test's Config bound first (the database adapter, the
+  secrets and auth settings, the cache as `Polaris\Support\InMemoryCache` when the test binds none, and
+  every other non-null port), `POLARIS_PATH_PREFIX` from the Config's prefix, then
+  `ModuleConfiguration([new Module()])`; the request serialised to JSON bytes with an empty parsed body
+  (what `ServerRequestFactory::fromGlobals()` produces); the skeleton's Relay pipeline through
+  `ModuleMiddleware::collect()` with `ExceptionHandlerMiddleware` (capturing, `ProblemDetailsErrorHandler`),
+  a `DispatcherMiddleware` over an empty FastRoute table and `ActionMiddleware`, resolved by the framework's
+  `ContainerResolver`; `transportHeaders()` empty because Relay adds nothing. The 184 fixtures and the
+  coverage test passed unchanged on the first run (185 tests, SQLite), so no difference was found and
+  nothing is added to `behaviour-changes.md`. `qa` now ends with `test:contract`, and CI runs it as its
+  own step after `composer test`.
