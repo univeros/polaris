@@ -6,8 +6,6 @@ namespace Univeros\Polaris\Bootstrap;
 
 use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
-use Altair\Persistence\Configuration\DatabaseSettings;
-use PDO;
 use Polaris\Config\AuthConfig;
 use Polaris\Config\EnvironmentConfig;
 use Polaris\Config\RateLimitConfig;
@@ -49,11 +47,9 @@ final class PolarisConfig
 
     public static function fromContainer(Container $container, Env $env): Config
     {
-        $environment = self::environment($env);
-
         return new Config(
-            secrets: self::port($container, Secrets::class) ?? EnvironmentConfig::secrets($environment),
-            auth: self::port($container, AuthConfig::class) ?? EnvironmentConfig::auth($environment),
+            secrets: self::secrets($container, $env),
+            auth: self::auth($container, $env),
             database: self::database($container, $env),
             mailer: self::port($container, OtpMailerInterface::class),
             sms: self::port($container, SmsSenderInterface::class),
@@ -74,6 +70,23 @@ final class PolarisConfig
     }
 
     /**
+     * The bound {@see Secrets}, else `APP_KEY` and `AUTH_JWT_*` from the environment.
+     */
+    public static function secrets(Container $container, Env $env): Secrets
+    {
+        return self::port($container, Secrets::class) ?? EnvironmentConfig::secrets(self::environment($env));
+    }
+
+    /**
+     * The bound {@see AuthConfig}, else `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_ACCESS_TOKEN_DENYLIST` and
+     * `AUTH_PASSWORD_BREACH_CHECK` from the environment over core's defaults.
+     */
+    public static function auth(Container $container, Env $env): AuthConfig
+    {
+        return self::port($container, AuthConfig::class) ?? EnvironmentConfig::auth(self::environment($env));
+    }
+
+    /**
      * `POLARIS_PATH_PREFIX`, the path the Polaris routes are mounted under; `/` by default.
      */
     public static function pathPrefix(Env $env): string
@@ -85,17 +98,7 @@ final class PolarisConfig
 
     private static function database(Container $container, Env $env): DatabaseAdapter
     {
-        $adapter = self::port($container, DatabaseAdapter::class);
-        if ($adapter !== null) {
-            return $adapter;
-        }
-        $pdo = self::port($container, PDO::class);
-        if ($pdo !== null) {
-            return new PdoAdapter($pdo);
-        }
-        $settings = self::port($container, DatabaseSettings::class);
-
-        return new PdoAdapter($settings === null ? Connection::fromEnvironment($env) : Connection::fromSettings($settings));
+        return self::port($container, DatabaseAdapter::class) ?? new PdoAdapter(Connection::fromContainer($container, $env));
     }
 
     private static function dispatcher(Container $container): ListenerDispatcher

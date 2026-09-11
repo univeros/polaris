@@ -77,3 +77,26 @@ hand-off this work applies. What follows is what was decided while applying it.
   `Polaris::listeners()` from the container on the first dispatch (Polaris does not exist when its Config
   is assembled), sends every event to every listener (each Polaris listener ignores the events it does
   not handle) and honours `StoppableEventInterface`.
+- 2026-09-11 · WP2 · The migration runs `SchemaInstaller` on Cycle's own connection (the protected
+  `Driver::getPDO()` through reflection), inside the transaction Cycle wraps around `up()` and `down()`,
+  not on a second connection as the hand-off sketched. Reproduced on a SQLite file: with the framework's
+  `queryCache`, `Migrator::run()`'s `isConfigured()` leaves the `hasTable` cursor open on Cycle's
+  connection, a SHARED lock that blocks any other connection's commit (`database is locked` after the
+  60 s busy timeout); on the same connection, `DROP TABLE` still fails with `database table is locked`
+  while the migrator's state cursor is pending, so the migration calls Cycle's public
+  `Driver::clearCache()` first, which finalises the cached statements. One connection also makes the
+  install atomic with PostgreSQL's transactional DDL. · Rejected: WAL journal mode (the switch needs the
+  same exclusive lock); `Driver::disconnect()` inside the transaction (Cycle then commits a transaction
+  that no longer exists); a `DatabaseAdapter` over Cycle's `DatabaseInterface` (a second adapter to
+  maintain for one seeder call).
+- 2026-09-11 · WP2 · `Console\Commands::all(Container)` returns the six `polaris/cli` commands renamed
+  `polaris:*` on the module's bindings: the connection callable is `Connection::fromContainer()` (a bound
+  `PDO`, else the framework's `DatabaseSettings`, else the environment), the secrets and auth callables
+  `PolarisConfig::secrets()` and `::auth()`, so `polaris:schema:create` and `polaris:doctor` run on a host
+  before Polaris itself can be built (no JWT keys yet) and on the database the application configured.
+  `univeros/cli` discovers `#[Command]` classes by directory and has no module hook, so the application's
+  own `bin/altair` adds them (the demo in WP4 shows the file).
+- 2026-09-11 · WP2 · The migration test runs on the `DB_*` database when the environment sets one
+  (PostgreSQL in CI, the way `db:migrate` runs there) and on a SQLite file otherwise; it discovers the
+  module's directory through the container tag as `ModuleMigrationDirectories` does, applies through
+  Cycle's `Migrator`, proves parity with `SchemaDiff`, rolls back.

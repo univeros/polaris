@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Database;
 
 use Altair\Configuration\Support\Env;
+use Altair\Container\Container;
 use Altair\Persistence\Configuration\DatabaseSettings;
 use Altair\Persistence\Exception\InvalidConfigurationException;
 use PDO;
@@ -22,6 +23,28 @@ use function sprintf;
 final class Connection
 {
     private const array DB_KEYS = ['DB_CONNECTION', 'DB_DATABASE', 'DB_HOST', 'DB_PORT', 'DB_USER', 'DB_PASSWORD', 'DB_CHARSET'];
+
+    /**
+     * A bound `PDO`, else one opened from the bound {@see DatabaseSettings} (what `CycleOrmConfiguration`
+     * registers), else from the environment.
+     */
+    public static function fromContainer(Container $container, ?Env $env = null): PDO
+    {
+        if ($container->has(PDO::class)) {
+            $pdo = $container->get(PDO::class);
+            if ($pdo instanceof PDO) {
+                return $pdo;
+            }
+        }
+        if ($container->has(DatabaseSettings::class)) {
+            $settings = $container->get(DatabaseSettings::class);
+            if ($settings instanceof DatabaseSettings) {
+                return self::fromSettings($settings);
+            }
+        }
+
+        return self::fromEnvironment($env);
+    }
 
     public static function fromEnvironment(?Env $env = null): PDO
     {
