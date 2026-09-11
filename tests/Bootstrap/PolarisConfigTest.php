@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace Univeros\Polaris\Tests\Bootstrap;
 
-use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
 use Altair\Persistence\Configuration\DatabaseSettings;
 use Altair\Persistence\Exception\InvalidConfigurationException;
@@ -35,22 +34,13 @@ use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Bootstrap\PolarisConfig;
 use Univeros\Polaris\Event\ListenerDispatcher;
+use Univeros\Polaris\Tests\Support\ArrayEnv;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 
-use function putenv;
 use function trim;
 
 final class PolarisConfigTest extends TestCase
 {
-    private const array ENV = ['APP_KEY', 'AUTH_JWT_PRIVATE_KEY', 'AUTH_JWT_PUBLIC_KEY', 'AUTH_ISSUER', 'AUTH_AUDIENCE', 'AUTH_ACCESS_TOKEN_DENYLIST', 'AUTH_PASSWORD_BREACH_CHECK', 'POLARIS_PATH_PREFIX', 'POLARIS_DSN', 'DB_CONNECTION', 'DB_DATABASE'];
-
-    protected function tearDown(): void
-    {
-        foreach (self::ENV as $key) {
-            putenv($key);
-        }
-    }
-
     public function testEveryPortBoundBeforeTheModuleAppliesWins(): void
     {
         $ports = [
@@ -71,7 +61,7 @@ final class PolarisConfigTest extends TestCase
             $container->instance($id, $instance);
         }
 
-        $config = PolarisConfig::fromContainer($container, new Env());
+        $config = PolarisConfig::fromContainer($container, new ArrayEnv([]));
 
         self::assertSame($ports[Secrets::class], $config->secrets);
         self::assertSame($ports[AuthConfig::class], $config->auth);
@@ -89,17 +79,19 @@ final class PolarisConfigTest extends TestCase
     public function testSecretsAndAuthSettingsComeFromTheEnvironmentWhenNotBound(): void
     {
         $keys = TestKeys::rsa();
-        putenv('APP_KEY=' . TestPolaris::APP_KEY);
-        putenv('AUTH_JWT_PRIVATE_KEY=' . $keys['private']);
-        putenv('AUTH_JWT_PUBLIC_KEY=' . $keys['public']);
-        putenv('AUTH_ISSUER=https://issuer.example.com');
-        putenv('AUTH_AUDIENCE=https://api.example.com');
-        putenv('AUTH_ACCESS_TOKEN_DENYLIST=1');
-        putenv('AUTH_PASSWORD_BREACH_CHECK=on');
+        $env = new ArrayEnv([
+            'APP_KEY' => TestPolaris::APP_KEY,
+            'AUTH_JWT_PRIVATE_KEY' => $keys['private'],
+            'AUTH_JWT_PUBLIC_KEY' => $keys['public'],
+            'AUTH_ISSUER' => 'https://issuer.example.com',
+            'AUTH_AUDIENCE' => 'https://api.example.com',
+            'AUTH_ACCESS_TOKEN_DENYLIST' => '1',
+            'AUTH_PASSWORD_BREACH_CHECK' => 'on',
+        ]);
         $container = new Container();
         $container->instance(DatabaseAdapter::class, new InMemoryAdapter());
 
-        $config = PolarisConfig::fromContainer($container, new Env());
+        $config = PolarisConfig::fromContainer($container, $env);
 
         self::assertSame(trim($keys['public']), trim($config->secrets->jwtPublicKey));
         self::assertSame('https://issuer.example.com', $config->auth->issuer);
@@ -116,7 +108,7 @@ final class PolarisConfigTest extends TestCase
         $pdo = new PDO('sqlite::memory:');
         $container = $this->container([PDO::class => $pdo]);
 
-        $database = PolarisConfig::fromContainer($container, new Env())->database;
+        $database = PolarisConfig::fromContainer($container, new ArrayEnv([]))->database;
 
         self::assertInstanceOf(PdoAdapter::class, $database);
         self::assertSame($pdo, $database->pdo());
@@ -126,7 +118,7 @@ final class PolarisConfigTest extends TestCase
     {
         $container = $this->container([DatabaseSettings::class => new DatabaseSettings(DatabaseSettings::DRIVER_SQLITE, ':memory:')]);
 
-        $database = PolarisConfig::fromContainer($container, new Env())->database;
+        $database = PolarisConfig::fromContainer($container, new ArrayEnv([]))->database;
 
         self::assertInstanceOf(PdoAdapter::class, $database);
         self::assertSame(Dialect::Sqlite, $database->dialect());
@@ -134,9 +126,9 @@ final class PolarisConfigTest extends TestCase
 
     public function testTheEnvironmentOpensAConnectionWhenNothingIsBound(): void
     {
-        putenv('POLARIS_DSN=sqlite::memory:');
+        $env = new ArrayEnv(['POLARIS_DSN' => 'sqlite::memory:']);
 
-        $database = PolarisConfig::fromContainer($this->container(), new Env())->database;
+        $database = PolarisConfig::fromContainer($this->container(), $env)->database;
 
         self::assertInstanceOf(PdoAdapter::class, $database);
         self::assertSame(Dialect::Sqlite, $database->dialect());
@@ -146,7 +138,7 @@ final class PolarisConfigTest extends TestCase
     {
         $this->expectException(InvalidConfigurationException::class);
         $this->expectExceptionMessage('POLARIS_DSN');
-        PolarisConfig::fromContainer($this->container(), new Env());
+        PolarisConfig::fromContainer($this->container(), new ArrayEnv([]));
     }
 
     public function testWithoutADispatcherPolarisEventsReachThePolarisListeners(): void
@@ -164,9 +156,9 @@ final class PolarisConfigTest extends TestCase
 
     public function testThePathPrefixComesFromTheEnvironment(): void
     {
-        self::assertSame('/', PolarisConfig::pathPrefix(new Env()));
-        putenv('POLARIS_PATH_PREFIX=/api');
-        self::assertSame('/api', PolarisConfig::pathPrefix(new Env()));
+        self::assertSame('/', PolarisConfig::pathPrefix(new ArrayEnv([])));
+        self::assertSame('/', PolarisConfig::pathPrefix(new ArrayEnv(['POLARIS_PATH_PREFIX' => ''])));
+        self::assertSame('/api', PolarisConfig::pathPrefix(new ArrayEnv(['POLARIS_PATH_PREFIX' => '/api'])));
     }
 
     /**
