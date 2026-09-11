@@ -4,6 +4,7 @@
 
     <file>src</file>
     <file>tests</file>
+    <file>migrations</file>
 
     <arg name="colors"/>
     <arg name="warning-severity" value="0"/>

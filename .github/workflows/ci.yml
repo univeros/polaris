@@ -30,7 +30,7 @@ jobs:
           --health-retries 5
 
     env:
-      # Persistence tests run against a real driver (Postgres), never SQLite.
+      # The functional suite and the contract fixtures run against a real driver (Postgres), never SQLite.
       DB_CONNECTION: postgres
       DB_DATABASE: polaris_test
       DB_HOST: 127.0.0.1
@@ -45,7 +45,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: openssl, sodium, gd, mbstring, pdo_pgsql, pgsql
+          extensions: openssl, sodium, gd, mbstring, pdo_pgsql, pgsql, pdo_sqlite, sqlite3
           coverage: none
 
       - name: Validate composer.json

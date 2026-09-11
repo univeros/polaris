@@ -9,6 +9,13 @@
         <testsuite name="module">
             <directory>tests</directory>
         </testsuite>
+        <!-- polaris/core's functional suite and the contract freeze (184 recorded 1.0 fixtures). Without
+             POLARIS_HARNESS they run through the bare PSR-15 pipeline; `composer test:contract` runs them
+             through this module's Relay pipeline (tests/Harness.php). -->
+        <testsuite name="functional">
+            <directory>vendor/polaris/core/tests/Functional</directory>
+            <directory>vendor/polaris/core/tests/Contract</directory>
+        </testsuite>
     </testsuites>
     <source>
         <include>
