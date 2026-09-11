@@ -62,3 +62,6 @@ jobs:
 
       - name: Tests (phpunit)
         run: composer test
+
+      - name: The contract through the module (test:contract)
+        run: composer test:contract
