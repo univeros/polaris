@@ -5,6 +5,9 @@
     <file>src</file>
     <file>tests</file>
     <file>migrations</file>
+    <file>examples/univeros/app</file>
+    <file>examples/univeros/config</file>
+    <file>examples/univeros/public</file>
 
     <arg name="colors"/>
     <arg name="warning-severity" value="0"/>

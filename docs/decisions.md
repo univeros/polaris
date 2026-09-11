@@ -112,3 +112,41 @@ hand-off this work applies. What follows is what was decided while applying it.
   coverage test passed unchanged on the first run (185 tests, SQLite), so no difference was found and
   nothing is added to `behaviour-changes.md`. `qa` now ends with `test:contract`, and CI runs it as its
   own step after `composer test`.
+- 2026-09-11 · WP4 · `examples/univeros` is the `univeros/univeros` 2.5.1 skeleton (`composer create-project`,
+  inspected in a scratch directory first) with `public/index.php` and `config/container.php` unchanged and
+  the module required from this repository through a path repository (`"univeros/polaris": "@dev"`,
+  `../..`, symlinked), so the demo and CI always run the checkout; the demo's `composer.lock` is not
+  committed (it would pin a branch-specific dev reference of the module). The application's own
+  `App\AppModule` binds the JSON-lines mailbox (`var/mail.log`) as Polaris's mailer and an
+  `AppAuthentication` decorator built from `$container->make(TokenAuthenticationMiddleware::class,
+  ['rules' => [new RequestPathRule(['path' => ['/app']])]])`, contributed at `DISPATCHER + 5`; `GET /app/me`
+  reads the `DualToken` from the `InputCollection` (the framework's `InputParser` merges the request
+  attributes) and answers with the user from `Graph::users()`. · Rejected: a subclass of
+  `TokenAuthenticationMiddleware` repeating the module's options; a `POLARIS_PROTECTED_PATHS` variable.
+- 2026-09-11 · WP4 · `bin/setup` writes `DB_DATABASE` as an absolute path into `.env`: PHP's built-in server
+  runs with `public/` as its working directory, so the skeleton's relative `var/polaris.sqlite` resolved
+  under `public/` and the first request failed with "unable to open database file". The RS256 keys go
+  into `.env` as double-quoted multi-line values (phpdotenv reads them) and into `var/keys/` as PEM files;
+  `.env` is loaded by the framework's `EnvironmentConfiguration` (listed first in
+  `config/configurations.php`, only when the file exists so `bin/setup` can run before it does), and
+  `CycleOrmConfiguration` shares the `DB_*` settings with Polaris. `bin/altair` builds
+  `config/container.php`, applies `CliConfiguration` over the framework's `src/Altair/*/Cli` directories
+  and adds `Commands::all()`; it `chdir()`s to the project root so `db:migrate` finds
+  `database/migrations`.
+- 2026-09-11 · WP4 · `bin/walkthrough.sh` is a copy of polaris-core's `examples/walkthrough.sh` plus two steps
+  of this demo's own (`GET /app/me` without a token answers 401 from the framework's middleware, with the
+  org-scoped token 200 with the organization id), so the demo proves the token bridge, not only the
+  Polaris routes. The `demo` CI job installs the demo, runs `bin/setup` and the walkthrough on PHP 8.3.
+- 2026-09-11 · WP4 · `phpcs.xml` also covers `examples/univeros/{app,config,public}` (the skeleton's
+  `PingInput` braces reformatted with phpcbf); phpstan does not, because the demo's classes autoload
+  through the demo's own vendor (`univeros/framework`), not this package's.
+- 2026-09-11 · WP4 · Documentation: `README.md` rewritten for 2.0 (install, `config/modules.php`, the
+  environment and the ports, the routes, the token bridge for the application's routes, `bin/altair` and
+  the migration, the demo, development), `CHANGELOG.md` and `UPGRADE.md` with the hand-off's text (plus
+  the default-issuer note of WP1 and the application's own `bin/altair`), `AGENT.md` and
+  `.ai/skills/polaris/SKILL.md` for the 2.0 layout (the sections on the token model, the route table, the
+  permission catalog, the tenant invariants and the integration flows kept, since the contract is
+  unchanged). Every README ends with the 2am.tech line as in polaris-core.
+- 2026-09-11 · WP4 · Release: `v2.0.0` is a GitHub release created at the merge commit of WP4 on `main`
+  (`gh release create v2.0.0 --target <sha>`) with the CHANGELOG's 2.0.0 section as its notes; Packagist
+  refreshes through its hook.
