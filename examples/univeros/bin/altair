@@ -1,0 +1,34 @@
+#!/usr/bin/env php
+<?php
+
+declare(strict_types=1);
+
+/*
+ * The application's console. The framework's `vendor/bin/altair` boots a bare container with the
+ * CLI discovery only; this entry point builds the application's container first (configurations,
+ * then the modules, as `public/index.php` does), then adds the Polaris commands, so `db:migrate`
+ * finds the ORM and the module's migration, and `polaris:*` run on the application's bindings.
+ */
+
+use Altair\Cli\Application;
+use Altair\Cli\Configuration\CliConfiguration;
+use Altair\Container\Container;
+use Univeros\Polaris\Console\Commands;
+
+$root = dirname(__DIR__);
+require $root . '/vendor/autoload.php';
+chdir($root); // `db:migrate` resolves database/migrations and a relative DB_DATABASE against the project root
+
+/** @var Container $container */
+$container = require $root . '/config/container.php';
+
+$paths = glob($root . '/vendor/univeros/framework/src/Altair/*/Cli') ?: []; // the framework's built-in commands
+$paths[] = $root . '/app/Cli';
+(new CliConfiguration(array_filter($paths, is_dir(...))))->apply($container);
+
+$application = $container->make(Application::class);
+foreach (Commands::all($container) as $command) {
+    $application->add($command);
+}
+
+exit($application->run());

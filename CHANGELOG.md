@@ -4,6 +4,42 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [2.0.0] - 2026-09-11
+
+`univeros/polaris` 2.0 is a new major built on Polaris for PHP: `polaris/core` carries the
+identity, MFA/OTP, session, organization and RBAC services, the 52 endpoints and the
+schema, all contract-frozen against 1.0 (184 recorded request/response sequences replay
+through this module's Relay pipeline in CI); this package is the Univeros module around
+it. The HTTP contract of 1.0 is unchanged (`docs/auth/api-reference.md` in polaris-core),
+with one documented exception: a request body field named like a request attribute no
+longer overrides the attribute.
+
+### Changed
+- The module builds Polaris from the environment (`APP_KEY`, `AUTH_JWT_*`, `AUTH_ISSUER`,
+  `AUTH_AUDIENCE`) on the application's database settings (`DB_*`, or `POLARIS_DSN` without
+  an ORM) through `polaris/pdo`; the framework's cache, logger and event dispatcher are used
+  when bound.
+- Routes: `PolarisMiddleware`, contributed through `MiddlewareProviderInterface` ahead of the
+  framework's exception handler, serves every Polaris path; the routes are no longer in the
+  FastRoute table (`bin/altair polaris:manifest` lists them). `POLARIS_PATH_PREFIX` mounts
+  them under a prefix.
+- Migrations: one Cycle migration installs the schema and seeds the permission catalog through
+  `Polaris\Pdo\SchemaInstaller`; the 18 migrations of 1.x are gone. `bin/altair db:migrate`
+  on a fresh database installs Polaris.
+- The framework's `TokenAuthenticationMiddleware` keeps working with Polaris access tokens
+  through `TokenFactoryBridge`; the application scopes it to its protected paths with
+  `$container->make(TokenAuthenticationMiddleware::class, ['rules' => [...]])`.
+- Console: `polaris:schema:export`, `polaris:schema:create`, `polaris:schema:drop`,
+  `polaris:schema:diff`, `polaris:manifest`, `polaris:doctor` from `polaris/cli`, added by the
+  application's own `bin/altair` through `Univeros\Polaris\Console\Commands::all()`.
+- The default token issuer without `AUTH_ISSUER` is `polaris` (1.x minted `univeros/polaris`).
+
+### Removed
+- Every class under `Univeros\Polaris\` except the module glue; use the `Polaris\` namespaces
+  of `polaris/core`. Cycle entities and repositories: Polaris no longer maps entities into the
+  application's ORM schema.
+- The AES-CBC encrypter of 1.x. There is no compatibility path (see UPGRADE).
+
 ## [1.0.0] - 2026-06-11
 
 First stable release: the authentication, MFA/OTP, and multi-tenant RBAC
@@ -84,4 +120,5 @@ endpoints).
   configuration, the token model, the permission catalog, and the tenant
   invariants.
 
+[2.0.0]: https://github.com/univeros/polaris/releases/tag/v2.0.0
 [1.0.0]: https://github.com/univeros/polaris/releases/tag/v1.0.0
