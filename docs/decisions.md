@@ -31,3 +31,48 @@ hand-off this work applies. What follows is what was decided while applying it.
 - 2026-09-11 · WP0 · `.ai/skills/polaris/SKILL.md`, `README.md`, `CHANGELOG.md` and `AGENT.md` still describe
   1.x until WP4, the documentation work package; WP0 changes no prose except this file and the `docs/auth`
   note.
+- 2026-09-11 · WP1 · Nothing is built in `Module::apply()`: every binding is a shared factory, so the one
+  `Polaris` (and its PDO connection, manifest and JWT configuration) exists from the first request or
+  command that resolves it. `bin/altair db:migrate` therefore boots on a host without `APP_KEY` or the JWT
+  keys, and `polaris:doctor` is the boot check. · Rejected: building eagerly as 1.x did (fails every CLI
+  command on a missing secret and opens a second database connection on every boot).
+- 2026-09-11 · WP1 · The config assembly and the connection live in two small classes,
+  `Bootstrap\PolarisConfig::fromContainer()` and `Database\Connection` (`fromEnvironment()`,
+  `fromSettings()`, `fromDsn()`, `databaseEnvironment()`), not as `Module::pdo()` and
+  `Module::databaseEnvironment()` static helpers as the hand-off sketched; the behaviour is the one
+  described there and `Module` stays the binding list. The WP2 migration calls
+  `Connection::fromEnvironment()`. `fromDsn()` delegates to `Polaris\Cli\Database::connect()` (exception
+  mode, `PRAGMA foreign_keys = ON` on SQLite), which the `polaris:*` commands use too.
+- 2026-09-11 · WP1 · Every `Polaris\Wiring\Config` port takes the container's binding when `has()` says one is
+  registered (mailer, SMS, breach check, cache, clock, dispatcher, logger, rate limits, rate store,
+  encrypter, metrics, TOTP, QR codes, response factory), else null for core's default; the database is a
+  bound `DatabaseAdapter`, else a bound `PDO` wrapped in `PdoAdapter`, else a bound `DatabaseSettings`
+  (what `CycleOrmConfiguration` registers), else the environment (`DB_*` first, then `POLARIS_DSN` with
+  `POLARIS_DB_USER` and `POLARIS_DB_PASSWORD`); the `sqlserver` driver of `DatabaseSettings` is refused
+  because `polaris/pdo` has no schema for it.
+- 2026-09-11 · WP1 · The environment is read through the framework's `Altair\Configuration\Support\Env`
+  (`$_ENV`, `$_SERVER`, then `getenv()`): `EnvironmentConfiguration` loads `.env` with
+  `Dotenv::createImmutable()`, which fills `$_ENV` and `$_SERVER` but not `getenv()`, so
+  `EnvironmentConfig::secrets()`'s default would miss a `.env` key. The default issuer without
+  `AUTH_ISSUER` is core's `polaris` (1.x minted `univeros/polaris`); no token outlives the upgrade, the
+  UPGRADE text will say so.
+- 2026-09-11 · WP1 · `ResponseFactoryInterface` is bound to `Laminas\Diactoros\ResponseFactory` when the host
+  binds none (the skeleton binds none and builds its own), and `IdentityValidatorInterface` to a
+  `NullIdentityValidator` that validates nothing: the framework's `TokenAuthenticationMiddleware` requires
+  one, and with `NullCredentialsExtractor` it never sees credentials, so `POST /auth/login` stays the sole
+  credential entry point. · Rejected: a validator over Polaris's password check (it would exist only to
+  be bypassed).
+- 2026-09-11 · WP1 · `TokenAuthenticationMiddleware` is bound as a shared autowired definition with the
+  `options` parameter (`ssl => false`, `onError => UnauthorizedResponder`) so the host gets the unscoped
+  middleware with `get()` and a scoped one with
+  `$container->make(TokenAuthenticationMiddleware::class, ['rules' => [new RequestPathRule([...])]])`,
+  the framework's own parameter mechanism. · Rejected: a `POLARIS_PROTECTED_PATHS` variable or a module
+  setting (a second configuration surface for what the container already does).
+- 2026-09-11 · WP1 · `PolarisMiddleware` serves only paths under `POLARIS_PATH_PREFIX`: `Polaris\Psr15\Router`
+  strips the prefix when present and otherwise matches the bare path, so without the guard a host mounting
+  Polaris under `/api` would have its own `/auth/...` routes captured. The guard is the module's, not a
+  change to core (no entry in `behaviour-changes.md`; the endpoints' contract is untouched).
+- 2026-09-11 · WP1 · The module's PSR-14 dispatcher (`Event\ListenerDispatcher`) resolves
+  `Polaris::listeners()` from the container on the first dispatch (Polaris does not exist when its Config
+  is assembled), sends every event to every listener (each Polaris listener ignores the events it does
+  not handle) and honours `StoppableEventInterface`.
