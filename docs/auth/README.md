@@ -1,5 +1,15 @@
 # Polaris: Auth & User Management Module Specification
 
+> **2.0 note.** This directory is the design of Polaris: the data model, the flows, the MFA/OTP and
+> RBAC rules, the API reference and the security model. Since `univeros/polaris` 2.0 the implementation
+> is [`polaris/core`](https://github.com/univeros/polaris-core) (Polaris for PHP, framework-free, with the
+> `polaris/psr15`, `polaris/pdo` and `polaris/cli` packages), and this repository holds only the Univeros
+> module around it: `src/Module.php`, the middleware that serves the Polaris routes, the token bridge for
+> the framework's `TokenAuthenticationMiddleware`, one Cycle migration and the `polaris:*` console commands.
+> Class names below such as `Univeros\Polaris\Entity\*` or the Cycle repositories describe the 1.x shape;
+> in 2.0 the same behaviour lives under the `Polaris\` namespaces of `polaris/core`, whose `docs/auth/`
+> carries the maintained copy of this design. The HTTP contract is unchanged (see `CHANGELOG.md`).
+
 > `univeros/polaris` is the drop-in authentication, MFA/OTP, and user/organization
 > management module for any [Univeros](https://univeros.io) / Altair host app.
 
