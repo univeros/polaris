@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "3aa5f154cfaef1b1c15e114e1f338a75",
+    "content-hash": "1966713fe1dff0d2c8d2ae8edfde3d3d",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -10127,6 +10127,47 @@
                 "MIT"
             ],
             "description": "What's wired into this project right now? CLI commands + inspectors for the Container, routes, listeners, middleware, manifests, specs, and config.",
+            "homepage": "https://univeros.io",
+            "support": {
+                "issues": "https://github.com/univeros/framework/issues",
+                "source": "https://github.com/univeros/framework"
+            },
+            "time": "2026-05-30T05:59:30+00:00"
+        },
+        {
+            "name": "univeros/observability",
+            "version": "v2.5.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/univeros/observability.git",
+                "reference": "ec8972adcc52943a1e405da34087f92e33e5f529"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/univeros/observability/zipball/ec8972adcc52943a1e405da34087f92e33e5f529",
+                "reference": "ec8972adcc52943a1e405da34087f92e33e5f529",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3",
+                "psr/http-message": "^1.1 || ^2.0",
+                "psr/http-server-handler": "^1.0",
+                "psr/http-server-middleware": "^1.0",
+                "univeros/cli": "^2.0",
+                "univeros/configuration": "^2.0",
+                "univeros/container": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Altair\\Observability\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "bin/altair observability:* — framework-native runtime observability. OpenTelemetry-compatible spans + metrics emitted natively (OTLP-JSON over HTTP, no SDK dependency), a PSR-15 middleware for per-request tracing, and a JSONL log under .altair/observability/ for local inspection and after-the-fact analysis.",
             "homepage": "https://univeros.io",
             "support": {
                 "issues": "https://github.com/univeros/framework/issues",

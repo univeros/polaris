@@ -63,7 +63,8 @@ module resolves wins over the environment, and so does every other port: a `Pola
 or a `PDO`, an `OtpMailerInterface` and an `SmsSenderInterface` (the defaults log and send nothing),
 a PSR-16 `CacheInterface` (rate limits, the denylist and the OTP send caps live there, so a production
 host binds one that outlives a request), a PSR-3 logger, a PSR-14 dispatcher, a clock, the rate limits,
-the encrypter, the metrics sink, the TOTP provider and the QR renderer. Polaris events go to
+the encrypter, the metrics sink (without one, Univeros Observability's `Meter` when bound), the TOTP
+provider and the QR renderer. Polaris events go to
 `Polaris::listeners()` (the audit log, notifications, metrics, and every plugin's) and then to your
 PSR-14 dispatcher when you bind one, so your listeners see `UserRegistered` and the rest.
 
