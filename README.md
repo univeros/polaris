@@ -137,7 +137,8 @@ API keys and OAuth tokens authenticate the Polaris routes; your own routes behin
 `Univeros\Polaris\Http\PolarisMiddleware` runs first in the pipeline, ahead of the framework's
 `ExceptionHandlerMiddleware` (which would rewrite every 4xx/5xx Polaris answers into problem+json), and
 serves every manifest path through `Polaris\Psr15\Pipeline`: the Polaris routes are not in the FastRoute
-table, `bin/altair polaris:manifest` lists them (`--format=openapi` renders the OpenAPI document). Any
+table, `bin/altair polaris:manifest` lists them (`--format=openapi` renders the OpenAPI document), and
+with `univeros/introspection` installed `bin/altair routes:list` shows them beside yours. Any
 other path continues to the framework's dispatcher. A JSON body is decoded from the request bytes, since
 `ServerRequestFactory::fromGlobals()` hands `$_POST` over as the parsed body.
 
