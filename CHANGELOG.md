@@ -17,6 +17,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   plugin: `polaris/username`.
 
 ### Changed
+- With a bound PSR-14 dispatcher the Polaris listeners (the audit log, notifications, metrics,
+  and every plugin's) no longer depend on the host subscribing them: the module runs them,
+  then hands the event to the host's dispatcher. `POLARIS_LISTENERS=host` keeps 2.0's
+  behaviour; see UPGRADE.md.
 - `polaris/core`, `polaris/pdo`, `polaris/psr15`, `polaris/cli` and `polaris/testing` move to
   `^0.10`. No behaviour change: core's 52 routes and the 184 contract fixtures are unchanged
   from 0.1 and replay green through the module.

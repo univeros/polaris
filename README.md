@@ -54,15 +54,16 @@ Polaris reads the same variables 1.x read, through the framework's `Env` (`$_ENV
 | `DB_CONNECTION`, `DB_DATABASE`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | The database, as `CycleOrmConfiguration` reads it (`postgres`, `mysql`, `sqlite`). Polaris opens its own connection on the same settings. |
 | `POLARIS_DSN`, `POLARIS_DB_USER`, `POLARIS_DB_PASSWORD` | The database of an application without an ORM. |
 | `POLARIS_PATH_PREFIX` | Mounts the Polaris routes under a prefix (`/` by default). |
+| `POLARIS_LISTENERS` | `module` (default): the module runs `Polaris::listeners()`, then your bound dispatcher. `host`: your bound dispatcher gets the events as is and subscribes the listeners itself (2.0's behaviour). |
 
 A `Polaris\Config\Secrets` or `Polaris\Config\AuthConfig` instance bound in the container before the
 module resolves wins over the environment, and so does every other port: a `Polaris\Contract\DatabaseAdapter`
 or a `PDO`, an `OtpMailerInterface` and an `SmsSenderInterface` (the defaults log and send nothing),
 a PSR-16 `CacheInterface` (rate limits, the denylist and the OTP send caps live there, so a production
 host binds one that outlives a request), a PSR-3 logger, a PSR-14 dispatcher, a clock, the rate limits,
-the encrypter, the metrics sink, the TOTP provider and the QR renderer. Without a dispatcher the module
-dispatches Polaris events to `Polaris::listeners()` itself (the audit log, notifications, metrics); with
-one, subscribe those listeners to it.
+the encrypter, the metrics sink, the TOTP provider and the QR renderer. Polaris events go to
+`Polaris::listeners()` (the audit log, notifications, metrics, and every plugin's) and then to your
+PSR-14 dispatcher when you bind one, so your listeners see `UserRegistered` and the rest.
 
 Nothing is built at boot: the one `Polaris` (and its connection, manifest and JWT configuration) exists
 from the first request or command that resolves it, so `bin/altair db:migrate` runs before the keys

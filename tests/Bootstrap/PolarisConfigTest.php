@@ -18,6 +18,7 @@ use Polaris\Contract\Dialect;
 use Polaris\Contract\OtpMailerInterface;
 use Polaris\Contract\SmsSenderInterface;
 use Polaris\Event\UserRegistered;
+use Polaris\Exception\InvalidConfigException;
 use Polaris\Pdo\PdoAdapter;
 use Polaris\Support\InMemoryCache;
 use Polaris\Testing\InMemoryAdapter;
@@ -70,7 +71,7 @@ final class PolarisConfigTest extends TestCase
         self::assertSame($ports[SmsSenderInterface::class], $config->sms);
         self::assertSame($ports[CacheInterface::class], $config->cache);
         self::assertSame($ports[ClockInterface::class], $config->clock);
-        self::assertSame($ports[EventDispatcherInterface::class], $config->dispatcher);
+        self::assertInstanceOf(ListenerDispatcher::class, $config->dispatcher);
         self::assertSame($ports[LoggerInterface::class], $config->logger);
         self::assertSame($ports[RateLimitConfig::class], $config->rateLimits);
         self::assertSame($ports[ResponseFactoryInterface::class], $config->responseFactory);
@@ -152,6 +153,38 @@ final class PolarisConfigTest extends TestCase
         $rows = $adapter->findMany('auth_audit_log', []);
         self::assertCount(1, $rows);
         self::assertSame('user.registered', $rows[0]['event']);
+    }
+
+    public function testWithTheHostsDispatcherPolarisEventsReachThePolarisListenersAndThenTheHost(): void
+    {
+        $adapter = new InMemoryAdapter();
+        $host = new RecordingEventDispatcher();
+        $graph = TestPolaris::graph(TestPolaris::boot([DatabaseAdapter::class => $adapter, EventDispatcherInterface::class => $host]));
+
+        $graph->events()->dispatch(new UserRegistered('user-1', 'ada@example.com', 'verification-token'));
+
+        self::assertCount(1, $adapter->findMany('auth_audit_log', []));
+        self::assertCount(1, $host->ofType(UserRegistered::class));
+    }
+
+    public function testPolarisListenersHostHandsTheHostsDispatcherOverAsIs(): void
+    {
+        $host = new RecordingEventDispatcher();
+
+        $config = PolarisConfig::fromContainer(
+            $this->container([DatabaseAdapter::class => new InMemoryAdapter(), EventDispatcherInterface::class => $host]),
+            new ArrayEnv(['POLARIS_LISTENERS' => 'host']),
+        );
+
+        self::assertSame($host, $config->dispatcher);
+    }
+
+    public function testAnUnknownPolarisListenersValueFailsBoot(): void
+    {
+        $this->expectException(InvalidConfigException::class);
+        $this->expectExceptionMessage('POLARIS_LISTENERS');
+
+        PolarisConfig::fromContainer($this->container([DatabaseAdapter::class => new InMemoryAdapter()]), new ArrayEnv(['POLARIS_LISTENERS' => 'hosts']));
     }
 
     public function testThePathPrefixComesFromTheEnvironment(): void
