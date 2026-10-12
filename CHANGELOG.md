@@ -15,6 +15,9 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   auth settings, database, manifest), `polaris_plugins` (the plugins build; each plugin's
   `baseUrl` is mounted at `POLARIS_PATH_PREFIX`) and `polaris_schema` (the database matches the
   schema, the plugins' tables included), each with its fix.
+- With `polaris/agents`, `AgentRequestMiddleware` is bound for the host's routes: a request to a
+  capability's `location` must come from an agent with a live grant; other URLs pass through.
+  README: the approval page and the agent SDKs.
 - Every `polaris/*` plugin of Polaris for PHP 0.10 is supported: passkey, username,
   passwordless, social, anonymous, multi-session, audit, admin, messaging, sentinel, sso,
   scim, api-keys, oauth-provider, mcp and agents. Each plugin's own functional suite and

@@ -19,6 +19,8 @@ use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Migration\MigrationSource;
 use Laminas\Diactoros\ResponseFactory;
 use Override;
+use Polaris\Agents\AgentsPlugin;
+use Polaris\Agents\Http\AgentRequestMiddleware;
 use Polaris\Authorization\Gate;
 use Polaris\Polaris;
 use Polaris\Psr15\Pipeline;
@@ -37,6 +39,7 @@ use Univeros\Polaris\Http\PolarisMiddleware;
 use Univeros\Polaris\Http\UnauthorizedResponder;
 use Univeros\Polaris\Token\TokenFactoryBridge;
 
+use function class_exists;
 use function dirname;
 
 /**
@@ -109,6 +112,16 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
 
                 return $registry;
             });
+        }
+
+        // With polaris/agents: its request middleware for the host's routes, matching request URLs against
+        // the capabilities' locations (AgentsPlugin::of($graph)->requestMiddleware($graph, '<capability>')
+        // binds one route to one capability).
+        if (class_exists(AgentsPlugin::class)) {
+            $container->singleton(
+                AgentRequestMiddleware::class,
+                static fn(Graph $graph): AgentRequestMiddleware => AgentsPlugin::of($graph)->requestMiddleware($graph),
+            );
         }
     }
 

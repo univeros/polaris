@@ -120,6 +120,15 @@ documentation asks. `baseUrl` is always where Polaris is mounted, prefix include
 | `polaris/mcp` | `new McpPlugin(baseUrl: ..., requests: new ServerRequestFactory(), responses: new ResponseFactory(), streams: new StreamFactory())` (the `Laminas\Diactoros` factories) | `POST /mcp`, `/.well-known/oauth-protected-resource/mcp` (and the RFC 9728 root form `/.well-known/oauth-protected-resource/auth/mcp` under a prefix); `polaris:mcp` (stdio) |
 | `polaris/agents` | `new AgentsPlugin(baseUrl: ..., capabilities: [...], approvalUrl: ...)`, after `OAuthPlugin` | `/agents/*`, `/admin/agents/*`, `/.well-known/agent-configuration`; every capability is an MCP tool with mcp |
 
+**Agents on your routes.** With `polaris/agents` the module binds `Polaris\Agents\Http\AgentRequestMiddleware`:
+add it to your module's `middleware()` and a request to a capability's `location` must come from an agent
+holding a live grant (budget, receipt and your handler in one transaction; the handler reads the grant
+from the attribute `polaris.agents.grant`); any other URL passes through. For one route bound to one
+capability, build `AgentsPlugin::of($graph)->requestMiddleware($graph, 'invite')`. `approvalUrl` is your
+page where a person approves a grant: it lists `GET /agents/approvals` and posts
+`POST /agents/approvals/{id}/decide` (`client.agents` in `@polaris-auth/client`; polaris-core's Slim demo
+has `approve.html`). Agents themselves use the SDKs, `polaris/agent` (PHP) or `@polaris-auth/agent`.
+
 API keys and OAuth tokens authenticate the Polaris routes; your own routes behind the framework's
 `TokenAuthenticationMiddleware` accept Polaris sessions only, unless you mount `PluginTokenAuthenticationMiddleware` (below).
 
