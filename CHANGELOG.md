@@ -7,6 +7,11 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- `polaris:schema:install-plugins`: creates the tables the database lacks (the configured
+  plugins' included) in foreign-key order and seeds the plugins' permissions; idempotent.
+  `--sql` prints the statements for a host's own migration. `polaris:schema:create`,
+  `schema:diff` and `schema:drop` include the configured plugins' tables. The install
+  migration stays core-only: Cycle builds it without the container.
 - Plugins: the polaris plugins an application runs are a bound `Univeros\Polaris\Plugins`
   (`new Plugins(new PasskeyPlugin(...))` in `config/container.php`), else the comma-separated
   class names in `POLARIS_PLUGINS`, built through the container. Their routes, tables,
