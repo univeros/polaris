@@ -42,6 +42,7 @@ use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Relay\Relay;
 use Univeros\Polaris\Module;
+use Univeros\Polaris\Plugins;
 
 use function FastRoute\simpleDispatcher;
 use function is_array;
@@ -92,6 +93,9 @@ final class Harness implements HarnessContract
             if ($config->{$property} !== null) {
                 $container->instance($id, $config->{$property});
             }
+        }
+        if ($config->plugins !== []) {
+            $container->instance(Plugins::class, new Plugins(...$config->plugins));
         }
         putenv('POLARIS_PATH_PREFIX=' . $config->pathPrefix);
         (new ModuleConfiguration([new Module()]))->apply($container);

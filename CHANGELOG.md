@@ -6,6 +6,13 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Plugins: the polaris plugins an application runs are a bound `Univeros\Polaris\Plugins`
+  (`new Plugins(new PasskeyPlugin(...))` in `config/container.php`), else the comma-separated
+  class names in `POLARIS_PLUGINS`, built through the container. Their routes, tables,
+  services, middleware and permissions join the module's. An entry that is not a plugin class
+  fails boot naming it. With neither, nothing changes.
+
 ### Changed
 - `polaris/core`, `polaris/pdo`, `polaris/psr15`, `polaris/cli` and `polaris/testing` move to
   `^0.10`. No behaviour change: core's 52 routes and the 184 contract fixtures are unchanged
