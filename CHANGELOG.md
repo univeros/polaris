@@ -10,6 +10,8 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 - With `univeros/introspection`, `bin/altair routes:list` (and `routes:show`) list the Polaris
   routes, core's and the plugins', beside the host's, with their endpoint classes. The dispatch
   table stays without them.
+- With Univeros Observability's `Meter` bound and no `MetricsInterface` of the host's, Polaris
+  counts its domain events (sign-ins, MFA, the plugins') through the Meter (`MeterMetrics`).
 - Under `POLARIS_PATH_PREFIX`, the root `.well-known` forms of RFC 8414 and RFC 9728
   (`/.well-known/oauth-authorization-server/auth`,
   `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the

@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests\Bootstrap;
 
 use Altair\Container\Container;
+use Altair\Observability\Metrics\Meter;
+use Altair\Observability\Recorder\InMemoryRecorder;
 use Altair\Persistence\Configuration\DatabaseSettings;
 use Altair\Persistence\Exception\InvalidConfigurationException;
 use Laminas\Diactoros\ResponseFactory;
@@ -15,6 +17,7 @@ use Polaris\Config\RateLimitConfig;
 use Polaris\Config\Secrets;
 use Polaris\Contract\DatabaseAdapter;
 use Polaris\Contract\Dialect;
+use Polaris\Contract\MetricsInterface;
 use Polaris\Contract\OtpMailerInterface;
 use Polaris\Contract\SmsSenderInterface;
 use Polaris\Event\UserRegistered;
@@ -25,6 +28,7 @@ use Polaris\Testing\InMemoryAdapter;
 use Polaris\Tests\Support\FrozenClock;
 use Polaris\Tests\Support\RecordingEventDispatcher;
 use Polaris\Tests\Support\RecordingLogger;
+use Polaris\Tests\Support\RecordingMetrics;
 use Polaris\Tests\Support\RecordingOtpMailer;
 use Polaris\Tests\Support\RecordingSmsSender;
 use Polaris\Tests\Support\TestKeys;
@@ -35,6 +39,7 @@ use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Bootstrap\PolarisConfig;
 use Univeros\Polaris\Event\ListenerDispatcher;
+use Univeros\Polaris\Observability\MeterMetrics;
 use Univeros\Polaris\Tests\Support\ArrayEnv;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 
@@ -185,6 +190,26 @@ final class PolarisConfigTest extends TestCase
         $this->expectExceptionMessage('POLARIS_LISTENERS');
 
         PolarisConfig::fromContainer($this->container([DatabaseAdapter::class => new InMemoryAdapter()]), new ArrayEnv(['POLARIS_LISTENERS' => 'hosts']));
+    }
+
+    public function testWithUniverosObservabilityPolarisCountsThroughItsMeter(): void
+    {
+        $recorder = new InMemoryRecorder();
+        $graph = TestPolaris::graph(TestPolaris::boot([Meter::class => new Meter($recorder)]));
+
+        $graph->events()->dispatch(new UserRegistered('user-1', 'ada@example.com', 'verification-token'));
+
+        self::assertInstanceOf(MeterMetrics::class, $graph->metrics());
+        self::assertNotSame([], $recorder->metrics(), 'core\'s metrics listener counted the event through the Meter');
+    }
+
+    public function testABoundMetricsSinkWinsOverTheMeter(): void
+    {
+        $metrics = new RecordingMetrics();
+
+        $config = PolarisConfig::fromContainer($this->container([Meter::class => new Meter(new InMemoryRecorder()), MetricsInterface::class => $metrics]), new ArrayEnv(['POLARIS_DSN' => 'sqlite::memory:']));
+
+        self::assertSame($metrics, $config->metrics);
     }
 
     public function testThePathPrefixComesFromTheEnvironment(): void

@@ -6,6 +6,7 @@ namespace Univeros\Polaris\Bootstrap;
 
 use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
+use Altair\Observability\Metrics\Meter;
 use Polaris\Config\AuthConfig;
 use Polaris\Config\EnvironmentConfig;
 use Polaris\Config\RateLimitConfig;
@@ -31,6 +32,7 @@ use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Database\Connection;
 use Univeros\Polaris\Event\ListenerDispatcher;
+use Univeros\Polaris\Observability\MeterMetrics;
 use Univeros\Polaris\Plugins;
 
 use function array_filter;
@@ -74,7 +76,7 @@ final class PolarisConfig
             rateLimits: self::port($container, RateLimitConfig::class),
             rateStore: self::port($container, RateStore::class),
             encrypter: self::port($container, EncrypterInterface::class),
-            metrics: self::port($container, MetricsInterface::class),
+            metrics: self::port($container, MetricsInterface::class) ?? self::meter($container),
             totp: self::port($container, TotpProviderInterface::class),
             qrCodes: self::port($container, QrCodeRendererInterface::class),
             responseFactory: self::port($container, ResponseFactoryInterface::class),
@@ -144,6 +146,19 @@ final class PolarisConfig
         }
 
         return $plugin;
+    }
+
+    /**
+     * Univeros Observability's meter when the host binds one (and no metrics sink of its own).
+     */
+    private static function meter(Container $container): ?MeterMetrics
+    {
+        if (!class_exists(Meter::class)) {
+            return null;
+        }
+        $meter = self::port($container, Meter::class);
+
+        return $meter === null ? null : new MeterMetrics($meter);
     }
 
     private static function database(Container $container, Env $env): DatabaseAdapter

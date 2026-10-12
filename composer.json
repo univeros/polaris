@@ -47,11 +47,13 @@
         "polaris/username": "^0.10",
         "squizlabs/php_codesniffer": "^3.13.6",
         "univeros/doctor": "^2.5",
-        "univeros/introspection": "^2.5"
+        "univeros/introspection": "^2.5",
+        "univeros/observability": "^2.5"
     },
     "suggest": {
         "univeros/doctor": "The Polaris checks (secrets and keys, plugins, schema) join bin/altair doctor",
-        "univeros/introspection": "bin/altair routes:list shows the Polaris routes beside the application's"
+        "univeros/introspection": "bin/altair routes:list shows the Polaris routes beside the application's",
+        "univeros/observability": "Polaris counts its domain events through the bound Meter"
     },
     "autoload": {
         "psr-4": {
