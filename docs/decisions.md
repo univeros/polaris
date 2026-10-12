@@ -172,3 +172,18 @@ hand-off this work applies. What follows is what was decided while applying it.
   configured the cli commands' `--bootstrap` default is `src/Console/bootstrap.php` (the container's
   Polaris), so manifest, export, create and doctor include the plugins without a polaris/cli change.
   Building them builds Polaris, so `bin/altair` then needs the secrets; diff and drop do not.
+- 2026-10-12 · 2.2 · Every plugin's functional suite replayed green through the module on the first run (55
+  tests), so the plugins landed in one PR (#154) rather than one release each; 2.2.0 carries them all.
+- 2026-10-12 · 2.2 · Host-route credentials (#155): `PluginTokenAuthenticationMiddleware` extends the
+  framework's middleware (which never skips an authenticated request, so a middleware in front cannot work)
+  and is opt-in by mounting it. It resolves per plugin and runs the resolving plugin's middleware around the
+  route: api-keys enforces a key's own rate limit there. `Gate` is bound because only it applies `delegated`.
+- 2026-10-12 · 2.2 · Doctor (#156): checks register by extending `CheckRegistry` only when univeros/doctor
+  binds it (configurations apply before modules); the baseUrl/prefix check reads `baseUrl()` or
+  `settings()->baseUrl` (sso and scim expose neither). A mismatch is a doctor error, not a boot failure.
+- 2026-10-12 · 2.2 · `.well-known` (#157): under a prefix, the RFC 8414/9728 root forms map to the mounted
+  metadata only when that is a Polaris route; every other `.well-known` path stays the host's.
+- 2026-10-12 · 2.2 · Not done here, with reasons on the issues: the framework's MCP server stays unguarded
+  (local dev tooling, not PSR-15; #133), AgentSpec has no module hook (#137), async messaging needs an
+  upstream outbox seam (#118), audit drains keep their own HMAC format (#124). `OAuthPlugin` needs
+  `audiences: ['<base>/mcp']` with mcp: its resolver runs first on `/mcp` (found building the demo, #162).

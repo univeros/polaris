@@ -47,6 +47,10 @@ src/Token/TokenFactoryBridge.php   the framework's TokenFactoryInterface over Gr
 src/Token/DualToken.php            one token for both contracts
 src/Console/Commands.php           the polaris/cli commands and the plugins' commands as polaris:*, for bin/altair
 src/Console/InstallPluginsCommand.php  polaris:schema:install-plugins: the missing tables and the plugins' permissions
+src/Http/PluginTokenAuthenticationMiddleware.php  opt-in: the framework's token auth plus API keys and OAuth tokens on host routes
+src/Doctor/                        the polaris, polaris_plugins and polaris_schema checks of bin/altair doctor (univeros/doctor)
+src/Observability/MeterMetrics.php core's metrics port over Univeros Observability's Meter
+src/Testing/PolarisTesting.php     host tests: bind() an in-memory Polaris, token() for a user
 migrations/                        one Cycle migration: SchemaInstaller on the migrator's connection
 tests/Harness.php                  core's and each plugin's fixtures through Relay (POLARIS_HARNESS; test:contract, test:plugins)
 tests/                             the module suite (bindings, middleware, bridge, connection, migration, console)

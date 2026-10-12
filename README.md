@@ -26,7 +26,7 @@ re-enrolled.
 ## Install
 
 ```sh
-composer require univeros/polaris:^2.1
+composer require univeros/polaris:^2.2
 ```
 
 ```php
