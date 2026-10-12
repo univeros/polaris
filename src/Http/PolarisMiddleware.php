@@ -14,6 +14,8 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 use function is_array;
 use function json_decode;
+use function preg_match;
+use function preg_quote;
 use function rtrim;
 use function str_contains;
 use function str_starts_with;
@@ -33,6 +35,11 @@ final readonly class PolarisMiddleware implements MiddlewareInterface
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $path = $request->getUri()->getPath();
+        $alias = $this->wellKnown($path);
+        if ($alias !== null) {
+            $request = $request->withUri($request->getUri()->withPath($alias));
+            $path = $alias;
+        }
         // The router also matches a path without the prefix; only the mounted paths are Polaris's.
         if (!$this->mounted($path)) {
             return $handler->handle($request);
@@ -44,6 +51,25 @@ final readonly class PolarisMiddleware implements MiddlewareInterface
 
         // A known path with the wrong method answers Polaris's 405.
         return $this->pipeline->handle(self::withJsonBody($request));
+    }
+
+    /**
+     * RFC 8414 and RFC 9728 put `/.well-known/<name>` between the host and the issuer's or resource's
+     * path, so under the prefix `/auth` a client asks `/.well-known/oauth-authorization-server/auth`
+     * for what Polaris serves at `/auth/.well-known/oauth-authorization-server` (and
+     * `/.well-known/oauth-protected-resource/auth/mcp` for `/auth/.well-known/oauth-protected-resource/mcp`).
+     * The mounted path, when that is a Polaris route; null otherwise.
+     */
+    private function wellKnown(string $path): ?string
+    {
+        $prefix = rtrim($this->pathPrefix, '/');
+        if ($prefix === '' || preg_match('#^/\.well-known/([^/]+)(' . preg_quote($prefix, '#') . ')(/.*)?$#', $path, $parts) !== 1) {
+            return null;
+        }
+        $mounted = $prefix . '/.well-known/' . $parts[1] . ($parts[3] ?? '');
+        $match = $this->router->match('GET', $mounted);
+
+        return $match->spec !== null ? $mounted : null;
     }
 
     private function mounted(string $path): bool

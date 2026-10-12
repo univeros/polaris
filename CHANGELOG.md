@@ -7,6 +7,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- Under `POLARIS_PATH_PREFIX`, the root `.well-known` forms of RFC 8414 and RFC 9728
+  (`/.well-known/oauth-authorization-server/auth`,
+  `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the
+  prefix, when that is a Polaris route; any other `.well-known` path stays the host's.
 - Every `polaris/*` plugin of Polaris for PHP 0.10 is supported: passkey, username,
   passwordless, social, anonymous, multi-session, audit, admin, messaging, sentinel, sso,
   scim, api-keys, oauth-provider, mcp and agents. Each plugin's own functional suite and
