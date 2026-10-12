@@ -16,6 +16,9 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   `bind()` gives the container an in-memory database, fresh RS256 keys, an APP_KEY and an
   issuer; `token()` mints an access token for a user (organization, roles, MFA, delegated
   permissions) to call protected routes.
+- The Univeros demo runs the audit, admin, API-keys, OAuth-provider and MCP plugins; its
+  walkthrough adds an API key on the application's `/app/me` and an MCP `tools/list` with a token
+  exchanged for the MCP resource (19 steps).
 - Under `POLARIS_PATH_PREFIX`, the root `.well-known` forms of RFC 8414 and RFC 9728
   (`/.well-known/oauth-authorization-server/auth`,
   `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the
