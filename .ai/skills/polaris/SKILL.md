@@ -104,6 +104,14 @@ the domain's `InputCollection` through `InputParser`): a `Token\DualToken`
 whose `getMetadata('sub' | 'org' | 'roles' | 'mfa' | ...)` are the claims.
 `examples/univeros/app/Account/Me.php` is the reference.
 
+Plugin credentials (a `polaris/api-keys` key, a `polaris/oauth-provider`
+token) on these routes: mount `Univeros\Polaris\Http\PluginTokenAuthenticationMiddleware`
+instead, with the same `rules`. Such tokens are delegated
+(`getMetadata(Gate::DELEGATED)`): authorize them through the bound
+`Polaris\Authorization\Gate` (`$gate->allows($token, 'invoices.read')`), never
+from the user id alone. With `polaris/agents`, `Polaris\Agents\Http\AgentRequestMiddleware`
+is bound for capability locations on host routes.
+
   step-up re-stamps `auth_time`.
 - **mfa_token ticket**: login returns it instead of a session when the user
   has a confirmed factor (`purpose=login_mfa`, short TTL). Only
@@ -223,12 +231,15 @@ database.
 ## 8. Operating and verifying
 
 ```bash
-composer qa        # phpcs (PSR-12) + phpstan (level 5) + phpunit + the contract replay (test:contract)
+composer qa        # phpcs (PSR-12) + phpstan (level 5) + phpunit + test:contract + test:plugins (every plugin's fixtures)
 vendor/bin/phpunit # SQLite in memory without DB_CONNECTION; the DB_* variables select PostgreSQL (CI)
 ```
 
-- `bin/altair db:migrate` installs the schema (the module's one Cycle
-  migration); `Graph::prune()` (`Polaris\Maintenance\PruneExpiredService`) is
+- `bin/altair db:migrate` installs core's schema (the module's one Cycle
+  migration), `bin/altair polaris:schema:install-plugins` the plugins' tables
+  (`--sql` prints them); with `univeros/doctor`, `bin/altair doctor` runs
+  `polaris`, `polaris_plugins` and `polaris_schema`; host tests use
+  `Univeros\Polaris\Testing\PolarisTesting` (`bind()`, `token()`); `Graph::prune()` (`Polaris\Maintenance\PruneExpiredService`) is
   the scheduled cleanup for expired transient rows (the host wires it to cron).
 - Key rotation runbook: `docs/auth/key-rotation.md`. Security model and
   threat table: `docs/auth/security.md`. Data model: `docs/auth/data-model.md`.

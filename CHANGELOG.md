@@ -4,7 +4,12 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.2.0] - 2026-10-12
+
+Every `polaris/*` plugin of Polaris for PHP 0.10 is supported and tested through the module, plus the
+Univeros-native pieces around them: plugin credentials on the host's own routes, the agents middleware,
+the Doctor checks, `routes:list`, Observability metrics and testing helpers. Nothing changes for an
+application that configures no plugin.
 
 ### Added
 - With `univeros/introspection`, `bin/altair routes:list` (and `routes:show`) list the Polaris
@@ -192,6 +197,7 @@ endpoints).
   configuration, the token model, the permission catalog, and the tenant
   invariants.
 
+[2.2.0]: https://github.com/univeros/polaris/releases/tag/v2.2.0
 [2.1.0]: https://github.com/univeros/polaris/releases/tag/v2.1.0
 [2.0.0]: https://github.com/univeros/polaris/releases/tag/v2.0.0
 [1.0.0]: https://github.com/univeros/polaris/releases/tag/v1.0.0
