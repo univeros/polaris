@@ -158,6 +158,12 @@ bin/altair polaris:schema:install-plugins         # after enabling a plugin
 bin/altair polaris:schema:install-plugins --sql   # the statements, for your own migration
 ```
 
+The commands of the plugins you configure join as `polaris:*` (`polaris:audit:prune`, `polaris:mcp`,
+`polaris:admin:grant`, ...), and `polaris:manifest`, `polaris:schema:export`, `polaris:schema:create`
+and `polaris:doctor` include the plugins' routes, tables and permissions. Either builds Polaris, so
+once you configure plugins `bin/altair` needs the secrets (`bin/setup` writes them before
+`db:migrate`). Without plugins nothing is built at boot.
+
 ## The demo
 
 [`examples/univeros`](examples/univeros) is the `univeros/univeros` skeleton with the module registered:
