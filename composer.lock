@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "e8369e37daf4df96162a07d9507b69f9",
+    "content-hash": "5f9ba13f407daf19a94a59010d7515b6",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -6405,6 +6405,54 @@
             "support": {
                 "issues": "https://github.com/univeros/polaris.testing/issues",
                 "source": "https://github.com/univeros/polaris.testing/tree/v0.10.0"
+            },
+            "time": "2026-10-12T16:58:18+00:00"
+        },
+        {
+            "name": "polaris/username",
+            "version": "v0.10.0",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/univeros/polaris.username.git",
+                "reference": "f8ca522fe3cf8524f8248a5baf762f23cf4d17ae"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/univeros/polaris.username/zipball/f8ca522fe3cf8524f8248a5baf762f23cf4d17ae",
+                "reference": "f8ca522fe3cf8524f8248a5baf762f23cf4d17ae",
+                "shasum": ""
+            },
+            "require": {
+                "ext-mbstring": "*",
+                "php": ">=8.3",
+                "polaris/core": "^0.10",
+                "psr/clock": "^1.0"
+            },
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "0.10.x-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "Polaris\\Username\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "authors": [
+                {
+                    "name": "2am.tech",
+                    "homepage": "https://2am.tech"
+                }
+            ],
+            "description": "Username for Polaris for PHP: sign in with a username or an email through core's password path, case-insensitive unique usernames with a display form, validation rules from configuration",
+            "support": {
+                "issues": "https://github.com/univeros/polaris.username/issues",
+                "source": "https://github.com/univeros/polaris.username/tree/v0.10.0"
             },
             "time": "2026-10-12T16:58:18+00:00"
         },

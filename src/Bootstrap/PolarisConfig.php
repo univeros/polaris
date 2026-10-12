@@ -13,12 +13,14 @@ use Polaris\Config\Secrets;
 use Polaris\Contract\BreachedPasswordCheckInterface;
 use Polaris\Contract\DatabaseAdapter;
 use Polaris\Contract\EncrypterInterface;
+use Polaris\Contract\Plugin;
 use Polaris\Contract\MetricsInterface;
 use Polaris\Contract\OtpMailerInterface;
 use Polaris\Contract\QrCodeRendererInterface;
 use Polaris\Contract\RateStore;
 use Polaris\Contract\SmsSenderInterface;
 use Polaris\Contract\TotpProviderInterface;
+use Polaris\Exception\InvalidConfigException;
 use Polaris\Pdo\PdoAdapter;
 use Polaris\Polaris;
 use Polaris\Wiring\Config;
@@ -29,8 +31,17 @@ use Psr\Log\LoggerInterface;
 use Psr\SimpleCache\CacheInterface;
 use Univeros\Polaris\Database\Connection;
 use Univeros\Polaris\Event\ListenerDispatcher;
+use Univeros\Polaris\Plugins;
 
+use function array_filter;
+use function array_map;
+use function array_values;
+use function class_exists;
+use function explode;
+use function get_debug_type;
 use function is_string;
+use function sprintf;
+use function trim;
 
 /**
  * The Polaris {@see Config} of a Univeros host. Every port takes what the container binds, else
@@ -40,6 +51,7 @@ use function is_string;
  * {@see DatabaseAdapter} or `PDO`, else a connection opened beside Cycle's from the framework's
  * {@see DatabaseSettings} or `POLARIS_DSN` ({@see Connection}). Without a bound PSR-14 dispatcher
  * the module dispatches to `Polaris::listeners()` itself (the audit log, notifications, metrics).
+ * The plugins are the bound {@see Plugins}, else the classes `POLARIS_PLUGINS` names.
  */
 final class PolarisConfig
 {
@@ -66,6 +78,7 @@ final class PolarisConfig
             qrCodes: self::port($container, QrCodeRendererInterface::class),
             responseFactory: self::port($container, ResponseFactoryInterface::class),
             pathPrefix: self::pathPrefix($env),
+            plugins: self::plugins($container, $env),
         );
     }
 
@@ -94,6 +107,42 @@ final class PolarisConfig
         $prefix = $env->get('POLARIS_PATH_PREFIX');
 
         return is_string($prefix) && $prefix !== '' ? $prefix : '/';
+    }
+
+    /**
+     * The bound {@see Plugins}, else `POLARIS_PLUGINS`: comma-separated plugin class names built through
+     * the container. An entry that is not a plugin class fails boot rather than being dropped.
+     *
+     * @return list<Plugin>
+     */
+    public static function plugins(Container $container, Env $env): array
+    {
+        $bound = self::port($container, Plugins::class);
+        if ($bound !== null) {
+            return $bound->plugins;
+        }
+        $names = $env->get('POLARIS_PLUGINS');
+        if (!is_string($names)) {
+            return [];
+        }
+
+        return array_map(
+            static fn(string $name): Plugin => self::plugin($container, $name),
+            array_values(array_filter(array_map(trim(...), explode(',', $names)), static fn(string $name): bool => $name !== '')),
+        );
+    }
+
+    private static function plugin(Container $container, string $name): Plugin
+    {
+        if (!class_exists($name)) {
+            throw new InvalidConfigException(sprintf('POLARIS_PLUGINS names %s, which is not a class.', $name));
+        }
+        $plugin = $container->make($name);
+        if (!$plugin instanceof Plugin) {
+            throw new InvalidConfigException(sprintf('POLARIS_PLUGINS entries must be Polaris\\Contract\\Plugin classes, got %s.', get_debug_type($plugin)));
+        }
+
+        return $plugin;
     }
 
     private static function database(Container $container, Env $env): DatabaseAdapter
