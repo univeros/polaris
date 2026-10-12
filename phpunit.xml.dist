@@ -19,6 +19,7 @@
         <!-- Every supported polaris plugin's own functional suite and recorded fixtures, replayed through
              this module (`composer test:plugins`). A plugin is supported when its suite is listed here. -->
         <testsuite name="plugins">
+            <directory>vendor/polaris/passkey/tests/Functional</directory>
             <directory>vendor/polaris/username/tests/Functional</directory>
         </testsuite>
     </testsuites>

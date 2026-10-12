@@ -4,6 +4,12 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Passkeys: `polaris/passkey` is supported (its fixtures replay through the module in
+  `test:plugins`); README recipe. Usernames (`polaris/username`) gain their recipe too.
+
 ## [2.1.0] - 2026-10-12
 
 The plugin foundation: any `polaris/*` plugin of Polaris for PHP 0.10 runs in a Univeros
