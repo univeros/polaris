@@ -21,6 +21,19 @@
         <testsuite name="plugins">
             <directory>vendor/polaris/passkey/tests/Functional</directory>
             <directory>vendor/polaris/username/tests/Functional</directory>
+            <directory>vendor/polaris/social/tests/Functional</directory>
+            <directory>vendor/polaris/passwordless/tests/Functional</directory>
+            <directory>vendor/polaris/anonymous/tests/Functional</directory>
+            <directory>vendor/polaris/multi-session/tests/Functional</directory>
+            <directory>vendor/polaris/audit/tests/Functional</directory>
+            <directory>vendor/polaris/admin/tests/Functional</directory>
+            <directory>vendor/polaris/sentinel/tests/Functional</directory>
+            <directory>vendor/polaris/sso/tests/Functional</directory>
+            <directory>vendor/polaris/scim/tests/Functional</directory>
+            <directory>vendor/polaris/api-keys/tests/Functional</directory>
+            <directory>vendor/polaris/oauth-provider/tests/Functional</directory>
+            <directory>vendor/polaris/mcp/tests/Functional</directory>
+            <directory>vendor/polaris/agents/tests/Functional</directory>
         </testsuite>
     </testsuites>
     <source>
