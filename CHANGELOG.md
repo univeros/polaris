@@ -7,6 +7,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- The configured plugins' console commands join `bin/altair` as `polaris:*`
+  (`polaris:audit:prune`, `polaris:mcp`, ...), and `polaris:manifest`, `schema:export`,
+  `schema:create` and `doctor` include the plugins (the module points their `--bootstrap` at
+  the application's Polaris). With plugins configured `bin/altair` needs the secrets.
 - `polaris:schema:install-plugins`: creates the tables the database lacks (the configured
   plugins' included) in foreign-key order and seeds the plugins' permissions; idempotent.
   `--sql` prints the statements for a host's own migration. `polaris:schema:create`,

@@ -152,6 +152,29 @@ final class CommandsTest extends TestCase
         }
     }
 
+    public function testAConfiguredPluginsCommandsJoinAsPolarisCommands(): void
+    {
+        $application = self::application(new PDO('sqlite::memory:'), new Plugins(new HeaderPlugin()));
+
+        $ping = new CommandTester($application->find('polaris:header:ping'));
+
+        self::assertSame(0, $ping->execute([]));
+        self::assertStringContainsString('pong from header', $ping->getDisplay());
+    }
+
+    public function testManifestAndExportIncludeTheConfiguredPlugins(): void
+    {
+        $application = self::application(new PDO('sqlite::memory:'), new Plugins(new UsernamePlugin()));
+
+        $manifest = new CommandTester($application->find('polaris:manifest'));
+        self::assertSame(0, $manifest->execute([]), $manifest->getDisplay());
+        self::assertStringContainsString('/username/sign-in', $manifest->getDisplay());
+
+        $export = new CommandTester($application->find('polaris:schema:export'));
+        self::assertSame(0, $export->execute(['--target' => 'sql:sqlite']), $export->getDisplay());
+        self::assertStringContainsString('CREATE TABLE "polaris_username"', $export->getDisplay());
+    }
+
     private static function application(PDO $pdo, Plugins $plugins): Application
     {
         $container = new Container();
