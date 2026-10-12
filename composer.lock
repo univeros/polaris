@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "2022036684ad2d7a3f6f752ae8f43ebf",
+    "content-hash": "24527c78e80ae1506387437bc49e1182",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -5360,12 +5360,12 @@
             "version": "v5.7.0",
             "source": {
                 "type": "git",
-                "url": "https://github.com/vlucas/phpdotenv.git",
+                "url": "https://github.com/phpdotenv/phpdotenv.git",
                 "reference": "301c07936b16d88628b126b01d082ba153cf4c40"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/vlucas/phpdotenv/zipball/301c07936b16d88628b126b01d082ba153cf4c40",
+                "url": "https://api.github.com/repos/phpdotenv/phpdotenv/zipball/301c07936b16d88628b126b01d082ba153cf4c40",
                 "reference": "301c07936b16d88628b126b01d082ba153cf4c40",
                 "shasum": ""
             },
@@ -10018,6 +10018,44 @@
                 }
             ],
             "time": "2025-12-08T11:19:18+00:00"
+        },
+        {
+            "name": "univeros/doctor",
+            "version": "v2.5.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/univeros/doctor.git",
+                "reference": "993c1d479336919f8dcff4c10848428d3faaf996"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/univeros/doctor/zipball/993c1d479336919f8dcff4c10848428d3faaf996",
+                "reference": "993c1d479336919f8dcff4c10848428d3faaf996",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3",
+                "univeros/cli": "^2.0",
+                "univeros/configuration": "^2.0",
+                "univeros/container": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Altair\\Doctor\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "bin/altair doctor — health checks with agent-actionable output. Deterministic JSON for agents, scannable text for humans.",
+            "homepage": "https://univeros.io",
+            "support": {
+                "issues": "https://github.com/univeros/framework/issues",
+                "source": "https://github.com/univeros/framework"
+            },
+            "time": "2026-05-30T05:59:30+00:00"
         },
         {
             "name": "web-auth/cose-lib",
