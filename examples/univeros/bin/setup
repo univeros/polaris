@@ -5,8 +5,8 @@ declare(strict_types=1);
 
 /*
  * One-time setup: .env with a generated APP_KEY and an RS256 key pair, then the schema through
- * `bin/altair db:migrate` (the module's Cycle migration), `polaris:schema:diff` and `polaris:doctor`
- * as the proof. Safe to run again.
+ * `bin/altair db:migrate` (the module's Cycle migration) and `polaris:schema:install-plugins` (the
+ * plugins' tables), with `polaris:schema:diff` and `polaris:doctor` as the proof. Safe to run again.
  */
 
 $root = dirname(__DIR__);
@@ -37,7 +37,7 @@ if (!is_file("$root/.env")) {
     echo "created .env\n";
 }
 
-foreach (['db:migrate', 'polaris:schema:diff', 'polaris:doctor'] as $command) {
+foreach (['db:migrate', 'polaris:schema:install-plugins', 'polaris:schema:diff', 'polaris:doctor'] as $command) {
     echo "\n$ bin/altair $command\n";
     passthru(PHP_BINARY . ' ' . escapeshellarg("$root/bin/altair") . ' ' . $command, $status);
     if ($status !== 0) {

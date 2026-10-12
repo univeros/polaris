@@ -7,9 +7,9 @@ Yii demos of Polaris for PHP, from a clean clone in about a minute.
 ```sh
 cd examples/univeros
 composer install
-bin/setup            # .env with APP_KEY and an RS256 key pair, db:migrate, polaris:schema:diff, polaris:doctor
+bin/setup            # .env with APP_KEY and an RS256 key pair, db:migrate, polaris:schema:install-plugins, diff, doctor
 composer serve       # php -S 127.0.0.1:8080 -t public, in another terminal
-bin/walkthrough.sh   # register, verify, login, TOTP, MFA login, organization, switch-org, then GET /app/me
+bin/walkthrough.sh   # register ... switch-org, GET /app/me, an API key on /app/me, an MCP tools/list
 ```
 
 `bin/walkthrough.sh` starts its own server when none is running, so `composer install && bin/setup &&
@@ -24,9 +24,16 @@ The skeleton's `public/index.php` and `config/container.php` are unchanged. The 
 - [`config/configurations.php`](config/configurations.php): `EnvironmentConfiguration` (`.env`),
   `LoggingConfiguration`, `CycleOrmConfiguration` (the `DB_*` settings Polaris shares).
 - [`app/AppModule.php`](app/AppModule.php): binds the mailbox ([`app/Mail/FileMailer.php`](app/Mail/FileMailer.php),
-  one JSON line per email in `var/mail.log`) as Polaris's mailer, and the framework's
-  `TokenAuthenticationMiddleware`, as the Polaris module binds it, scoped to `/app` with a
-  `RequestPathRule` at `DISPATCHER + 5` ([`app/Http/Middleware/AppAuthentication.php`](app/Http/Middleware/AppAuthentication.php)).
+  one JSON line per email in `var/mail.log`) as Polaris's mailer; five plugins (`polaris/audit`,
+  `polaris/admin`, `polaris/api-keys`, `polaris/oauth-provider` with `audiences: [<base>/mcp]`, and
+  `polaris/mcp`; `APP_URL`, default `http://127.0.0.1:8080`, is where Polaris is mounted); and the module's
+  `PluginTokenAuthenticationMiddleware` (the framework's token authentication plus API keys and OAuth
+  tokens) scoped to `/app` with a `RequestPathRule` at `DISPATCHER + 5`
+  ([`app/Http/Middleware/AppAuthentication.php`](app/Http/Middleware/AppAuthentication.php)).
+
+Passkeys need a browser authenticator and agents an SDK, so they are not in this shell walkthrough;
+polaris-core's Slim demo exercises both (a Playwright run with a virtual authenticator, and an agent
+enrolled through `polaris/agent`).
 - [`config/routes.php`](config/routes.php): the skeleton's `GET /ping` and `GET /app/me`
   ([`app/Account/Me.php`](app/Account/Me.php)), which reads the Polaris access token the middleware
   attached and answers with the user from Polaris's repositories. The Polaris routes are not listed:

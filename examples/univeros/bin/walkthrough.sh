@@ -33,6 +33,13 @@ call() { # call METHOD PATH [TOKEN] [JSON]
     local out; out=$(curl "${args[@]}")
     STATUS=${out##*$'\n'}; BODY=${out%$'\n'*}
 }
+post() { # post PATH CONTENT-TYPE DATA [HEADER...]: a raw POST (an RFC 6749 form for /oauth2/token, JSON-RPC for /mcp)
+    local path=$1 type=$2 data=$3; shift 3
+    local args=(-s -w '\n%{http_code}' -X POST "$URL$path" -H "Content-Type: $type" -d "$data")
+    for header in "$@"; do args+=(-H "$header"); done
+    local out; out=$(curl "${args[@]}")
+    STATUS=${out##*$'\n'}; BODY=${out%$'\n'*}
+}
 step() { printf '%-52s %s\n' "$1" "$STATUS"; }
 expect() { if [ "$STATUS" != "$1" ]; then echo "expected $1, got $STATUS: $BODY" >&2; exit 1; fi; }
 totp() { php -r 'require "vendor/autoload.php"; echo OTPHP\TOTP::createFromSecret($argv[1])->at((int) $argv[2]);' -- "$1" "$2"; }
@@ -60,4 +67,21 @@ call GET "/orgs/$ORG/members" "$ACCESS"; step "12. GET /orgs/{id}/members"; expe
 call GET /app/me; step "13. GET /app/me without a token (the framework middleware)"; expect 401
 call GET /app/me "$ACCESS"; step "14. GET /app/me (the application's route, the org-scoped token)"; expect 200
 [ "$(printf '%s' "$BODY" | json data.organization_id)" = "$ORG" ] || { echo "expected organization $ORG in $BODY" >&2; exit 1; }
-echo "PASS: registered $EMAIL, verified, logged in with TOTP, created organization $ORG, read /app/me"
+
+# The plugins on the application's route and as an MCP server: an API key authenticates /app/me (the
+# module's PluginTokenAuthenticationMiddleware), then an MCP client lists the tools with a token
+# exchanged for the MCP resource.
+call POST /api-keys "$ACCESS" "{\"name\":\"Walkthrough key\",\"organization_id\":\"$ORG\",\"permissions\":[\"org.read\"]}"; step "15. POST /api-keys (an organization key)"; expect 201
+API_KEY=$(printf '%s' "$BODY" | json data.key)
+call GET /app/me "$API_KEY"; step "16. GET /app/me with the API key"; expect 200
+call POST "/orgs/$ORG/oauth/clients" "$ACCESS" '{"name":"Walkthrough MCP client","grant_types":["urn:ietf:params:oauth:grant-type:token-exchange"],"token_endpoint_auth_method":"client_secret_post"}'
+step "17. POST /orgs/{id}/oauth/clients (a client for the exchange)"; expect 201
+CLIENT_ID=$(printf '%s' "$BODY" | json data.client_id); CLIENT_SECRET=$(printf '%s' "$BODY" | json data.client_secret)
+post /oauth2/token application/x-www-form-urlencoded "client_id=$CLIENT_ID&client_secret=$CLIENT_SECRET&grant_type=urn:ietf:params:oauth:grant-type:token-exchange&subject_token=$ACCESS&subject_token_type=urn:ietf:params:oauth:token-type:access_token&resource=$URL/mcp&scope=org.read"
+step "18. POST /oauth2/token (token exchange for $URL/mcp)"; expect 200
+MCP_TOKEN=$(printf '%s' "$BODY" | json access_token)
+post /mcp application/json '{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientCapabilities":{}}}}' \
+    "Authorization: Bearer $MCP_TOKEN" 'Accept: application/json' 'MCP-Protocol-Version: 2026-07-28' 'Mcp-Method: tools/list'
+step "19. POST /mcp tools/list (JSON-RPC, the 2026-07-28 profile)"; expect 200
+printf '%s' "$BODY" | grep -q '"polaris.auth.me"' || { echo "tools/list did not list polaris.auth.me: $BODY" >&2; exit 1; }
+echo "PASS: registered $EMAIL, verified, logged in with TOTP, created organization $ORG, read /app/me with a session and an API key, listed the MCP tools"
