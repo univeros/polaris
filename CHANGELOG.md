@@ -12,6 +12,9 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   class names in `POLARIS_PLUGINS`, built through the container. Their routes, tables,
   services, middleware and permissions join the module's. An entry that is not a plugin class
   fails boot naming it. With neither, nothing changes.
+- `composer test:plugins` (part of `qa` and CI) replays each supported plugin's own functional
+  suite and recorded fixtures through the module, as `test:contract` does for core's. First
+  plugin: `polaris/username`.
 
 ### Changed
 - `polaris/core`, `polaris/pdo`, `polaris/psr15`, `polaris/cli` and `polaris/testing` move to

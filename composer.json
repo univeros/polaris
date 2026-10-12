@@ -40,7 +40,8 @@
     "autoload-dev": {
         "psr-4": {
             "Univeros\\Polaris\\Tests\\": "tests/",
-            "Polaris\\Tests\\": "vendor/polaris/core/tests/"
+            "Polaris\\Tests\\": "vendor/polaris/core/tests/",
+            "Polaris\\Username\\Tests\\": "vendor/polaris/username/tests/"
         }
     },
     "scripts": {
@@ -52,7 +53,11 @@
             "@putenv POLARIS_HARNESS=Univeros\\Polaris\\Tests\\Harness",
             "phpunit --testsuite functional"
         ],
-        "qa": ["@cs", "@stan", "@test", "@test:contract"]
+        "test:plugins": [
+            "@putenv POLARIS_HARNESS=Univeros\\Polaris\\Tests\\Harness",
+            "phpunit --testsuite plugins"
+        ],
+        "qa": ["@cs", "@stan", "@test", "@test:contract", "@test:plugins"]
     },
     "config": {
         "sort-packages": true,
