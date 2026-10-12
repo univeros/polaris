@@ -1,6 +1,6 @@
 ---
 name: polaris
-description: Integrate and operate univeros/polaris 2.x, the Univeros module for Polaris for PHP (polaris/core): authentication, MFA/OTP, sessions, multi-tenant organizations and RBAC. Use when registering the module in a Univeros host, configuring its environment and ports, wiring bin/altair and the migration, protecting the application's own routes with Polaris access tokens, calling the HTTP API, or reasoning about the token model and the tenant invariants.
+description: Integrate and operate univeros/polaris 2.x, the Univeros module for Polaris for PHP (polaris/core): authentication, MFA/OTP, sessions, multi-tenant organizations and RBAC. Use when registering the module in a Univeros host, configuring its environment, ports and polaris plugins, wiring bin/altair and the migration, protecting the application's own routes with Polaris access tokens, calling the HTTP API, or reasoning about the token model and the tenant invariants.
 ---
 
 # Polaris: auth, MFA, and multi-tenant RBAC on Univeros
@@ -41,6 +41,16 @@ apply `CliConfiguration` over the framework's `src/Altair/*/Cli` directories,
 `add()` each of `Univeros\Polaris\Console\Commands::all($container)`, run.
 `examples/univeros/bin/altair` is the file.
 
+Plugins (any `polaris/*` plugin of Polaris for PHP 0.10: passkey, social,
+api-keys, oauth-provider, mcp, agents, audit, ...): bind
+`new Univeros\Polaris\Plugins(new PasskeyPlugin(...), ...)` in
+`config/container.php`, or name no-argument plugin classes in
+`POLARIS_PLUGINS`. Their routes, middleware, services, listeners and
+permissions join without further wiring; `bin/altair
+polaris:schema:install-plugins` creates their tables (`--sql` prints them for
+your own migration); their console commands join as `polaris:*`. With plugins
+configured `bin/altair` builds Polaris, so it needs the secrets.
+
 ## 2. Environment and ports
 
 Read through the framework's `Env` (`$_ENV`, `$_SERVER`, then `getenv()`; a
@@ -56,6 +66,8 @@ Read through the framework's `Env` (`$_ENV`, `$_SERVER`, then `getenv()`; a
 | `DB_CONNECTION`, `DB_DATABASE`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | The database as `CycleOrmConfiguration` reads it (`postgres`, `mysql`, `sqlite`); Polaris opens its own connection on the same settings. |
 | `POLARIS_DSN`, `POLARIS_DB_USER`, `POLARIS_DB_PASSWORD` | The database of an application without an ORM. |
 | `POLARIS_PATH_PREFIX` | Mounts the Polaris routes under a prefix (`/`). |
+| `POLARIS_PLUGINS` | Comma-separated plugin classes built through the container, when no `Univeros\Polaris\Plugins` is bound. |
+| `POLARIS_LISTENERS` | `module` (default): the module runs `Polaris::listeners()`, then a bound dispatcher; `host`: the bound dispatcher gets events as is (2.0). |
 
 Every port takes the container's binding when registered before Polaris
 resolves, else core's default: `Polaris\Config\Secrets` and `AuthConfig`
@@ -64,8 +76,8 @@ resolves, else core's default: `Polaris\Config\Secrets` and `AuthConfig`
 `SmsSenderInterface` (defaults log and send nothing), PSR-16 `CacheInterface`
 (rate limits, the denylist and OTP send caps live there; bind one that outlives
 a request in production), PSR-3 `LoggerInterface`, PSR-14
-`EventDispatcherInterface` (without one the module dispatches to
-`Polaris::listeners()` itself; with one, subscribe those listeners), `ClockInterface`,
+`EventDispatcherInterface` (events go to `Polaris::listeners()` first, then to
+it; `POLARIS_LISTENERS=host` for a host subscribing them itself), `ClockInterface`,
 `RateLimitConfig`, `RateStore`, `EncrypterInterface`, `MetricsInterface`,
 `TotpProviderInterface`, `QrCodeRendererInterface`, `ResponseFactoryInterface`.
 

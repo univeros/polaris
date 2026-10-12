@@ -150,3 +150,25 @@ hand-off this work applies. What follows is what was decided while applying it.
 - 2026-09-11 · WP4 · Release: `v2.0.0` is a GitHub release created at the merge commit of WP4 on `main`
   (`gh release create v2.0.0 --target <sha>`) with the CHANGELOG's 2.0.0 section as its notes; Packagist
   refreshes through its hook.
+- 2026-10-12 · 2.1 · `polaris/*` moves to `^0.10` (#109); the 52 routes and the 184 fixtures are unchanged
+  from 0.1. The work is planned as five parity epics (#141 to #145): every polaris-core package supported
+  when it is enabled by configuration only, its own fixtures replay green through `tests/Harness.php`
+  (`composer test:plugins`), its schema installs, and the README has its recipe.
+- 2026-10-12 · 2.1 · Plugin sources (#112): a bound `Univeros\Polaris\Plugins` (a typed variadic list;
+  the container's `instance()` takes objects only), else `POLARIS_PLUGINS`. The binding wins; a bad entry
+  fails boot naming it. No per-plugin configuration keys: plugins needing host objects (PSR-17/18, URLs)
+  are built in `config/container.php`. No router change: `Graph::manifest()` already loads every plugin's
+  manifest directory, and psr15's `Pipeline` runs plugin middleware and bearer resolvers.
+- 2026-10-12 · 2.1 · Listeners (#115): core runs none of its own, so a bound dispatcher used to lose the
+  audit log, notifications and every plugin's listeners unless the host subscribed them. The module now
+  always hands Polaris a `ListenerDispatcher` forwarding to the host's dispatcher, as Laravel's
+  `EventBridge` does; `POLARIS_LISTENERS=host` keeps 2.0's behaviour (UPGRADE.md). The harness sets it,
+  because core's recorded runs leave core's listeners out.
+- 2026-10-12 · 2.1 · Schema (#113): the install migration stays core-only (Cycle builds it without the
+  container; every 2.0 host has run it). `polaris:schema:install-plugins` creates the missing tables in
+  foreign-key order and re-seeds the catalog; `--sql` serves hosts that own their migrations. The FK
+  ordering mirrors `SqlSchema::ordered()` until polaris/pdo offers `createMissing()` (#111).
+- 2026-10-12 · 2.1 · Console (#114): plugin `CommandProvider` commands join as `polaris:*`; with plugins
+  configured the cli commands' `--bootstrap` default is `src/Console/bootstrap.php` (the container's
+  Polaris), so manifest, export, create and doctor include the plugins without a polaris/cli change.
+  Building them builds Polaris, so `bin/altair` then needs the secrets; diff and drop do not.
