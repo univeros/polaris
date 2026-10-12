@@ -39,6 +39,7 @@ use function array_values;
 use function class_exists;
 use function explode;
 use function get_debug_type;
+use function in_array;
 use function is_string;
 use function sprintf;
 use function trim;
@@ -49,8 +50,8 @@ use function trim;
  * or the environment 1.x read (`APP_KEY`, `AUTH_JWT_*`, `AUTH_ISSUER`, `AUTH_AUDIENCE`,
  * `AUTH_ACCESS_TOKEN_DENYLIST`, `AUTH_PASSWORD_BREACH_CHECK`). The database is a bound
  * {@see DatabaseAdapter} or `PDO`, else a connection opened beside Cycle's from the framework's
- * {@see DatabaseSettings} or `POLARIS_DSN` ({@see Connection}). Without a bound PSR-14 dispatcher
- * the module dispatches to `Polaris::listeners()` itself (the audit log, notifications, metrics).
+ * {@see DatabaseSettings} or `POLARIS_DSN` ({@see Connection}). Polaris events go to
+ * `Polaris::listeners()` (the audit log, notifications, metrics), then to a bound PSR-14 dispatcher.
  * The plugins are the bound {@see Plugins}, else the classes `POLARIS_PLUGINS` names.
  */
 final class PolarisConfig
@@ -68,7 +69,7 @@ final class PolarisConfig
             breachCheck: self::port($container, BreachedPasswordCheckInterface::class),
             cache: self::port($container, CacheInterface::class),
             clock: self::port($container, ClockInterface::class),
-            dispatcher: self::port($container, EventDispatcherInterface::class) ?? self::dispatcher($container),
+            dispatcher: self::dispatcher($container, $env),
             logger: self::port($container, LoggerInterface::class),
             rateLimits: self::port($container, RateLimitConfig::class),
             rateStore: self::port($container, RateStore::class),
@@ -150,14 +151,27 @@ final class PolarisConfig
         return self::port($container, DatabaseAdapter::class) ?? new PdoAdapter(Connection::fromContainer($container, $env));
     }
 
-    private static function dispatcher(Container $container): ListenerDispatcher
+    /**
+     * The Polaris listeners first, then the host's bound dispatcher. `POLARIS_LISTENERS=host` hands the
+     * bound dispatcher over as is, for a host that subscribes `Polaris::listeners()` to it itself (2.0).
+     */
+    private static function dispatcher(Container $container, Env $env): EventDispatcherInterface
     {
+        $host = self::port($container, EventDispatcherInterface::class);
+        $mode = $env->get('POLARIS_LISTENERS') ?? 'module';
+        if (!in_array($mode, ['module', 'host'], true)) {
+            throw new InvalidConfigException(sprintf('POLARIS_LISTENERS must be module or host, got %s.', is_string($mode) ? $mode : get_debug_type($mode)));
+        }
+        if ($mode === 'host' && $host !== null) {
+            return $host;
+        }
+
         return new ListenerDispatcher(static function () use ($container): array {
             $polaris = $container->get(Polaris::class);
             \assert($polaris instanceof Polaris);
 
             return $polaris->listeners();
-        });
+        }, $host);
     }
 
     /**

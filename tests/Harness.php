@@ -97,6 +97,9 @@ final class Harness implements HarnessContract
         if ($config->plugins !== []) {
             $container->instance(Plugins::class, new Plugins(...$config->plugins));
         }
+        // The test's dispatcher is the whole dispatcher, as in the recorded runs: core's listeners stay
+        // out and the functional base subscribes a plugin's listeners to it itself.
+        putenv('POLARIS_LISTENERS=host');
         putenv('POLARIS_PATH_PREFIX=' . $config->pathPrefix);
         (new ModuleConfiguration([new Module()]))->apply($container);
 

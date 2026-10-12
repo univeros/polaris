@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Tests\Event;
 
 use PHPUnit\Framework\TestCase;
+use Polaris\Tests\Support\RecordingEventDispatcher;
 use Psr\EventDispatcher\StoppableEventInterface;
 use stdClass;
 use Univeros\Polaris\Event\ListenerDispatcher;
@@ -60,5 +61,36 @@ final class ListenerDispatcherTest extends TestCase
         (new ListenerDispatcher(static fn(): array => [$listener, $listener]))->dispatch($stopped);
 
         self::assertSame(0, $calls);
+    }
+
+    public function testAfterThePolarisListenersTheEventGoesToTheHostsDispatcher(): void
+    {
+        $seen = [];
+        $host = new RecordingEventDispatcher();
+        $host->listen(static function (object $event) use (&$seen): void {
+            $seen[] = 'host';
+        });
+        $listener = static function (object $event) use (&$seen): void {
+            $seen[] = 'polaris';
+        };
+
+        (new ListenerDispatcher(static fn(): array => [$listener], $host))->dispatch(new stdClass());
+
+        self::assertSame(['polaris', 'host'], $seen);
+    }
+
+    public function testAStoppedEventDoesNotReachTheHostsDispatcher(): void
+    {
+        $host = new RecordingEventDispatcher();
+        $stopped = new class implements StoppableEventInterface {
+            public function isPropagationStopped(): bool
+            {
+                return true;
+            }
+        };
+
+        (new ListenerDispatcher(static fn(): array => [], $host))->dispatch($stopped);
+
+        self::assertSame([], $host->events);
     }
 }

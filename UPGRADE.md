@@ -1,3 +1,10 @@
+# Upgrading from 2.0 to 2.1
+
+1. If you bind a PSR-14 dispatcher and subscribed `$polaris->listeners()` to it (2.0's advice), either
+   remove that subscription (the module now runs the Polaris listeners, then your dispatcher) or set
+   `POLARIS_LISTENERS=host` to keep 2.0's behaviour. Doing neither runs the audit log, notifications
+   and metrics twice per event.
+
 # Upgrading from 1.x to 2.0
 
 2.0 is a breaking change. 1.x installations are not affected by this release and keep
