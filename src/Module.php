@@ -18,6 +18,7 @@ use Altair\Module\Contracts\ModuleInterface;
 use Altair\Module\Migration\MigrationSource;
 use Laminas\Diactoros\ResponseFactory;
 use Override;
+use Polaris\Authorization\Gate;
 use Polaris\Polaris;
 use Polaris\Psr15\Pipeline;
 use Polaris\Psr15\Router;
@@ -27,6 +28,7 @@ use Univeros\Polaris\Bootstrap\PolarisConfig;
 use Univeros\Polaris\Http\BearerTokenExtractor;
 use Univeros\Polaris\Http\NullCredentialsExtractor;
 use Univeros\Polaris\Http\NullIdentityValidator;
+use Univeros\Polaris\Http\PluginTokenAuthenticationMiddleware;
 use Univeros\Polaris\Http\PolarisMiddleware;
 use Univeros\Polaris\Http\UnauthorizedResponder;
 use Univeros\Polaris\Token\TokenFactoryBridge;
@@ -87,6 +89,11 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
         $container->singleton(CredentialsExtractorInterface::class, NullCredentialsExtractor::class);
         $container->singleton(TokenAuthenticationMiddleware::class)
             ->withParameters(['options' => ['ssl' => false, 'onError' => new UnauthorizedResponder()]]);
+        // Opt-in: the same, plus the plugins' credentials (API keys, OAuth tokens), for hosts that mount
+        // it instead; such tokens are delegated, so the Gate is bound for the host's authorization.
+        $container->singleton(PluginTokenAuthenticationMiddleware::class)
+            ->withParameters(['options' => ['ssl' => false, 'onError' => new UnauthorizedResponder()]]);
+        $container->singleton(Gate::class, static fn(Graph $graph): Gate => $graph->gate());
     }
 
     /**

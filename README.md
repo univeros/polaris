@@ -121,7 +121,7 @@ documentation asks. `baseUrl` is always where Polaris is mounted, prefix include
 | `polaris/agents` | `new AgentsPlugin(baseUrl: ..., capabilities: [...], approvalUrl: ...)`, after `OAuthPlugin` | `/agents/*`, `/admin/agents/*`, `/.well-known/agent-configuration`; every capability is an MCP tool with mcp |
 
 API keys and OAuth tokens authenticate the Polaris routes; your own routes behind the framework's
-`TokenAuthenticationMiddleware` accept Polaris sessions only; plugin credentials there are planned for a later 2.x.
+`TokenAuthenticationMiddleware` accept Polaris sessions only, unless you mount `PluginTokenAuthenticationMiddleware` (below).
 
 ## The routes
 
@@ -164,6 +164,23 @@ framework's `InputParser`, it is in the domain's `InputCollection`): a `Univeros
 that implements both the framework's and Polaris's token contract, with the claims (`sub`, `org`,
 `roles`, `mfa`, ...) under `getMetadata()`. [`examples/univeros`](examples/univeros) does exactly this for
 `GET /app/me`.
+
+### API keys and OAuth tokens on your routes
+
+`TokenAuthenticationMiddleware` accepts Polaris sessions only. To accept the plugins' credentials too
+(a `polaris/api-keys` key as `Bearer pk_...` or `x-api-key`, a `polaris/oauth-provider` access token),
+mount `Univeros\Polaris\Http\PluginTokenAuthenticationMiddleware` instead, scoped the same way:
+
+```php
+$c->make(PluginTokenAuthenticationMiddleware::class, ['rules' => [new RequestPathRule(['path' => ['/app']])]])
+```
+
+It asks the plugins' resolvers with the request first, then falls back to the framework's behaviour; a
+refused key is the same 401 envelope. Such a token is **delegated**: it may use only the subset of its
+owner's permissions listed under `getMetadata(Gate::DELEGATED)`, and only `Polaris\Authorization\Gate`
+applies that restriction. Authorize these routes through the Gate the module binds
+(`$gate->allows($token, 'invoices.read')`), never from the user id alone, or a key gets its owner's full
+authority.
 
 ## The database and `bin/altair`
 

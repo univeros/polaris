@@ -12,6 +12,11 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   scim, api-keys, oauth-provider, mcp and agents. Each plugin's own functional suite and
   recorded fixtures replay through the module in `composer test:plugins` (55 tests); no module
   code change was needed. The README has a recipe per plugin and the registration order.
+- `PluginTokenAuthenticationMiddleware` (opt-in): the framework's token authentication plus the
+  plugins' credentials (API keys, OAuth access tokens) on the host's own routes, resolved with
+  the request by the plugins' bearer resolvers, the resolving plugin's middleware around the
+  route (a key's own rate limit). Such tokens are delegated; the module binds
+  `Polaris\Authorization\Gate`, which applies the restriction, for the host's authorization.
 
 ## [2.1.0] - 2026-10-12
 
