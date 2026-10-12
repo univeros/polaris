@@ -7,6 +7,9 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- With `univeros/introspection`, `bin/altair routes:list` (and `routes:show`) list the Polaris
+  routes, core's and the plugins', beside the host's, with their endpoint classes. The dispatch
+  table stays without them.
 - Under `POLARIS_PATH_PREFIX`, the root `.well-known` forms of RFC 8414 and RFC 9728
   (`/.well-known/oauth-authorization-server/auth`,
   `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the

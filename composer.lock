@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "24527c78e80ae1506387437bc49e1182",
+    "content-hash": "3aa5f154cfaef1b1c15e114e1f338a75",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -4111,16 +4111,16 @@
         },
         {
             "name": "symfony/polyfill-php80",
-            "version": "v1.37.0",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php80.git",
-                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411"
+                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
-                "reference": "dfb55726c3a76ea3b6459fcfda1ec2d80a682411",
+                "url": "https://api.github.com/repos/symfony/polyfill-php80/zipball/9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
+                "reference": "9c6a5d6b01ca51d486c813e9a9c0ed55f208bb74",
                 "shasum": ""
             },
             "require": {
@@ -4171,7 +4171,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php80/tree/v1.37.0"
+                "source": "https://github.com/symfony/polyfill-php80/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -4191,7 +4191,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-04-10T16:19:22+00:00"
+            "time": "2026-09-25T15:50:05+00:00"
         },
         {
             "name": "symfony/polyfill-php83",
@@ -10050,6 +10050,83 @@
                 "MIT"
             ],
             "description": "bin/altair doctor — health checks with agent-actionable output. Deterministic JSON for agents, scannable text for humans.",
+            "homepage": "https://univeros.io",
+            "support": {
+                "issues": "https://github.com/univeros/framework/issues",
+                "source": "https://github.com/univeros/framework"
+            },
+            "time": "2026-05-30T05:59:30+00:00"
+        },
+        {
+            "name": "univeros/happen",
+            "version": "v2.5.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/univeros/happen.git",
+                "reference": "3429d915891804712654a9e37943ef9e35da2424"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/univeros/happen/zipball/3429d915891804712654a9e37943ef9e35da2424",
+                "reference": "3429d915891804712654a9e37943ef9e35da2424",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3",
+                "psr/event-dispatcher": "^1.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Altair\\Happen\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "PSR-14 event dispatcher with priority ordering, subscriber grouping, provider-based registration, wildcard listeners, and batch dispatch.",
+            "homepage": "https://univeros.io",
+            "support": {
+                "issues": "https://github.com/univeros/framework/issues",
+                "source": "https://github.com/univeros/framework"
+            },
+            "time": "2026-06-02T20:02:09+00:00"
+        },
+        {
+            "name": "univeros/introspection",
+            "version": "v2.5.1",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/univeros/introspection.git",
+                "reference": "589fe5abde85468212b78b1858b2efbf0af589b1"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/univeros/introspection/zipball/589fe5abde85468212b78b1858b2efbf0af589b1",
+                "reference": "589fe5abde85468212b78b1858b2efbf0af589b1",
+                "shasum": ""
+            },
+            "require": {
+                "php": ">=8.3",
+                "symfony/yaml": "^7.0",
+                "univeros/cli": "^2.0",
+                "univeros/configuration": "^2.0",
+                "univeros/container": "^2.0",
+                "univeros/happen": "^2.0",
+                "univeros/http": "^2.0"
+            },
+            "type": "library",
+            "autoload": {
+                "psr-4": {
+                    "Altair\\Introspection\\": ""
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "What's wired into this project right now? CLI commands + inspectors for the Container, routes, listeners, middleware, manifests, specs, and config.",
             "homepage": "https://univeros.io",
             "support": {
                 "issues": "https://github.com/univeros/framework/issues",

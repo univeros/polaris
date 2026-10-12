@@ -7,6 +7,8 @@ namespace Univeros\Polaris;
 use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
 use Altair\Doctor\CheckRegistry;
+use Altair\Http\Collection\RouteCollection;
+use Altair\Introspection\Inspector\RouteInspector;
 use Altair\Http\Contracts\CredentialsExtractorInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
 use Altair\Http\Contracts\TokenExtractorInterface;
@@ -22,6 +24,7 @@ use Override;
 use Polaris\Agents\AgentsPlugin;
 use Polaris\Agents\Http\AgentRequestMiddleware;
 use Polaris\Authorization\Gate;
+use Polaris\Http\Manifest\Loader;
 use Polaris\Polaris;
 use Polaris\Psr15\Pipeline;
 use Polaris\Psr15\Router;
@@ -41,6 +44,7 @@ use Univeros\Polaris\Token\TokenFactoryBridge;
 
 use function class_exists;
 use function dirname;
+use function rtrim;
 
 /**
  * Polaris for PHP as a Univeros module: one line in `config/modules.php` and the host gets the
@@ -123,6 +127,37 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
                 static fn(Graph $graph): AgentRequestMiddleware => AgentsPlugin::of($graph)->requestMiddleware($graph),
             );
         }
+
+        // With univeros/introspection installed, `bin/altair routes:list` shows the Polaris routes (core's
+        // and the plugins') beside the host's; the dispatch table itself stays without them.
+        if ($container->has(RouteInspector::class)) {
+            $container->extend(
+                RouteInspector::class,
+                static fn(RouteInspector $inspector, Container $c): RouteInspector => new RouteInspector(self::routes($c, $env, $prefix)),
+            );
+        }
+    }
+
+    /**
+     * A copy of the host's route table with every Polaris route (`METHOD PATH` => endpoint class) added.
+     */
+    private static function routes(Container $container, Env $env, string $prefix): RouteCollection
+    {
+        $hosts = $container->get(RouteCollection::class);
+        \assert($hosts instanceof RouteCollection);
+        $routes = new RouteCollection($hosts->toArray());
+        $directories = [Loader::defaultDirectory()];
+        foreach (PolarisConfig::plugins($container, $env) as $plugin) {
+            $directory = $plugin::manifestDirectory();
+            if ($directory !== null) {
+                $directories[] = $directory;
+            }
+        }
+        foreach ((new Loader(...$directories))->load()->endpoints() as $spec) {
+            $routes->put($spec->method . ' ' . rtrim($prefix, '/') . $spec->path, $spec->class);
+        }
+
+        return $routes;
     }
 
     /**
