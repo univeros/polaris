@@ -93,6 +93,13 @@ catalog. Install their tables with `bin/altair polaris:schema:install-plugins` (
 commands appear as `polaris:*`. A plugin taking a `baseUrl` (oauth-provider, mcp, agents) wants the URL
 Polaris is mounted at, prefix included.
 
+Each supported plugin's own contract fixtures replay through the module in CI (`composer test:plugins`).
+
+| Plugin | Install | What it needs from you |
+| --- | --- | --- |
+| Passkeys (`polaris/passkey`) | `composer require polaris/passkey` | `new PasskeyPlugin(origins: [...], rpName: '...')`: the exact origins of your sign-in pages (https, or `http://localhost` in development); `rpId` defaults to the first origin's host. Routes under `/passkey/*`; every passkey is also an MFA factor of type `passkey`, verified at `/auth/mfa/verify` and `/auth/mfa/step-up` with the assertion as the `code`. Table `polaris_passkey`. In the browser, `registerPasskey()` and `signInWithPasskey()` of `@polaris-auth/client`. |
+| Usernames (`polaris/username`) | `composer require polaris/username` | Nothing: `POLARIS_PLUGINS="Polaris\Username\UsernamePlugin"`. `POST /username/sign-in`, `PATCH /username`. Table `polaris_username`. |
+
 ## The routes
 
 `Univeros\Polaris\Http\PolarisMiddleware` runs first in the pipeline, ahead of the framework's
