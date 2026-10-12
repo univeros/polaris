@@ -193,6 +193,24 @@ applies that restriction. Authorize these routes through the Gate the module bin
 (`$gate->allows($token, 'invoices.read')`), never from the user id alone, or a key gets its owner's full
 authority.
 
+## Testing your application
+
+With `polaris/testing` as a dev dependency, `Univeros\Polaris\Testing\PolarisTesting` boots Polaris for
+your tests without a database or a `.env`, and mints tokens to call your protected routes:
+
+```php
+$container = new Container();
+PolarisTesting::bind($container);            // in-memory database, fresh RS256 keys, APP_KEY, issuer
+(new ModuleConfiguration([new Module()]))->apply($container);
+
+$token = PolarisTesting::token($container, 'user-7', organizationId: 'org-1', roles: ['admin']);
+$request = $request->withHeader('Authorization', 'Bearer ' . $token);
+```
+
+`bind()` keeps what the container already binds. `token(..., mfa: true)` marks the session as MFA'd, and
+`delegated: ['invoices.read']` limits the token to that subset of the user's permissions, as an API key
+or an OAuth token is.
+
 ## The database and `bin/altair`
 
 The module ships one Cycle migration (`migrations/20260910.000000_0_install_polaris.php`) that installs

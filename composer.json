@@ -51,6 +51,7 @@
         "univeros/observability": "^2.5"
     },
     "suggest": {
+        "polaris/testing": "Univeros\\Polaris\\Testing\\PolarisTesting boots Polaris in memory for the application's tests",
         "univeros/doctor": "The Polaris checks (secrets and keys, plugins, schema) join bin/altair doctor",
         "univeros/introspection": "bin/altair routes:list shows the Polaris routes beside the application's",
         "univeros/observability": "Polaris counts its domain events through the bound Meter"

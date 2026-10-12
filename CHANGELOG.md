@@ -12,6 +12,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   table stays without them.
 - With Univeros Observability's `Meter` bound and no `MetricsInterface` of the host's, Polaris
   counts its domain events (sign-ins, MFA, the plugins') through the Meter (`MeterMetrics`).
+- `Univeros\Polaris\Testing\PolarisTesting` for the host's tests (with `polaris/testing`):
+  `bind()` gives the container an in-memory database, fresh RS256 keys, an APP_KEY and an
+  issuer; `token()` mints an access token for a user (organization, roles, MFA, delegated
+  permissions) to call protected routes.
 - Under `POLARIS_PATH_PREFIX`, the root `.well-known` forms of RFC 8414 and RFC 9728
   (`/.well-known/oauth-authorization-server/auth`,
   `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the
