@@ -4,6 +4,13 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `polaris/core`, `polaris/pdo`, `polaris/psr15`, `polaris/cli` and `polaris/testing` move to
+  `^0.10`. No behaviour change: core's 52 routes and the 184 contract fixtures are unchanged
+  from 0.1 and replay green through the module.
+
 ## [2.0.0] - 2026-09-11
 
 `univeros/polaris` 2.0 is a new major built on Polaris for PHP: `polaris/core` carries the
