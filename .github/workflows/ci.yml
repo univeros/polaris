@@ -66,6 +66,9 @@ jobs:
       - name: The contract through the module (test:contract)
         run: composer test:contract
 
+      - name: Plugin contract suites (through the module)
+        run: composer test:plugins
+
   demo:
     name: Univeros demo walkthrough
     runs-on: ubuntu-latest
