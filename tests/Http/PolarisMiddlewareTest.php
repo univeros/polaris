@@ -6,15 +6,21 @@ namespace Univeros\Polaris\Tests\Http;
 
 use Altair\Configuration\Support\Env;
 use Laminas\Diactoros\Response\TextResponse;
+use Laminas\Diactoros\ResponseFactory;
 use Laminas\Diactoros\ServerRequestFactory;
 use Laminas\Diactoros\StreamFactory;
 use PHPUnit\Framework\TestCase;
+use Polaris\Admin\AdminPlugin;
+use Polaris\Audit\AuditPlugin;
+use Polaris\Mcp\McpPlugin;
+use Polaris\OAuth\OAuthPlugin;
 use Polaris\Contract\OtpMailerInterface;
 use Polaris\Tests\Support\RecordingOtpMailer;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Univeros\Polaris\Http\PolarisMiddleware;
+use Univeros\Polaris\Plugins;
 use Univeros\Polaris\Tests\Support\ArrayEnv;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 
@@ -85,6 +91,31 @@ final class PolarisMiddlewareTest extends TestCase
 
         self::assertSame(200, $mounted->getStatusCode());
         self::assertSame('framework', (string) $bare->getBody());
+    }
+
+    public function testUnderAPrefixTheRootWellKnownPathsOfRfc8414AndRfc9728ReachPolaris(): void
+    {
+        $plugins = new Plugins(new AuditPlugin(), new AdminPlugin(), new OAuthPlugin(baseUrl: 'https://app.example.com/auth'), new McpPlugin('https://app.example.com/auth', new ServerRequestFactory(), new ResponseFactory(), new StreamFactory()));
+        $middleware = TestPolaris::boot([Env::class => new ArrayEnv(['POLARIS_PATH_PREFIX' => '/auth']), Plugins::class => $plugins])->get(PolarisMiddleware::class);
+        \assert($middleware instanceof PolarisMiddleware);
+
+        $rfc8414 = $middleware->process($this->request('GET', '/.well-known/oauth-authorization-server/auth'), $this->handler());
+        $mounted = $middleware->process($this->request('GET', '/auth/.well-known/oauth-authorization-server'), $this->handler());
+        $rfc9728 = $middleware->process($this->request('GET', '/.well-known/oauth-protected-resource/auth/mcp'), $this->handler());
+        $unknown = $middleware->process($this->request('GET', '/.well-known/security.txt'), $this->handler());
+        $otherPrefix = $middleware->process($this->request('GET', '/.well-known/oauth-authorization-server/other'), $this->handler());
+
+        self::assertSame(200, $rfc8414->getStatusCode(), (string) $rfc8414->getBody());
+        self::assertSame((string) $mounted->getBody(), (string) $rfc8414->getBody());
+        self::assertSame(200, $rfc9728->getStatusCode(), (string) $rfc9728->getBody());
+        self::assertSame('https://app.example.com/auth/mcp', json_decode((string) $rfc9728->getBody(), true)['resource']);
+        self::assertSame('framework', (string) $unknown->getBody());
+        self::assertSame('framework', (string) $otherPrefix->getBody());
+    }
+
+    private function request(string $method, string $path): ServerRequestInterface
+    {
+        return (new ServerRequestFactory())->createServerRequest($method, $path);
     }
 
     private function boot(?Env $env = null): PolarisMiddleware
