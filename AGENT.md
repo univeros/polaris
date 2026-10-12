@@ -37,16 +37,18 @@ host; `git show v1.0.0` or the `1.x` branch is the self-contained 1.x module.
 src/Module.php                     ModuleInterface, MiddlewareProviderInterface, MigrationDirectoriesProviderInterface
 src/Bootstrap/PolarisConfig.php    the Polaris Config from the container's bindings and the environment
 src/Database/Connection.php        the PDO Polaris runs on: a bound PDO, DatabaseSettings (DB_*), or POLARIS_DSN
-src/Event/ListenerDispatcher.php   the PSR-14 dispatcher bound when the host binds none
+src/Event/ListenerDispatcher.php   the PSR-14 dispatcher Polaris gets: Polaris::listeners(), then the host's bound one
+src/Plugins.php                    the plugins the host binds (else POLARIS_PLUGINS); PolarisConfig::plugins() resolves them
 src/Http/PolarisMiddleware.php     the Polaris routes, ahead of the exception handler, outside FastRoute
 src/Http/BearerTokenExtractor.php  `Authorization: Bearer` for the framework's TokenAuthenticationMiddleware
 src/Http/NullCredentialsExtractor.php, NullIdentityValidator.php   no credential minting: login is the only entry
 src/Http/UnauthorizedResponder.php every auth failure of the host's routes is a 401 envelope
 src/Token/TokenFactoryBridge.php   the framework's TokenFactoryInterface over Graph::tokenFactory()
 src/Token/DualToken.php            one token for both contracts
-src/Console/Commands.php           the six polaris/cli commands as polaris:*, for the application's bin/altair
+src/Console/Commands.php           the polaris/cli commands and the plugins' commands as polaris:*, for bin/altair
+src/Console/InstallPluginsCommand.php  polaris:schema:install-plugins: the missing tables and the plugins' permissions
 migrations/                        one Cycle migration: SchemaInstaller on the migrator's connection
-tests/Harness.php                  the functional suite and the fixtures through Relay (POLARIS_HARNESS)
+tests/Harness.php                  core's and each plugin's fixtures through Relay (POLARIS_HARNESS; test:contract, test:plugins)
 tests/                             the module suite (bindings, middleware, bridge, connection, migration, console)
 examples/univeros/                 the demo: the skeleton with the module, bin/altair, bin/setup, the walkthrough
 docs/auth/                         the design (implemented by polaris/core); docs/decisions.md the log

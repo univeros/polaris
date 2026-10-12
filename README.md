@@ -7,16 +7,17 @@
 
 ![PHP](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)
 ![Univeros module](https://img.shields.io/badge/Univeros-module-1d76db)
-![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.1-0052cc)
+![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.10-0052cc)
 ![MFA](https://img.shields.io/badge/MFA-TOTP%20%C2%B7%20SMS%20%C2%B7%20email-d93f0b)
 
-`univeros/polaris` 2.0 is the Univeros module built on Polaris for PHP: `polaris/core` carries the
+`univeros/polaris` 2.x is the Univeros module built on Polaris for PHP: `polaris/core` carries the
 identity, MFA/OTP, session, organization and RBAC services, the endpoints and the schema, framework-free
 and contract-frozen; `polaris/psr15`, `polaris/pdo` and `polaris/cli` give it a PSR-15 pipeline, a PDO
 adapter and a console. This package is the glue between them and a Univeros host: a module that builds
 Polaris from the application's environment and container, a middleware that serves the Polaris routes, a
 bridge that lets the framework's `TokenAuthenticationMiddleware` accept Polaris access tokens, one Cycle
-migration and the `polaris:*` commands. The 1.x HTTP contract is unchanged: the 184 request/response
+migration and the `polaris:*` commands. Since 2.1 it also runs the `polaris/*` plugins (passkeys, social
+sign-in, API keys, an OAuth/OIDC provider, MCP, agents, audit and more) by configuration. The 1.x HTTP contract is unchanged: the 184 request/response
 sequences recorded against 1.0 replay through this module's Relay pipeline in CI.
 
 Upgrading from 1.x? Read [UPGRADE.md](UPGRADE.md) first: 2.0 is a new major, and TOTP factors are
@@ -25,7 +26,7 @@ re-enrolled.
 ## Install
 
 ```sh
-composer require univeros/polaris:^2.0
+composer require univeros/polaris:^2.1
 ```
 
 ```php
@@ -54,6 +55,7 @@ Polaris reads the same variables 1.x read, through the framework's `Env` (`$_ENV
 | `DB_CONNECTION`, `DB_DATABASE`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | The database, as `CycleOrmConfiguration` reads it (`postgres`, `mysql`, `sqlite`). Polaris opens its own connection on the same settings. |
 | `POLARIS_DSN`, `POLARIS_DB_USER`, `POLARIS_DB_PASSWORD` | The database of an application without an ORM. |
 | `POLARIS_PATH_PREFIX` | Mounts the Polaris routes under a prefix (`/` by default). |
+| `POLARIS_PLUGINS` | Comma-separated plugin classes, built through the container, when no `Univeros\Polaris\Plugins` is bound (see Plugins). |
 | `POLARIS_LISTENERS` | `module` (default): the module runs `Polaris::listeners()`, then your bound dispatcher. `host`: your bound dispatcher gets the events as is and subscribes the listeners itself (2.0's behaviour). |
 
 A `Polaris\Config\Secrets` or `Polaris\Config\AuthConfig` instance bound in the container before the
@@ -68,6 +70,28 @@ PSR-14 dispatcher when you bind one, so your listeners see `UserRegistered` and 
 Nothing is built at boot: the one `Polaris` (and its connection, manifest and JWT configuration) exists
 from the first request or command that resolves it, so `bin/altair db:migrate` runs before the keys
 exist and `bin/altair polaris:doctor` is the boot check.
+
+## Plugins
+
+Every `polaris/*` plugin of Polaris for PHP runs through the module. Require the package, then bind the
+plugins in `config/container.php` (the way for a plugin taking arguments, such as URLs or PSR-17/18
+factories only your application has):
+
+```php
+use Polaris\Passkey\PasskeyPlugin;
+use Univeros\Polaris\Plugins;
+
+$container->instance(Plugins::class, new Plugins(
+    new PasskeyPlugin(origins: ['https://app.example.com'], rpName: 'Example'),
+));
+```
+
+or name plugins without arguments in the environment: `POLARIS_PLUGINS="Polaris\Audit\AuditPlugin"`. A bound
+`Plugins` wins over the variable; an entry that is not a plugin class fails boot naming it. Their routes
+are served under `POLARIS_PATH_PREFIX`, their middleware and listeners run, their permissions join the
+catalog. Install their tables with `bin/altair polaris:schema:install-plugins` (see below); their console
+commands appear as `polaris:*`. A plugin taking a `baseUrl` (oauth-provider, mcp, agents) wants the URL
+Polaris is mounted at, prefix included.
 
 ## The routes
 
