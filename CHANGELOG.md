@@ -7,8 +7,11 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Passkeys: `polaris/passkey` is supported (its fixtures replay through the module in
-  `test:plugins`); README recipe. Usernames (`polaris/username`) gain their recipe too.
+- Every `polaris/*` plugin of Polaris for PHP 0.10 is supported: passkey, username,
+  passwordless, social, anonymous, multi-session, audit, admin, messaging, sentinel, sso,
+  scim, api-keys, oauth-provider, mcp and agents. Each plugin's own functional suite and
+  recorded fixtures replay through the module in `composer test:plugins` (55 tests); no module
+  code change was needed. The README has a recipe per plugin and the registration order.
 
 ## [2.1.0] - 2026-10-12
 

@@ -93,12 +93,35 @@ catalog. Install their tables with `bin/altair polaris:schema:install-plugins` (
 commands appear as `polaris:*`. A plugin taking a `baseUrl` (oauth-provider, mcp, agents) wants the URL
 Polaris is mounted at, prefix included.
 
-Each supported plugin's own contract fixtures replay through the module in CI (`composer test:plugins`).
+Every plugin's own contract fixtures replay through the module in CI (`composer test:plugins`).
 
-| Plugin | Install | What it needs from you |
+**Order matters**: list `AuditPlugin`, `AdminPlugin` and `MessagingPlugin` first, `SsoPlugin` before
+`ScimPlugin`, and `OAuthPlugin` before `McpPlugin` and `AgentsPlugin`, as each plugin's class
+documentation asks. `baseUrl` is always where Polaris is mounted, prefix included
+(`https://app.example.com/auth` with `POLARIS_PATH_PREFIX=/auth`). PSR-17 factories:
+`laminas/laminas-diactoros` comes with the module. A PSR-18 client is yours to choose.
+
+| Plugin (`composer require ...`) | Construct | Routes, commands, notes |
 | --- | --- | --- |
-| Passkeys (`polaris/passkey`) | `composer require polaris/passkey` | `new PasskeyPlugin(origins: [...], rpName: '...')`: the exact origins of your sign-in pages (https, or `http://localhost` in development); `rpId` defaults to the first origin's host. Routes under `/passkey/*`; every passkey is also an MFA factor of type `passkey`, verified at `/auth/mfa/verify` and `/auth/mfa/step-up` with the assertion as the `code`. Table `polaris_passkey`. In the browser, `registerPasskey()` and `signInWithPasskey()` of `@polaris-auth/client`. |
-| Usernames (`polaris/username`) | `composer require polaris/username` | Nothing: `POLARIS_PLUGINS="Polaris\Username\UsernamePlugin"`. `POST /username/sign-in`, `PATCH /username`. Table `polaris_username`. |
+| `polaris/audit` | `new AuditPlugin(retention: [...], hashChain: true)`; drains need a PSR-18 client | `/audit/*`; `polaris:audit:prune`, `polaris:audit:verify` (schedule the prune) |
+| `polaris/admin` | `new AdminPlugin()` | `/admin/*` operator API; `polaris:admin:grant`, `polaris:admin:key` create the first principals |
+| `polaris/messaging` | `new MessagingPlugin(channels: [...])` | becomes core's mailer and SMS sender when you bind none; `polaris:messaging:send` |
+| `polaris/passkey` | `new PasskeyPlugin(origins: [...], rpName: '...')`: exact origins (https, or `http://localhost` in development) | `/passkey/*`; every passkey is an MFA factor `passkey` at `/auth/mfa/verify` and `/auth/mfa/step-up`; `registerPasskey()`, `signInWithPasskey()` in `@polaris-auth/client` |
+| `polaris/username` | `new UsernamePlugin()` | `POST /username/sign-in`, `PATCH /username` |
+| `polaris/passwordless` | `new PasswordlessPlugin(baseUrl: ..., redirectUris: [...])`, after `MessagingPlugin` (or bind a mailer and SMS sender) | `/magic-link/*`, `/email-otp/*`, `/phone/*`, `/one-time-token/*` |
+| `polaris/social` | `new SocialPlugin(baseUrl: ..., providers: ['google' => ['client_id' => ..., 'client_secret' => ...]], httpClient: ..., requestFactory: ..., streamFactory: ...)` | `/social/*`; register `<baseUrl>/social/{provider}/callback` with each provider |
+| `polaris/anonymous` | `new AnonymousPlugin(onConvert: fn(string $guestId, string $userId) => ...)` | `/anonymous/*`; `polaris:anonymous:prune` (schedule it) |
+| `polaris/multi-session` | `new MultiSessionPlugin()` | `/multi-session/*`; the `X-Polaris-Device` header and the `polaris_ms_device` cookie |
+| `polaris/sentinel` | `new SentinelPlugin(mode: 'observe')`; bind a cache that outlives a request | judges sign-up, sign-in, reset and code sends; `/admin/sentinel/*`; `polaris:sentinel:lists` |
+| `polaris/sso` | `new SsoPlugin(baseUrl: ..., httpClient: ..., requestFactory: ..., streamFactory: ...)` | `/sso/*`, `/orgs/{id}/sso`, `/admin/sso`; SAML and OIDC URLs derive from `baseUrl` |
+| `polaris/scim` | `new ScimPlugin(baseUrl: ...)`, after `SsoPlugin` | `/scim/v2/{connectionId}`, `/orgs/{id}/scim`, `/admin/scim` |
+| `polaris/api-keys` | `new ApiKeysPlugin()` | `/api-keys/*`; a key (`Bearer pk_...` or `x-api-key`) authenticates every Polaris route as its owner |
+| `polaris/oauth-provider` | `new OAuthPlugin(baseUrl: ..., consentUrl: ..., deviceUrl: ...)`; `audiences: ['<baseUrl>/mcp']` with mcp | `/oauth2/*`, `/.well-known/openid-configuration`, `/.well-known/oauth-authorization-server`, `/orgs/{id}/oauth/clients`, `/admin/oauth/clients`; its tokens authenticate every Polaris route within their scopes |
+| `polaris/mcp` | `new McpPlugin(baseUrl: ..., requests: new ServerRequestFactory(), responses: new ResponseFactory(), streams: new StreamFactory())` (the `Laminas\Diactoros` factories) | `POST /mcp`, `/.well-known/oauth-protected-resource/mcp`; `polaris:mcp` (stdio) |
+| `polaris/agents` | `new AgentsPlugin(baseUrl: ..., capabilities: [...], approvalUrl: ...)`, after `OAuthPlugin` | `/agents/*`, `/admin/agents/*`, `/.well-known/agent-configuration`; every capability is an MCP tool with mcp |
+
+API keys and OAuth tokens authenticate the Polaris routes; your own routes behind the framework's
+`TokenAuthenticationMiddleware` accept Polaris sessions only; plugin credentials there are planned for a later 2.x.
 
 ## The routes
 
