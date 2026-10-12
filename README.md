@@ -218,6 +218,11 @@ bin/altair polaris:schema:export --target=sql:postgres
 bin/altair polaris:schema:create / polaris:schema:drop
 ```
 
+With `univeros/doctor` installed, `bin/altair doctor` runs three Polaris checks as well: `polaris`
+(what `polaris:doctor` checks), `polaris_plugins` (the configured plugins build, and every plugin's
+`baseUrl` is mounted at `POLARIS_PATH_PREFIX`) and `polaris_schema` (the database matches the schema,
+the plugins' tables included), each with the command that fixes it.
+
 The migration installs core. The tables of the plugins you configure (and their permissions) come from
 `polaris:schema:install-plugins`, which creates only the tables the database lacks and seeds the
 permission catalog, so it is safe to re-run after enabling another plugin. With `--sql` it prints the

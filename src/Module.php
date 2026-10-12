@@ -6,6 +6,7 @@ namespace Univeros\Polaris;
 
 use Altair\Configuration\Support\Env;
 use Altair\Container\Container;
+use Altair\Doctor\CheckRegistry;
 use Altair\Http\Contracts\CredentialsExtractorInterface;
 use Altair\Http\Contracts\IdentityValidatorInterface;
 use Altair\Http\Contracts\TokenExtractorInterface;
@@ -25,6 +26,9 @@ use Polaris\Psr15\Router;
 use Polaris\Wiring\Graph;
 use Psr\Http\Message\ResponseFactoryInterface;
 use Univeros\Polaris\Bootstrap\PolarisConfig;
+use Univeros\Polaris\Doctor\PluginsCheck;
+use Univeros\Polaris\Doctor\PolarisCheck;
+use Univeros\Polaris\Doctor\SchemaCheck;
 use Univeros\Polaris\Http\BearerTokenExtractor;
 use Univeros\Polaris\Http\NullCredentialsExtractor;
 use Univeros\Polaris\Http\NullIdentityValidator;
@@ -94,6 +98,18 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
         $container->singleton(PluginTokenAuthenticationMiddleware::class)
             ->withParameters(['options' => ['ssl' => false, 'onError' => new UnauthorizedResponder()]]);
         $container->singleton(Gate::class, static fn(Graph $graph): Gate => $graph->gate());
+
+        // With univeros/doctor installed (its configuration applies before the modules), the Polaris
+        // checks join `bin/altair doctor`.
+        if ($container->has(CheckRegistry::class)) {
+            $container->extend(CheckRegistry::class, static function (CheckRegistry $registry) use ($container, $env): CheckRegistry {
+                $registry->add(new PolarisCheck($container, $env));
+                $registry->add(new PluginsCheck($container, $env));
+                $registry->add(new SchemaCheck($container, $env));
+
+                return $registry;
+            });
+        }
     }
 
     /**

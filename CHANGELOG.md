@@ -11,6 +11,10 @@ the project adheres to [Semantic Versioning](https://semver.org/).
   (`/.well-known/oauth-authorization-server/auth`,
   `/.well-known/oauth-protected-resource/auth/mcp`) reach the metadata Polaris serves under the
   prefix, when that is a Polaris route; any other `.well-known` path stays the host's.
+- `bin/altair doctor` (with `univeros/doctor`) gains three checks: `polaris` (secrets, keys,
+  auth settings, database, manifest), `polaris_plugins` (the plugins build; each plugin's
+  `baseUrl` is mounted at `POLARIS_PATH_PREFIX`) and `polaris_schema` (the database matches the
+  schema, the plugins' tables included), each with its fix.
 - Every `polaris/*` plugin of Polaris for PHP 0.10 is supported: passkey, username,
   passwordless, social, anonymous, multi-session, audit, admin, messaging, sentinel, sso,
   scim, api-keys, oauth-provider, mcp and agents. Each plugin's own functional suite and
