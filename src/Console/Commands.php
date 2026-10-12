@@ -15,13 +15,15 @@ use Polaris\Cli\Command\SchemaDropCommand;
 use Polaris\Cli\Command\SchemaExportCommand;
 use Polaris\Config\AuthConfig;
 use Polaris\Config\Secrets;
+use Polaris\Schema\Schema;
 use Symfony\Component\Console\Command\Command;
 use Univeros\Polaris\Bootstrap\PolarisConfig;
 use Univeros\Polaris\Database\Connection;
 use Univeros\Polaris\Module;
 
 /**
- * The six `polaris/cli` commands as `polaris:*`, on the module's bindings: the connection the
+ * The six `polaris/cli` commands as `polaris:*` and `polaris:schema:install-plugins`, on the module's
+ * bindings, the configured plugins' tables included: the connection the
  * schema commands and the doctor inspect is the one Polaris runs on (a bound `PDO`, the framework's
  * `DatabaseSettings`, or the environment), the secrets and auth settings the ones the module builds
  * Polaris from. `univeros/cli` discovers `#[Command]` classes by directory and has no module hook,
@@ -35,7 +37,15 @@ final class Commands
     public static function all(Container $container, ?Env $env = null): array
     {
         $env ??= Module::env($container);
-        $connection = static fn(): PDO => Connection::fromContainer($container, $env);
+        $plugins = static fn(): array => PolarisConfig::plugins($container, $env);
+        // The schema commands see the plugins' tables: register them before the connection is used.
+        $connection = static function () use ($container, $env, $plugins): PDO {
+            foreach ($plugins() as $plugin) {
+                Schema::register(...$plugin->schema());
+            }
+
+            return Connection::fromContainer($container, $env);
+        };
         $secrets = static fn(): Secrets => PolarisConfig::secrets($container, $env);
         $auth = static fn(): AuthConfig => PolarisConfig::auth($container, $env);
 
@@ -51,6 +61,6 @@ final class Commands
             $command->setName('polaris:' . $command->getName());
         }
 
-        return $commands;
+        return [...$commands, new InstallPluginsCommand($connection, $plugins)];
     }
 }

@@ -10,9 +10,12 @@ use PDO;
 use PHPUnit\Framework\TestCase;
 use Polaris\Config\AuthConfig;
 use Polaris\Config\Secrets;
+use Polaris\Username\UsernamePlugin;
 use Symfony\Component\Console\Tester\CommandTester;
 use Univeros\Polaris\Console\Commands;
 use Univeros\Polaris\Module;
+use Univeros\Polaris\Plugins;
+use Univeros\Polaris\Tests\Support\HeaderPlugin;
 use Univeros\Polaris\Tests\Support\TestPolaris;
 
 use function array_map;
@@ -29,9 +32,10 @@ final class CommandsTest extends TestCase
         'polaris:schema:diff',
         'polaris:manifest',
         'polaris:doctor',
+        'polaris:schema:install-plugins',
     ];
 
-    public function testTheSixPolarisCommandsAreListedByTheFrameworkApplication(): void
+    public function testThePolarisCommandsAreListedByTheFrameworkApplication(): void
     {
         $container = TestPolaris::boot();
         $application = new Application($container);
@@ -96,5 +100,71 @@ final class CommandsTest extends TestCase
         $export = new CommandTester($application->find('polaris:schema:export'));
         self::assertSame(0, $export->execute(['--target' => 'sql:sqlite']));
         self::assertStringContainsString('CREATE TABLE "auth_users"', $export->getDisplay());
+    }
+
+    public function testInstallPluginsCreatesTheMissingPluginTablesAndSeedsTheirPermissions(): void
+    {
+        $file = (string) tempnam(sys_get_temp_dir(), 'polaris-plugins-');
+        $pdo = new PDO('sqlite:' . $file);
+        $application = self::application($pdo, new Plugins(new UsernamePlugin(), new HeaderPlugin()));
+
+        try {
+            $create = new CommandTester($application->find('polaris:schema:create'));
+            self::assertSame(0, $create->execute([]), $create->getDisplay());
+            $pdo->exec('DROP TABLE "polaris_username"');
+
+            $install = new CommandTester($application->find('polaris:schema:install-plugins'));
+            self::assertSame(0, $install->execute([]), $install->getDisplay());
+            self::assertStringContainsString('polaris_username', $install->getDisplay());
+
+            $diff = new CommandTester($application->find('polaris:schema:diff'));
+            self::assertSame(0, $diff->execute([]), $diff->getDisplay());
+            $permission = $pdo->query("SELECT COUNT(*) FROM auth_permissions WHERE key = 'header.read'");
+            self::assertNotFalse($permission);
+            self::assertSame(1, (int) $permission->fetchColumn());
+
+            self::assertSame(0, $install->execute([]), 'a second run has nothing to create');
+            self::assertStringContainsString('No table to create', $install->getDisplay());
+        } finally {
+            unlink($file);
+        }
+    }
+
+    public function testInstallPluginsSqlPrintsTheStatementsWithoutRunningThem(): void
+    {
+        $file = (string) tempnam(sys_get_temp_dir(), 'polaris-plugins-');
+        $pdo = new PDO('sqlite:' . $file);
+        $application = self::application($pdo, new Plugins(new UsernamePlugin()));
+
+        try {
+            (new CommandTester($application->find('polaris:schema:create')))->execute([]);
+            $pdo->exec('DROP TABLE "polaris_username"');
+
+            $install = new CommandTester($application->find('polaris:schema:install-plugins'));
+            self::assertSame(0, $install->execute(['--sql' => true]), $install->getDisplay());
+            self::assertStringContainsString('CREATE TABLE "polaris_username"', $install->getDisplay());
+            self::assertStringNotContainsString('CREATE TABLE "auth_users"', $install->getDisplay());
+
+            $diff = new CommandTester($application->find('polaris:schema:diff'));
+            self::assertSame(1, $diff->execute([]), 'nothing was created');
+        } finally {
+            unlink($file);
+        }
+    }
+
+    private static function application(PDO $pdo, Plugins $plugins): Application
+    {
+        $container = new Container();
+        $container->instance(PDO::class, $pdo);
+        $container->instance(Plugins::class, $plugins);
+        $container->instance(Secrets::class, TestPolaris::secrets());
+        $container->instance(AuthConfig::class, TestPolaris::auth());
+        (new Module())->apply($container);
+        $application = new Application($container);
+        foreach (Commands::all($container) as $command) {
+            $application->add($command);
+        }
+
+        return $application;
     }
 }

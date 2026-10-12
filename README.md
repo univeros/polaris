@@ -147,6 +147,17 @@ bin/altair polaris:schema:export --target=sql:postgres
 bin/altair polaris:schema:create / polaris:schema:drop
 ```
 
+The migration installs core. The tables of the plugins you configure (and their permissions) come from
+`polaris:schema:install-plugins`, which creates only the tables the database lacks and seeds the
+permission catalog, so it is safe to re-run after enabling another plugin. With `--sql` it prints the
+statements instead, to paste into a migration of your own. `polaris:schema:diff` checks the plugins'
+tables too.
+
+```sh
+bin/altair polaris:schema:install-plugins         # after enabling a plugin
+bin/altair polaris:schema:install-plugins --sql   # the statements, for your own migration
+```
+
 ## The demo
 
 [`examples/univeros`](examples/univeros) is the `univeros/univeros` skeleton with the module registered:
