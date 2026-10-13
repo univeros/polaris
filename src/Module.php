@@ -15,6 +15,8 @@ use Altair\Http\Contracts\TokenExtractorInterface;
 use Altair\Http\Contracts\TokenFactoryInterface;
 use Altair\Http\Middleware\TokenAuthenticationMiddleware;
 use Altair\Http\Support\MiddlewarePriority;
+use Altair\Messaging\Discovery\HandlerEntry;
+use Altair\Messaging\Discovery\HandlerRegistry;
 use Altair\Module\Contracts\ManifestContributorInterface;
 use Altair\Module\Contracts\MiddlewareProviderInterface;
 use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
@@ -43,6 +45,8 @@ use Univeros\Polaris\Http\NullIdentityValidator;
 use Univeros\Polaris\Http\PluginTokenAuthenticationMiddleware;
 use Univeros\Polaris\Http\PolarisMiddleware;
 use Univeros\Polaris\Http\UnauthorizedResponder;
+use Univeros\Polaris\Messaging\SendMessage;
+use Univeros\Polaris\Messaging\SendMessageHandler;
 use Univeros\Polaris\Token\TokenFactoryBridge;
 
 use function class_exists;
@@ -120,6 +124,16 @@ final class Module implements
                 $registry->add(new PolarisCheck($container, $env));
                 $registry->add(new PluginsCheck($container, $env));
                 $registry->add(new SchemaCheck($container, $env));
+
+                return $registry;
+            });
+        }
+
+        // With univeros/messaging configured (before the modules), the worker delivers the sends a
+        // BusOutbox put on the bus.
+        if ($container->has(HandlerRegistry::class)) {
+            $container->extend(HandlerRegistry::class, static function (HandlerRegistry $registry): HandlerRegistry {
+                $registry->register(new HandlerEntry(SendMessage::class, SendMessageHandler::class));
 
                 return $registry;
             });

@@ -194,3 +194,8 @@ hand-off this work applies. What follows is what was decided while applying it.
   `polaris:manifest --format=openapi` for shapes, rather than duplicating the OpenAPI document. Audit drains
   (#124) keep their wire format; the framework's signers now accept `sha256=`, so receivers use
   `WebhookVerifyMiddleware` with `requireTimestamp: false` (README recipe).
+- 2026-10-14 · 2.4 · Async messaging (#165) on polaris/messaging 0.11's data outbox (univeros/polaris-core#54):
+  the host passes `BusOutbox` to `MessagingPlugin` (no environment switch: the plugin is built in the host's
+  config anyway) and routes `SendMessage` with `MESSENGER_ROUTING`. The module registers the handler on
+  `HandlerRegistry` by `extend()`, since the framework only discovers handlers in the host's paths. A send
+  no channel delivered throws in the worker so the transport's retry and failure transport apply.

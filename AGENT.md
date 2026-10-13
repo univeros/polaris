@@ -51,6 +51,7 @@ src/Http/PluginTokenAuthenticationMiddleware.php  opt-in: the framework's token 
 src/Doctor/                        the polaris, polaris_plugins and polaris_schema checks of bin/altair doctor (univeros/doctor)
 src/Observability/MeterMetrics.php core's metrics port over Univeros Observability's Meter
 src/Testing/PolarisTesting.php     host tests: bind() an in-memory Polaris, token() for a user
+src/Messaging/                     BusOutbox: polaris/messaging sends on the univeros/messaging bus, delivered by the worker
 src/AgentSpec/ManifestSection.php  the Polaris section of bin/altair manifest:generate (.agent/modules/univeros/polaris.md)
 migrations/                        one Cycle migration: SchemaInstaller on the migrator's connection
 tests/Harness.php                  core's and each plugin's fixtures through Relay (POLARIS_HARNESS; test:contract, test:plugins)
