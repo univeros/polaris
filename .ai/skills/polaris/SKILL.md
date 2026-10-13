@@ -41,7 +41,7 @@ apply `CliConfiguration` over the framework's `src/Altair/*/Cli` directories,
 `add()` each of `Univeros\Polaris\Console\Commands::all($container)`, run.
 `examples/univeros/bin/altair` is the file.
 
-Plugins (any `polaris/*` plugin of Polaris for PHP 0.10: passkey, social,
+Plugins (any `polaris/*` plugin of Polaris for PHP 0.11: passkey, social,
 api-keys, oauth-provider, mcp, agents, audit, ...): bind
 `new Univeros\Polaris\Plugins(new PasskeyPlugin(...), ...)` in
 `config/container.php`, or name no-argument plugin classes in

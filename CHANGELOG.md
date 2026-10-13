@@ -4,6 +4,15 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Changed
+- `polaris/*` move to `^0.11` (Polaris for PHP 0.11). The module implements no messaging `Outbox`, so its
+  breaking change does not reach the module; the contract and plugin suites replay unchanged.
+- `polaris:schema:install-plugins` creates the missing tables with polaris/pdo's
+  `SchemaInstaller::createMissing()` (and `--sql` prints them in `SqlSchema::ordered()`), instead of the
+  foreign-key ordering the module kept of its own. Same output and behaviour. (#111)
+
 ## [2.3.0] - 2026-10-13
 
 Univeros-native extras on univeros/framework 2.6: the Polaris section in the host's AgentSpec manifests, and

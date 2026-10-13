@@ -5,30 +5,22 @@ declare(strict_types=1);
 namespace Univeros\Polaris\Console;
 
 use Closure;
-use DateTimeImmutable;
 use PDO;
 use Polaris\Authorization\PermissionCatalog;
-use Polaris\Authorization\PermissionCatalogSeeder;
-use Polaris\Cli\Database;
 use Polaris\Contract\Plugin;
 use Polaris\Pdo\PdoAdapter;
+use Polaris\Pdo\SchemaInstaller;
 use Polaris\Pdo\SchemaInspector;
 use Polaris\Pdo\SqlSchema;
-use Polaris\Schema\Model;
 use Polaris\Schema\Schema;
-use RuntimeException;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Throwable;
 
-use function array_column;
-use function array_filter;
-use function array_values;
 use function count;
 use function implode;
-use function in_array;
 use function sprintf;
 
 /**
@@ -64,63 +56,41 @@ final class InstallPluginsCommand extends Command
                 Schema::register(...$plugin->schema());
             }
             $pdo = ($this->connection)();
-            $dialect = Database::dialectOf($pdo);
-            $inspector = new SchemaInspector($pdo, $dialect);
-            $missing = self::ordered(array_values(array_filter(Schema::all(), static fn(Model $model): bool => $inspector->table($model->table) === null)));
-            $statements = [];
-            foreach ($missing as $model) {
-                $statements = [...$statements, ...SqlSchema::create($model, $dialect)];
-            }
             if ($input->getOption('sql') === true) {
-                foreach ($statements as $statement) {
+                foreach (self::statements(new PdoAdapter($pdo)) as $statement) {
                     $output->writeln($statement . ';');
                 }
 
                 return Command::SUCCESS;
             }
-            foreach ($statements as $statement) {
-                $pdo->exec($statement);
-            }
-            (new PermissionCatalogSeeder(new PermissionCatalog($plugins)))->seed(new PdoAdapter($pdo), new DateTimeImmutable());
+            $created = SchemaInstaller::createMissing($pdo, catalog: new PermissionCatalog($plugins));
         } catch (Throwable $exception) {
             $output->writeln(sprintf('<error>%s</error>', $exception->getMessage()));
 
             return Command::FAILURE;
         }
-        $output->writeln($missing === []
+        $output->writeln($created === []
             ? '<info>No table to create. Seeded the permission catalog.</info>'
-            : sprintf('<info>Created %d table(s): %s. Seeded the permission catalog.</info>', count($missing), implode(', ', array_column($missing, 'table'))));
+            : sprintf('<info>Created %d table(s): %s. Seeded the permission catalog.</info>', count($created), implode(', ', $created)));
 
         return Command::SUCCESS;
     }
 
     /**
-     * Referenced tables before the tables referencing them; a reference to a table that already
-     * exists is satisfied.
-     * ponytail: mirrors SqlSchema::ordered() (private); polaris/pdo's createMissing() replaces it (#111).
+     * The statements `createMissing()` would run, for `--sql`.
      *
-     * @param list<Model> $models
-     * @return list<Model>
+     * @return list<string>
      */
-    private static function ordered(array $models): array
+    private static function statements(PdoAdapter $adapter): array
     {
-        $pending = array_column($models, 'table');
-        $ordered = [];
-        while ($models !== []) {
-            $before = count($models);
-            foreach ($models as $index => $model) {
-                $waiting = array_filter($model->references, static fn($reference): bool => $reference->referencedTable !== $model->table && in_array($reference->referencedTable, $pending, true));
-                if ($waiting === []) {
-                    $ordered[] = $model;
-                    $pending = array_values(array_filter($pending, static fn(string $table): bool => $table !== $model->table));
-                    unset($models[$index]);
-                }
-            }
-            if (count($models) === $before) {
-                throw new RuntimeException('Circular foreign keys between the missing tables.');
+        $inspector = new SchemaInspector($adapter->pdo(), $adapter->dialect());
+        $statements = [];
+        foreach (SqlSchema::ordered() as $model) {
+            if ($inspector->table($model->table) === null) {
+                $statements = [...$statements, ...SqlSchema::create($model, $adapter->dialect())];
             }
         }
 
-        return $ordered;
+        return $statements;
     }
 }
