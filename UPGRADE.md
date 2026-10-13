@@ -1,7 +1,7 @@
 # Upgrading from 2.2 to 2.3
 
 1. 2.3 requires univeros/* `^2.6`. With an application locked to framework 2.5, update them together:
-   `composer require univeros/polaris:^2.3 -W` (or `composer update univeros/* univeros/polaris -W`).
+   `composer require univeros/polaris:^2.3 -W` (or `composer update 'univeros/*' -W`).
    Nothing else changes.
 
 # Upgrading from 2.0 to 2.1
