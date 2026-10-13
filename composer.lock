@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "1966713fe1dff0d2c8d2ae8edfde3d3d",
+    "content-hash": "830d39529472d6e6bc17f5981e37bfd2",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -137,16 +137,16 @@
         },
         {
             "name": "cycle/annotated",
-            "version": "v4.6.0",
+            "version": "v4.6.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/cycle/annotated.git",
-                "reference": "e04328c7e532ba109c3a3cfd21856f63bacf3453"
+                "reference": "47f7e5ea9b3779dd284a9bb4a6cc60fe4dd1d13d"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/cycle/annotated/zipball/e04328c7e532ba109c3a3cfd21856f63bacf3453",
-                "reference": "e04328c7e532ba109c3a3cfd21856f63bacf3453",
+                "url": "https://api.github.com/repos/cycle/annotated/zipball/47f7e5ea9b3779dd284a9bb4a6cc60fe4dd1d13d",
+                "reference": "47f7e5ea9b3779dd284a9bb4a6cc60fe4dd1d13d",
                 "shasum": ""
             },
             "require": {
@@ -166,7 +166,23 @@
                 "spiral/dumper": "^3.3",
                 "vimeo/psalm": "^5.26 || ^6.16"
             },
+            "suggest": {
+                "llm/skills": "To sync the cycle-orm-attributes AI skill into your project"
+            },
             "type": "library",
+            "extra": {
+                "skills": {
+                    "sources": [
+                        {
+                            "from": "github",
+                            "skills": [
+                                "cycle-orm-attributes"
+                            ],
+                            "package": "cycle/skills"
+                        }
+                    ]
+                }
+            },
             "autoload": {
                 "psr-4": {
                     "Cycle\\Annotated\\": "src/"
@@ -208,20 +224,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-15T20:56:29+00:00"
+            "time": "2026-09-29T17:35:56+00:00"
         },
         {
             "name": "cycle/database",
-            "version": "2.23.1",
+            "version": "2.23.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/cycle/database.git",
-                "reference": "100a672e3237bc0f5bcbdac292dd4dc37eeccc67"
+                "reference": "75fb8f244569254f382f1beca64332b7c9814137"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/cycle/database/zipball/100a672e3237bc0f5bcbdac292dd4dc37eeccc67",
-                "reference": "100a672e3237bc0f5bcbdac292dd4dc37eeccc67",
+                "url": "https://api.github.com/repos/cycle/database/zipball/75fb8f244569254f382f1beca64332b7c9814137",
+                "reference": "75fb8f244569254f382f1beca64332b7c9814137",
                 "shasum": ""
             },
             "require": {
@@ -302,7 +318,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-08-19T10:25:00+00:00"
+            "time": "2026-09-27T20:08:19+00:00"
         },
         {
             "name": "cycle/migrations",
@@ -352,20 +368,20 @@
         },
         {
             "name": "cycle/orm",
-            "version": "v2.18.0",
+            "version": "v2.18.1",
             "source": {
                 "type": "git",
                 "url": "https://github.com/cycle/orm.git",
-                "reference": "a7a1db351df8037ff7a1196e19688bfc7d35c63e"
+                "reference": "4dd4ed48c267b4a0458b3f1a67bdf4e3c75a57e1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/cycle/orm/zipball/a7a1db351df8037ff7a1196e19688bfc7d35c63e",
-                "reference": "a7a1db351df8037ff7a1196e19688bfc7d35c63e",
+                "url": "https://api.github.com/repos/cycle/orm/zipball/4dd4ed48c267b4a0458b3f1a67bdf4e3c75a57e1",
+                "reference": "4dd4ed48c267b4a0458b3f1a67bdf4e3c75a57e1",
                 "shasum": ""
             },
             "require": {
-                "cycle/database": "^2.19.0",
+                "cycle/database": "^2.22.0",
                 "doctrine/instantiator": "^1.3.1 || ^2.0",
                 "php": ">=8.1",
                 "spiral/core": "^2.8 || ^3.0"
@@ -384,8 +400,22 @@
                 "spiral/tokenizer": "^2.8 || ^3.0",
                 "vimeo/psalm": "^6.0"
             },
+            "suggest": {
+                "llm/skills": "To sync the cycle-orm AI skill into your project"
+            },
             "type": "library",
             "extra": {
+                "skills": {
+                    "sources": [
+                        {
+                            "from": "github",
+                            "skills": [
+                                "cycle-orm"
+                            ],
+                            "package": "cycle/skills"
+                        }
+                    ]
+                },
                 "branch-alias": {
                     "dev-2.x": "2.x-dev"
                 }
@@ -441,20 +471,20 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-06-15T16:45:48+00:00"
+            "time": "2026-10-02T15:05:04+00:00"
         },
         {
             "name": "cycle/schema-builder",
-            "version": "2.12.1",
+            "version": "2.12.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/cycle/schema-builder.git",
-                "reference": "3a53db9c8ea07c7274ea4a2385890dc9b6c1fe50"
+                "reference": "28a951a498719c5ba746c4a0633f2bfadbd73a56"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/cycle/schema-builder/zipball/3a53db9c8ea07c7274ea4a2385890dc9b6c1fe50",
-                "reference": "3a53db9c8ea07c7274ea4a2385890dc9b6c1fe50",
+                "url": "https://api.github.com/repos/cycle/schema-builder/zipball/28a951a498719c5ba746c4a0633f2bfadbd73a56",
+                "reference": "28a951a498719c5ba746c4a0633f2bfadbd73a56",
                 "shasum": ""
             },
             "require": {
@@ -501,7 +531,7 @@
             "description": "Cycle ORM Schema Builder",
             "support": {
                 "issues": "https://github.com/cycle/schema-builder/issues",
-                "source": "https://github.com/cycle/schema-builder/tree/2.12.1"
+                "source": "https://github.com/cycle/schema-builder/tree/2.12.2"
             },
             "funding": [
                 {
@@ -509,7 +539,7 @@
                     "type": "github"
                 }
             ],
-            "time": "2026-08-19T11:40:50+00:00"
+            "time": "2026-10-05T13:50:55+00:00"
         },
         {
             "name": "dasprid/enum",
@@ -857,16 +887,16 @@
         },
         {
             "name": "laminas/laminas-diactoros",
-            "version": "3.8.0",
+            "version": "3.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/laminas/laminas-diactoros.git",
-                "reference": "60c182916b2749480895601649563970f3f12ec4"
+                "reference": "4ab9fe10869ac0cd46fa78e641b6d0f4389bc6b4"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/laminas/laminas-diactoros/zipball/60c182916b2749480895601649563970f3f12ec4",
-                "reference": "60c182916b2749480895601649563970f3f12ec4",
+                "url": "https://api.github.com/repos/laminas/laminas-diactoros/zipball/4ab9fe10869ac0cd46fa78e641b6d0f4389bc6b4",
+                "reference": "4ab9fe10869ac0cd46fa78e641b6d0f4389bc6b4",
                 "shasum": ""
             },
             "require": {
@@ -882,6 +912,7 @@
                 "psr/http-message-implementation": "^1.1 || ^2.0"
             },
             "require-dev": {
+                "boundwize/structarmed": "^0.17.7",
                 "ext-curl": "*",
                 "ext-dom": "*",
                 "ext-gd": "*",
@@ -937,11 +968,11 @@
             },
             "funding": [
                 {
-                    "url": "https://funding.communitybridge.org/projects/laminas-project",
-                    "type": "community_bridge"
+                    "url": "https://crowdfunding.linuxfoundation.org/initiatives/laminas-project",
+                    "type": "custom"
                 }
             ],
-            "time": "2025-10-12T15:31:36+00:00"
+            "time": "2026-10-08T08:19:47+00:00"
         },
         {
             "name": "lcobucci/clock",
@@ -1330,16 +1361,16 @@
         },
         {
             "name": "nesbot/carbon",
-            "version": "3.13.2",
+            "version": "3.14.2",
             "source": {
                 "type": "git",
                 "url": "https://github.com/CarbonPHP/carbon.git",
-                "reference": "a1c54919f5fff9800cd03c32bd01defd5a4061cb"
+                "reference": "94cfc34887f07ab5c0efa07914c8f527544e3224"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/CarbonPHP/carbon/zipball/a1c54919f5fff9800cd03c32bd01defd5a4061cb",
-                "reference": "a1c54919f5fff9800cd03c32bd01defd5a4061cb",
+                "url": "https://api.github.com/repos/CarbonPHP/carbon/zipball/94cfc34887f07ab5c0efa07914c8f527544e3224",
+                "reference": "94cfc34887f07ab5c0efa07914c8f527544e3224",
                 "shasum": ""
             },
             "require": {
@@ -1359,7 +1390,7 @@
                 "doctrine/orm": "^2.15.2 || ^3.0",
                 "friendsofphp/php-cs-fixer": "^v3.87.1",
                 "kylekatarnls/multi-tester": "^2.5.3",
-                "phpmd/phpmd": "^2.15.0",
+                "phpmd/phpmd": "^3.0@dev",
                 "phpstan/extension-installer": "^1.4.3",
                 "phpstan/phpstan": "^2.1.22",
                 "phpunit/phpunit": "^10.5.53",
@@ -1431,7 +1462,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-08-08T11:40:35+00:00"
+            "time": "2026-10-02T07:26:52+00:00"
         },
         {
             "name": "nette/php-generator",
@@ -3708,16 +3739,16 @@
         },
         {
             "name": "symfony/finder",
-            "version": "v7.4.17",
+            "version": "v7.4.20",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/finder.git",
-                "reference": "5ce28827081f6d1f0c32eaf3882750f19cb5bbe6"
+                "reference": "2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/finder/zipball/5ce28827081f6d1f0c32eaf3882750f19cb5bbe6",
-                "reference": "5ce28827081f6d1f0c32eaf3882750f19cb5bbe6",
+                "url": "https://api.github.com/repos/symfony/finder/zipball/2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e",
+                "reference": "2dd31e5208db7a0fda7bfc998ad727b79c2e4d1e",
                 "shasum": ""
             },
             "require": {
@@ -3752,7 +3783,7 @@
             "description": "Finds files and directories via an intuitive fluent interface",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/finder/tree/v7.4.17"
+                "source": "https://github.com/symfony/finder/tree/v7.4.20"
             },
             "funding": [
                 {
@@ -3772,7 +3803,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-08-21T12:09:28+00:00"
+            "time": "2026-09-26T06:31:10+00:00"
         },
         {
             "name": "symfony/polyfill-ctype",
@@ -4195,16 +4226,16 @@
         },
         {
             "name": "symfony/polyfill-php83",
-            "version": "v1.41.0",
+            "version": "v1.43.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-php83.git",
-                "reference": "5ea99087fb99c273a9b9236ed4c31e78b16103c6"
+                "reference": "80ccff923a8d61f73ebe9da0aa94e25232f004ce"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-php83/zipball/5ea99087fb99c273a9b9236ed4c31e78b16103c6",
-                "reference": "5ea99087fb99c273a9b9236ed4c31e78b16103c6",
+                "url": "https://api.github.com/repos/symfony/polyfill-php83/zipball/80ccff923a8d61f73ebe9da0aa94e25232f004ce",
+                "reference": "80ccff923a8d61f73ebe9da0aa94e25232f004ce",
                 "shasum": ""
             },
             "require": {
@@ -4251,7 +4282,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-php83/tree/v1.41.0"
+                "source": "https://github.com/symfony/polyfill-php83/tree/v1.43.0"
             },
             "funding": [
                 {
@@ -4271,7 +4302,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-01T12:47:55+00:00"
+            "time": "2026-09-25T15:50:05+00:00"
         },
         {
             "name": "symfony/polyfill-uuid",
@@ -4872,7 +4903,7 @@
         },
         {
             "name": "univeros/cache",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/cache.git",
@@ -4917,7 +4948,7 @@
         },
         {
             "name": "univeros/cli",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/cli.git",
@@ -4955,7 +4986,7 @@
         },
         {
             "name": "univeros/configuration",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/configuration.git",
@@ -4993,7 +5024,7 @@
         },
         {
             "name": "univeros/container",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/container.git",
@@ -5030,7 +5061,7 @@
         },
         {
             "name": "univeros/data",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/data.git",
@@ -5065,16 +5096,16 @@
         },
         {
             "name": "univeros/filesystem",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/filesystem.git",
-                "reference": "dbbee3212c9fbd3fff47fc0564d67703bdd0f678"
+                "reference": "b2a2650da1f6d621becc0ed0123a413aa082e882"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/filesystem/zipball/dbbee3212c9fbd3fff47fc0564d67703bdd0f678",
-                "reference": "dbbee3212c9fbd3fff47fc0564d67703bdd0f678",
+                "url": "https://api.github.com/repos/univeros/filesystem/zipball/b2a2650da1f6d621becc0ed0123a413aa082e882",
+                "reference": "b2a2650da1f6d621becc0ed0123a413aa082e882",
                 "shasum": ""
             },
             "require": {
@@ -5104,20 +5135,20 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-02T20:02:09+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "univeros/http",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/http.git",
-                "reference": "e972fce22e6b7f070bb301092161fef3a77a1acd"
+                "reference": "bc9f22534dcea68209c04fe5baac87f935b53aa1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/http/zipball/e972fce22e6b7f070bb301092161fef3a77a1acd",
-                "reference": "e972fce22e6b7f070bb301092161fef3a77a1acd",
+                "url": "https://api.github.com/repos/univeros/http/zipball/bc9f22534dcea68209c04fe5baac87f935b53aa1",
+                "reference": "bc9f22534dcea68209c04fe5baac87f935b53aa1",
                 "shasum": ""
             },
             "require": {
@@ -5156,20 +5187,20 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-06T19:39:04+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "univeros/module",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/module.git",
-                "reference": "8f6a44dbeb77ff9a7c1d480651524ec98d0376d3"
+                "reference": "4f261a29d974156473ef0d7e54e0c8747e28ed28"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/module/zipball/8f6a44dbeb77ff9a7c1d480651524ec98d0376d3",
-                "reference": "8f6a44dbeb77ff9a7c1d480651524ec98d0376d3",
+                "url": "https://api.github.com/repos/univeros/module/zipball/4f261a29d974156473ef0d7e54e0c8747e28ed28",
+                "reference": "4f261a29d974156473ef0d7e54e0c8747e28ed28",
                 "shasum": ""
             },
             "require": {
@@ -5194,11 +5225,11 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-06T09:05:52+00:00"
+            "time": "2026-10-13T16:02:45+00:00"
         },
         {
             "name": "univeros/persistence",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/persistence.git",
@@ -5244,16 +5275,16 @@
         },
         {
             "name": "univeros/security",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/security.git",
-                "reference": "544d26378a0510c3697ae928d22a45049c89ee0c"
+                "reference": "0e5c9d18159f90ea50124034fda503dfc5286cdd"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/security/zipball/544d26378a0510c3697ae928d22a45049c89ee0c",
-                "reference": "544d26378a0510c3697ae928d22a45049c89ee0c",
+                "url": "https://api.github.com/repos/univeros/security/zipball/0e5c9d18159f90ea50124034fda503dfc5286cdd",
+                "reference": "0e5c9d18159f90ea50124034fda503dfc5286cdd",
                 "shasum": ""
             },
             "require": {
@@ -5276,20 +5307,20 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-02T20:02:09+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "univeros/session",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/session.git",
-                "reference": "7893f5e3e8e30bd6d601592af62ee64f741061ce"
+                "reference": "84b05d4a218f132ff19c4309e5a59f3eff91edf1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/session/zipball/7893f5e3e8e30bd6d601592af62ee64f741061ce",
-                "reference": "7893f5e3e8e30bd6d601592af62ee64f741061ce",
+                "url": "https://api.github.com/repos/univeros/session/zipball/84b05d4a218f132ff19c4309e5a59f3eff91edf1",
+                "reference": "84b05d4a218f132ff19c4309e5a59f3eff91edf1",
                 "shasum": ""
             },
             "require": {
@@ -5318,20 +5349,20 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-02T20:02:09+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "univeros/structure",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/structure.git",
-                "reference": "3796bef489fb98b17f4fd02be9a48cb79d1fc1ff"
+                "reference": "5c0fe06d7703f95af8bf77e478da7a5e92687dc0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/structure/zipball/3796bef489fb98b17f4fd02be9a48cb79d1fc1ff",
-                "reference": "3796bef489fb98b17f4fd02be9a48cb79d1fc1ff",
+                "url": "https://api.github.com/repos/univeros/structure/zipball/5c0fe06d7703f95af8bf77e478da7a5e92687dc0",
+                "reference": "5c0fe06d7703f95af8bf77e478da7a5e92687dc0",
                 "shasum": ""
             },
             "require": {
@@ -5353,7 +5384,7 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-02T20:02:09+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "vlucas/phpdotenv",
@@ -5957,16 +5988,16 @@
         },
         {
             "name": "nikic/php-parser",
-            "version": "v5.8.0",
+            "version": "v5.9.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/nikic/PHP-Parser.git",
-                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f"
+                "reference": "9e33da9553fe7786f0962b35f4e4ecf01be89def"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
-                "reference": "044a6a392ff8ad0d61f14370a5fbbd0a0107152f",
+                "url": "https://api.github.com/repos/nikic/PHP-Parser/zipball/9e33da9553fe7786f0962b35f4e4ecf01be89def",
+                "reference": "9e33da9553fe7786f0962b35f4e4ecf01be89def",
                 "shasum": ""
             },
             "require": {
@@ -6008,9 +6039,9 @@
             ],
             "support": {
                 "issues": "https://github.com/nikic/PHP-Parser/issues",
-                "source": "https://github.com/nikic/PHP-Parser/tree/v5.8.0"
+                "source": "https://github.com/nikic/PHP-Parser/tree/v5.9.0"
             },
-            "time": "2026-07-04T14:30:18+00:00"
+            "time": "2026-09-13T18:51:52+00:00"
         },
         {
             "name": "onelogin/php-saml",
@@ -10021,7 +10052,7 @@
         },
         {
             "name": "univeros/doctor",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/doctor.git",
@@ -10059,16 +10090,16 @@
         },
         {
             "name": "univeros/happen",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/happen.git",
-                "reference": "3429d915891804712654a9e37943ef9e35da2424"
+                "reference": "ff2e7adcff2c660505a46e0673a6ee3400148d3b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/happen/zipball/3429d915891804712654a9e37943ef9e35da2424",
-                "reference": "3429d915891804712654a9e37943ef9e35da2424",
+                "url": "https://api.github.com/repos/univeros/happen/zipball/ff2e7adcff2c660505a46e0673a6ee3400148d3b",
+                "reference": "ff2e7adcff2c660505a46e0673a6ee3400148d3b",
                 "shasum": ""
             },
             "require": {
@@ -10091,11 +10122,11 @@
                 "issues": "https://github.com/univeros/framework/issues",
                 "source": "https://github.com/univeros/framework"
             },
-            "time": "2026-06-02T20:02:09+00:00"
+            "time": "2026-10-13T15:56:29+00:00"
         },
         {
             "name": "univeros/introspection",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/introspection.git",
@@ -10136,7 +10167,7 @@
         },
         {
             "name": "univeros/observability",
-            "version": "v2.5.1",
+            "version": "v2.6.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/observability.git",
