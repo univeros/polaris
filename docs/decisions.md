@@ -187,3 +187,10 @@ hand-off this work applies. What follows is what was decided while applying it.
   (local dev tooling, not PSR-15; #133), AgentSpec has no module hook (#137), async messaging needs an
   upstream outbox seam (#118), audit drains keep their own HMAC format (#124). `OAuthPlugin` needs
   `audiences: ['<base>/mcp']` with mcp: its resolver runs first on `/mcp` (found building the demo, #162).
+- 2026-10-13 · 2.3 · AgentSpec (#137): univeros/framework#236 added `ManifestContributorInterface`, with
+  `manifest(Container)` so the section reflects the configured plugins and prefix. The section reads the
+  manifests through `Loader` (as `routes:list` does) rather than building Polaris, so it needs no secrets or
+  database; it lists auth, step-up, permissions and error codes per route and points at
+  `polaris:manifest --format=openapi` for shapes, rather than duplicating the OpenAPI document. Audit drains
+  (#124) keep their wire format; the framework's signers now accept `sha256=`, so receivers use
+  `WebhookVerifyMiddleware` with `requireTimestamp: false` (README recipe).

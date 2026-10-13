@@ -15,6 +15,7 @@ use Altair\Http\Contracts\TokenExtractorInterface;
 use Altair\Http\Contracts\TokenFactoryInterface;
 use Altair\Http\Middleware\TokenAuthenticationMiddleware;
 use Altair\Http\Support\MiddlewarePriority;
+use Altair\Module\Contracts\ManifestContributorInterface;
 use Altair\Module\Contracts\MiddlewareProviderInterface;
 use Altair\Module\Contracts\MigrationDirectoriesProviderInterface;
 use Altair\Module\Contracts\ModuleInterface;
@@ -24,12 +25,14 @@ use Override;
 use Polaris\Agents\AgentsPlugin;
 use Polaris\Agents\Http\AgentRequestMiddleware;
 use Polaris\Authorization\Gate;
+use Polaris\Http\Manifest\EndpointSpec;
 use Polaris\Http\Manifest\Loader;
 use Polaris\Polaris;
 use Polaris\Psr15\Pipeline;
 use Polaris\Psr15\Router;
 use Polaris\Wiring\Graph;
 use Psr\Http\Message\ResponseFactoryInterface;
+use Univeros\Polaris\AgentSpec\ManifestSection;
 use Univeros\Polaris\Bootstrap\PolarisConfig;
 use Univeros\Polaris\Doctor\PluginsCheck;
 use Univeros\Polaris\Doctor\PolarisCheck;
@@ -55,7 +58,11 @@ use function rtrim;
  * binds ({@see PolarisConfig}); nothing is built until the first request or command resolves it,
  * so `bin/altair db:migrate` runs without the JWT keys and `polaris:doctor` is the boot check.
  */
-final class Module implements ModuleInterface, MiddlewareProviderInterface, MigrationDirectoriesProviderInterface
+final class Module implements
+    ModuleInterface,
+    MiddlewareProviderInterface,
+    MigrationDirectoriesProviderInterface,
+    ManifestContributorInterface
 {
     #[Override]
     public function name(): string
@@ -146,6 +153,21 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
         $hosts = $container->get(RouteCollection::class);
         \assert($hosts instanceof RouteCollection);
         $routes = new RouteCollection($hosts->toArray());
+        foreach (self::endpoints($container, $env) as $spec) {
+            $routes->put($spec->method . ' ' . rtrim($prefix, '/') . $spec->path, $spec->class);
+        }
+
+        return $routes;
+    }
+
+    /**
+     * Core's endpoints and the configured plugins', read from their manifests without building Polaris
+     * (no secrets or database needed).
+     *
+     * @return list<EndpointSpec>
+     */
+    private static function endpoints(Container $container, Env $env): array
+    {
         $directories = [Loader::defaultDirectory()];
         foreach (PolarisConfig::plugins($container, $env) as $plugin) {
             $directory = $plugin::manifestDirectory();
@@ -153,11 +175,8 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
                 $directories[] = $directory;
             }
         }
-        foreach ((new Loader(...$directories))->load()->endpoints() as $spec) {
-            $routes->put($spec->method . ' ' . rtrim($prefix, '/') . $spec->path, $spec->class);
-        }
 
-        return $routes;
+        return (new Loader(...$directories))->load()->endpoints();
     }
 
     /**
@@ -186,6 +205,24 @@ final class Module implements ModuleInterface, MiddlewareProviderInterface, Migr
         return [
             ['middleware' => PolarisMiddleware::class, 'priority' => MiddlewarePriority::EXCEPTION_HANDLER - 100],
         ];
+    }
+
+    #[Override]
+    public function manifestDescription(): string
+    {
+        return 'Polaris for PHP: authentication, MFA/OTP, organizations and RBAC; routes, auth and permissions.';
+    }
+
+    /**
+     * The Polaris section of `bin/altair manifest:generate` (`.agent/modules/univeros/polaris.md`): core's
+     * routes and the configured plugins', with their auth, permissions and errors.
+     */
+    #[Override]
+    public function manifest(Container $container): string
+    {
+        $env = self::env($container);
+
+        return ManifestSection::render(self::endpoints($container, $env), PolarisConfig::pathPrefix($env));
     }
 
     /**
