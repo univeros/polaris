@@ -34,7 +34,7 @@ host; `git show v1.0.0` or the `1.x` branch is the self-contained 1.x module.
 ## Layout
 
 ```
-src/Module.php                     ModuleInterface, MiddlewareProviderInterface, MigrationDirectoriesProviderInterface
+src/Module.php                     ModuleInterface, MiddlewareProviderInterface, MigrationDirectoriesProviderInterface, ManifestContributorInterface
 src/Bootstrap/PolarisConfig.php    the Polaris Config from the container's bindings and the environment
 src/Database/Connection.php        the PDO Polaris runs on: a bound PDO, DatabaseSettings (DB_*), or POLARIS_DSN
 src/Event/ListenerDispatcher.php   the PSR-14 dispatcher Polaris gets: Polaris::listeners(), then the host's bound one
@@ -51,6 +51,7 @@ src/Http/PluginTokenAuthenticationMiddleware.php  opt-in: the framework's token 
 src/Doctor/                        the polaris, polaris_plugins and polaris_schema checks of bin/altair doctor (univeros/doctor)
 src/Observability/MeterMetrics.php core's metrics port over Univeros Observability's Meter
 src/Testing/PolarisTesting.php     host tests: bind() an in-memory Polaris, token() for a user
+src/AgentSpec/ManifestSection.php  the Polaris section of bin/altair manifest:generate (.agent/modules/univeros/polaris.md)
 migrations/                        one Cycle migration: SchemaInstaller on the migrator's connection
 tests/Harness.php                  core's and each plugin's fixtures through Relay (POLARIS_HARNESS; test:contract, test:plugins)
 tests/                             the module suite (bindings, middleware, bridge, connection, migration, console)

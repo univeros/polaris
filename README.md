@@ -121,6 +121,25 @@ documentation asks. `baseUrl` is always where Polaris is mounted, prefix include
 | `polaris/mcp` | `new McpPlugin(baseUrl: ..., requests: new ServerRequestFactory(), responses: new ResponseFactory(), streams: new StreamFactory())` (the `Laminas\Diactoros` factories) | `POST /mcp`, `/.well-known/oauth-protected-resource/mcp` (and the RFC 9728 root form `/.well-known/oauth-protected-resource/auth/mcp` under a prefix); `polaris:mcp` (stdio) |
 | `polaris/agents` | `new AgentsPlugin(baseUrl: ..., capabilities: [...], approvalUrl: ...)`, after `OAuthPlugin` | `/agents/*`, `/admin/agents/*`, `/.well-known/agent-configuration`; every capability is an MCP tool with mcp |
 
+**Receiving audit drains in a Univeros application.** `polaris/audit`'s `WebhookSink` signs each batch
+GitHub-style, `X-Polaris-Signature: sha256=<hex>` (HMAC-SHA256 over the body), names it with
+`X-Polaris-Delivery` and sends no timestamp header. Since univeros/framework 2.6 the Webhooks signers accept
+that prefix, so the receiving application verifies with `WebhookVerifyMiddleware` as is:
+
+```php
+new \Altair\Webhooks\Middleware\WebhookVerifyMiddleware(
+    signer: new \Altair\Webhooks\Signing\HmacSha256Signer(),
+    secrets: $secrets,                  // resolves 'polaris_audit' to the drain's secret
+    deduplicator: $deduplicator,        // dedupes on the delivery id
+    responseFactory: $responseFactory,
+    streamFactory: $streamFactory,
+    secretName: 'polaris_audit',
+    requireTimestamp: false,
+    signatureHeader: 'X-Polaris-Signature',
+    eventIdHeader: 'X-Polaris-Delivery',
+);
+```
+
 **Agents on your routes.** With `polaris/agents` the module binds `Polaris\Agents\Http\AgentRequestMiddleware`:
 add it to your module's `middleware()` and a request to a capability's `location` must come from an agent
 holding a live grant (budget, receipt and your handler in one transaction; the handler reads the grant
@@ -142,6 +161,12 @@ table, `bin/altair polaris:manifest` lists them (`--format=openapi` renders the 
 with `univeros/introspection` installed `bin/altair routes:list` shows them beside yours. Any
 other path continues to the framework's dispatcher. A JSON body is decoded from the request bytes, since
 `ServerRequestFactory::fromGlobals()` hands `$_POST` over as the parsed body.
+
+**For coding agents.** The module contributes a section to the framework's AI-readable manifests:
+`bin/altair manifest:generate`, run from your `bin/altair`, writes `.agent/modules/univeros/polaris.md`
+(every route core and your configured plugins serve, with its auth, step-up, required permissions and error
+codes, plus the permission catalog) and lists it in `.agent/MANIFEST.md`. The output is byte-stable for a
+given configuration, so commit `.agent/` and gate it with `bin/altair manifest:generate --check`.
 
 The full catalog with request and response shapes is `docs/auth/api-reference.md` (the design lives in
 [`docs/auth/`](docs/auth/); the implementation is `polaris/core`).

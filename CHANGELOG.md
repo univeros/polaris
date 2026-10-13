@@ -4,6 +4,21 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- The module contributes its section to Univeros AgentSpec (`ManifestContributorInterface`, univeros/framework
+  2.6): `bin/altair manifest:generate` writes `.agent/modules/univeros/polaris.md` with every route of core
+  and the configured plugins (auth, step-up, required permissions, error codes) and the permission catalog,
+  byte-stable for `--check`. (#137)
+
+### Changed
+- Requires univeros/* `^2.6`.
+
+### Documentation
+- README: receiving `polaris/audit` drains with Univeros `WebhookVerifyMiddleware` (`sha256=` signatures,
+  no timestamp header), now that the framework's signers accept the prefix (#124).
+
 ## [2.2.0] - 2026-10-12
 
 Every `polaris/*` plugin of Polaris for PHP 0.10 is supported and tested through the module, plus the
