@@ -241,6 +241,13 @@ vendor/bin/phpunit # SQLite in memory without DB_CONNECTION; the DB_* variables 
   `polaris`, `polaris_plugins` and `polaris_schema`; host tests use
   `Univeros\Polaris\Testing\PolarisTesting` (`bind()`, `token()`); `Graph::prune()` (`Polaris\Maintenance\PruneExpiredService`) is
   the scheduled cleanup for expired transient rows (the host wires it to cron).
+- With `univeros/agent-spec`, `bin/altair manifest:generate` writes the
+  Polaris section to `.agent/modules/univeros/polaris.md` (every route of core
+  and the configured plugins with auth, step-up, permissions and error codes,
+  plus the permission catalog); gate it in CI with `manifest:generate --check`.
+- Receiving `polaris/audit` drains: `WebhookVerifyMiddleware` with
+  `HmacSha256Signer`, `signatureHeader: 'X-Polaris-Signature'`,
+  `eventIdHeader: 'X-Polaris-Delivery'`, `requireTimestamp: false` (README).
 - Key rotation runbook: `docs/auth/key-rotation.md`. Security model and
   threat table: `docs/auth/security.md`. Data model: `docs/auth/data-model.md`.
 - Behaviour changes belong to `polaris/core`; this module only wires. Its

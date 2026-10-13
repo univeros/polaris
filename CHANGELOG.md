@@ -4,7 +4,11 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.3.0] - 2026-10-13
+
+Univeros-native extras on univeros/framework 2.6: the Polaris section in the host's AgentSpec manifests, and
+audit drains verified with the framework's `WebhookVerifyMiddleware`. With this release the module supports
+every package of Polaris for PHP 0.10.
 
 ### Added
 - The module contributes its section to Univeros AgentSpec (`ManifestContributorInterface`, univeros/framework
@@ -212,6 +216,7 @@ endpoints).
   configuration, the token model, the permission catalog, and the tenant
   invariants.
 
+[2.3.0]: https://github.com/univeros/polaris/releases/tag/v2.3.0
 [2.2.0]: https://github.com/univeros/polaris/releases/tag/v2.2.0
 [2.1.0]: https://github.com/univeros/polaris/releases/tag/v2.1.0
 [2.0.0]: https://github.com/univeros/polaris/releases/tag/v2.0.0
