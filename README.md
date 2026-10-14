@@ -7,7 +7,7 @@
 
 ![PHP](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)
 ![Univeros module](https://img.shields.io/badge/Univeros-module-1d76db)
-![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.10-0052cc)
+![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.11-0052cc)
 ![MFA](https://img.shields.io/badge/MFA-TOTP%20%C2%B7%20SMS%20%C2%B7%20email-d93f0b)
 
 `univeros/polaris` 2.x is the Univeros module built on Polaris for PHP: `polaris/core` carries the
