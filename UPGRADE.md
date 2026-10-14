@@ -1,3 +1,11 @@
+# Upgrading from 2.3 to 2.4
+
+1. 2.4 requires `polaris/*` `^0.11`. Move the plugins you require to `^0.11` too (`composer require
+   univeros/polaris:^2.4 polaris/<plugin>:^0.11 -W`). Only a custom polaris/messaging `Outbox` changes: its
+   `push()` now receives `(Message, array $alternatives)` and answers a `?Receipt` (Polaris for PHP 0.11.0).
+2. To send messages off the request with `BusOutbox` (README), also install `symfony/event-dispatcher`, which
+   `univeros/messaging` needs and does not pull in yet.
+
 # Upgrading from 2.2 to 2.3
 
 1. 2.3 requires univeros/* `^2.6`. With an application locked to framework 2.5, update them together:
