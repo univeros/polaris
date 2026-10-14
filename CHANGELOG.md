@@ -6,6 +6,12 @@ the project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- `Univeros\Polaris\Messaging\BusOutbox`: polaris/messaging's outbox on the Univeros Messaging bus. Passed as
+  `MessagingPlugin`'s `outbox` and routed to a transport, a send leaves the request as a `SendMessage`
+  (`Receipt::queued()`, counted once by the policy) and the worker delivers it through the channels and the
+  fallback; the module registers the handler when univeros/messaging is configured. (#165)
+
 ### Changed
 - `polaris/*` move to `^0.11` (Polaris for PHP 0.11). The module implements no messaging `Outbox`, so its
   breaking change does not reach the module; the contract and plugin suites replay unchanged.

@@ -46,8 +46,10 @@
         "polaris/testing": "^0.11",
         "polaris/username": "^0.11",
         "squizlabs/php_codesniffer": "^3.13.6",
+        "symfony/event-dispatcher": "^7.0",
         "univeros/doctor": "^2.6",
         "univeros/introspection": "^2.6",
+        "univeros/messaging": "^2.6",
         "univeros/observability": "^2.6"
     },
     "suggest": {
@@ -55,6 +57,7 @@
         "univeros/agent-spec": "bin/altair manifest:generate writes the Polaris section of the AI-readable manifests",
         "univeros/doctor": "The Polaris checks (secrets and keys, plugins, schema) join bin/altair doctor",
         "univeros/introspection": "bin/altair routes:list shows the Polaris routes beside the application's",
+        "univeros/messaging": "Univeros\\Polaris\\Messaging\\BusOutbox sends polaris/messaging's messages through the bus and its worker",
         "univeros/observability": "Polaris counts its domain events through the bound Meter"
     },
     "autoload": {

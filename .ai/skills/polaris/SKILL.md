@@ -245,6 +245,9 @@ vendor/bin/phpunit # SQLite in memory without DB_CONNECTION; the DB_* variables 
   Polaris section to `.agent/modules/univeros/polaris.md` (every route of core
   and the configured plugins with auth, step-up, permissions and error codes,
   plus the permission catalog); gate it in CI with `manifest:generate --check`.
+- Async sends: `MessagingPlugin(outbox: new BusOutbox(fn() => $container->get(MessageBusInterface::class)))`
+  with `MESSENGER_ROUTING="Univeros\Polaris\Messaging\SendMessage:<transport>"`; `bin/altair worker`
+  delivers them (the module registers the handler).
 - Receiving `polaris/audit` drains: `WebhookVerifyMiddleware` with
   `HmacSha256Signer`, `signatureHeader: 'X-Polaris-Signature'`,
   `eventIdHeader: 'X-Polaris-Delivery'`, `requireTimestamp: false` (README).

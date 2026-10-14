@@ -121,6 +121,26 @@ documentation asks. `baseUrl` is always where Polaris is mounted, prefix include
 | `polaris/mcp` | `new McpPlugin(baseUrl: ..., requests: new ServerRequestFactory(), responses: new ResponseFactory(), streams: new StreamFactory())` (the `Laminas\Diactoros` factories) | `POST /mcp`, `/.well-known/oauth-protected-resource/mcp` (and the RFC 9728 root form `/.well-known/oauth-protected-resource/auth/mcp` under a prefix); `polaris:mcp` (stdio) |
 | `polaris/agents` | `new AgentsPlugin(baseUrl: ..., capabilities: [...], approvalUrl: ...)`, after `OAuthPlugin` | `/agents/*`, `/admin/agents/*`, `/.well-known/agent-configuration`; every capability is an MCP tool with mcp |
 
+**Sending messages off the request.** With `univeros/messaging` configured (it also needs
+`symfony/event-dispatcher`, which it does not pull in yet), give `MessagingPlugin` the module's bus outbox:
+
+```php
+use Altair\Messaging\Contracts\MessageBusInterface;
+use Univeros\Polaris\Messaging\BusOutbox;
+
+new MessagingPlugin(
+    channels: [...],
+    outbox: new BusOutbox(static fn(): MessageBusInterface => $container->get(MessageBusInterface::class)),
+),
+```
+
+and route its sends to a transport: `MESSENGER_TRANSPORT_ASYNC=redis://localhost:6379/messages` and
+`MESSENGER_ROUTING="Univeros\Polaris\Messaging\SendMessage:async"`. A send then answers `Receipt::queued()` on
+the request (the policy has counted it) and `bin/altair worker --transports=async` delivers it through the
+channels and the fallback, without counting it again; the module registers that handler. A send no channel
+delivered fails in the worker, so the transport retries it and then parks it on the failure transport.
+Unrouted, the bus delivers it on the spot.
+
 **Receiving audit drains in a Univeros application.** `polaris/audit`'s `WebhookSink` signs each batch
 GitHub-style, `X-Polaris-Signature: sha256=<hex>` (HMAC-SHA256 over the body), names it with
 `X-Polaris-Delivery` and sends no timestamp header. Since univeros/framework 2.6 the Webhooks signers accept
