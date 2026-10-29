@@ -7,7 +7,7 @@
 
 ![PHP](https://img.shields.io/badge/PHP-8.3%2B-777BB4?logo=php&logoColor=white)
 ![Univeros module](https://img.shields.io/badge/Univeros-module-1d76db)
-![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.11-0052cc)
+![Polaris for PHP](https://img.shields.io/badge/polaris%2Fcore-0.12-0052cc)
 ![MFA](https://img.shields.io/badge/MFA-TOTP%20%C2%B7%20SMS%20%C2%B7%20email-d93f0b)
 
 `univeros/polaris` 2.x is the Univeros module built on Polaris for PHP: `polaris/core` carries the
@@ -52,6 +52,8 @@ Polaris reads the same variables 1.x read, through the framework's `Env` (`$_ENV
 | `AUTH_JWT_KID`, `AUTH_JWT_PREVIOUS_PUBLIC_KEY`, `AUTH_JWT_PREVIOUS_KID` | Optional: the key id and the retiring key during a rotation. |
 | `AUTH_ISSUER`, `AUTH_AUDIENCE` | The `iss` and `aud` claims (`polaris` and none by default). |
 | `AUTH_ACCESS_TOKEN_DENYLIST`, `AUTH_PASSWORD_BREACH_CHECK` | `1`, `true` or `on` enables instant revocation and the breached-password check. |
+| `AUTH_TOKEN_DELIVERY` | `body` (default) or `cookie`: the refresh token in an HttpOnly cookie (see Cookie token delivery). |
+| `AUTH_COOKIE_TRUSTED_ORIGINS` | Comma-separated https origins besides the request's own allowed to sign in and refresh in cookie mode. |
 | `DB_CONNECTION`, `DB_DATABASE`, `DB_HOST`, `DB_PORT`, `DB_USER`, `DB_PASSWORD` | The database, as `CycleOrmConfiguration` reads it (`postgres`, `mysql`, `sqlite`). Polaris opens its own connection on the same settings. |
 | `POLARIS_DSN`, `POLARIS_DB_USER`, `POLARIS_DB_PASSWORD` | The database of an application without an ORM. |
 | `POLARIS_PATH_PREFIX` | Mounts the Polaris routes under a prefix (`/` by default). |
@@ -184,9 +186,24 @@ other path continues to the framework's dispatcher. A JSON body is decoded from 
 
 **For coding agents.** The module contributes a section to the framework's AI-readable manifests:
 `bin/altair manifest:generate`, run from your `bin/altair`, writes `.agent/modules/univeros/polaris.md`
-(every route core and your configured plugins serve, with its auth, step-up, required permissions and error
+(every route core and your configured plugins serve, with its auth, step-up, session, required permissions and error
 codes, plus the permission catalog) and lists it in `.agent/MANIFEST.md`. The output is byte-stable for a
 given configuration, so commit `.agent/` and gate it with `bin/altair manifest:generate --check`.
+
+**Cookie token delivery.** With `AUTH_TOKEN_DELIVERY=cookie` (or `flows.token_delivery: cookie` in a bound
+`AuthConfig`) the routes that open or rotate a session (`session: issue | refresh` in the manifest: login,
+MFA verify, refresh and every plugin's sign-in) answer the refresh token as a `__Secure-polaris_refresh`
+cookie (`HttpOnly; Secure; SameSite=Strict`, path the refresh route under `POLARIS_PATH_PREFIX`) instead of
+`data.refresh_token`; `POST /auth/token/refresh` reads it and logout clears it. The access token stays in the
+body. Those routes then require the `X-Polaris-CSRF: 1` header and a same-origin (or
+`AUTH_COOKIE_TRUSTED_ORIGINS`) `Origin`, else `403 csrf_failed`, and https, else `403 insecure_transport`. The
+scheme is the request's: the skeleton's `ServerRequestFactory::fromGlobals()` takes `X-Forwarded-Proto` from a
+proxy on a private network, so behind a TLS-terminating proxy elsewhere pass it
+`requestFilter: FilterUsingXForwardedHeaders::trustProxies([...])`. In the browser,
+`createClient({ tokenDelivery: "cookie" })` from `@polaris-auth/client` sends the header and
+`refreshSession(client)` refreshes. MCP tool calls keep tokens in the body. Polaris sends no CORS headers: an
+application on another origin needs your CORS layer allowing credentials and `X-Polaris-CSRF` for the trusted
+origins.
 
 The full catalog with request and response shapes is `docs/auth/api-reference.md` (the design lives in
 [`docs/auth/`](docs/auth/); the implementation is `polaris/core`).

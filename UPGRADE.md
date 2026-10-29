@@ -1,3 +1,10 @@
+# Upgrading from 2.4 to 2.5
+
+1. 2.5 requires `polaris/*` `^0.12`, and `polaris/core` 0.12 conflicts with `polaris/anonymous`,
+   `multi-session`, `passkey`, `passwordless`, `social`, `sso` and `username` below 0.12: move every plugin
+   you require to `^0.12` together (`composer require univeros/polaris:^2.5 polaris/<plugin>:^0.12 -W`).
+   Nothing else changes in body mode; cookie mode is opt-in (`AUTH_TOKEN_DELIVERY=cookie`, README).
+
 # Upgrading from 2.3 to 2.4
 
 1. 2.4 requires `polaris/*` `^0.11`. Move the plugins you require to `^0.11` too (`composer require

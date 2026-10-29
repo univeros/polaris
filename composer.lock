@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "51b14608af915be8d1f0712a5b9949e0",
+    "content-hash": "c5c805e1312aca801e33b8078638c3f5",
     "packages": [
         {
             "name": "bacon/bacon-qr-code",
@@ -1825,23 +1825,23 @@
         },
         {
             "name": "polaris/cli",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.cli.git",
-                "reference": "9ecd23982b1b8e8d7f2f4f0efd48c2ca99ae39f4"
+                "reference": "529c78b6d752ea9717aba4f9e74c1386952e2e43"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.cli/zipball/9ecd23982b1b8e8d7f2f4f0efd48c2ca99ae39f4",
-                "reference": "9ecd23982b1b8e8d7f2f4f0efd48c2ca99ae39f4",
+                "url": "https://api.github.com/repos/univeros/polaris.cli/zipball/529c78b6d752ea9717aba4f9e74c1386952e2e43",
+                "reference": "529c78b6d752ea9717aba4f9e74c1386952e2e43",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
-                "polaris/pdo": "^0.11",
-                "polaris/psr15": "^0.11",
+                "polaris/core": "^0.12",
+                "polaris/pdo": "^0.12",
+                "polaris/psr15": "^0.12",
                 "symfony/console": "^7.0 || ^8.0"
             },
             "bin": [
@@ -1850,7 +1850,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -1871,22 +1871,22 @@
             "description": "Command-line tools for Polaris for PHP: schema export and diff, manifest, doctor",
             "support": {
                 "issues": "https://github.com/univeros/polaris.cli/issues",
-                "source": "https://github.com/univeros/polaris.cli/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.cli/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/core",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.core.git",
-                "reference": "6af58a9c8176f1c452d17aaddce8048ec347b965"
+                "reference": "298b51399e8fb4fbaa9871cfba801c0ced47d4f8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.core/zipball/6af58a9c8176f1c452d17aaddce8048ec347b965",
-                "reference": "6af58a9c8176f1c452d17aaddce8048ec347b965",
+                "url": "https://api.github.com/repos/univeros/polaris.core/zipball/298b51399e8fb4fbaa9871cfba801c0ced47d4f8",
+                "reference": "298b51399e8fb4fbaa9871cfba801c0ced47d4f8",
                 "shasum": ""
             },
             "require": {
@@ -1905,16 +1905,25 @@
                 "symfony/uid": "^7.0 || ^8.0",
                 "symfony/yaml": "^7.0 || ^8.0"
             },
+            "conflict": {
+                "polaris/anonymous": "<0.12",
+                "polaris/multi-session": "<0.12",
+                "polaris/passkey": "<0.12",
+                "polaris/passwordless": "<0.12",
+                "polaris/social": "<0.12",
+                "polaris/sso": "<0.12",
+                "polaris/username": "<0.12"
+            },
             "require-dev": {
-                "polaris/cli": "^0.11",
-                "polaris/pdo": "^0.11",
-                "polaris/psr15": "^0.11",
-                "polaris/testing": "^0.11"
+                "polaris/cli": "^0.12",
+                "polaris/pdo": "^0.12",
+                "polaris/psr15": "^0.12",
+                "polaris/testing": "^0.12"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -1945,33 +1954,33 @@
             ],
             "support": {
                 "issues": "https://github.com/univeros/polaris.core/issues",
-                "source": "https://github.com/univeros/polaris.core/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.core/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/pdo",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.pdo.git",
-                "reference": "8edd24a98460446fe1fa244239b835f750da7fed"
+                "reference": "907e2024c7395a81332aff9dec4559c7c4661b98"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.pdo/zipball/8edd24a98460446fe1fa244239b835f750da7fed",
-                "reference": "8edd24a98460446fe1fa244239b835f750da7fed",
+                "url": "https://api.github.com/repos/univeros/polaris.pdo/zipball/907e2024c7395a81332aff9dec4559c7c4661b98",
+                "reference": "907e2024c7395a81332aff9dec4559c7c4661b98",
                 "shasum": ""
             },
             "require": {
                 "ext-pdo": "*",
                 "php": ">=8.3",
-                "polaris/core": "^0.11"
+                "polaris/core": "^0.12"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -1992,27 +2001,27 @@
             "description": "PDO database adapter (SQLite, MySQL, PostgreSQL) for Polaris for PHP",
             "support": {
                 "issues": "https://github.com/univeros/polaris.pdo/issues",
-                "source": "https://github.com/univeros/polaris.pdo/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.pdo/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/psr15",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.psr15.git",
-                "reference": "54ea806faa75b4126476142a5cede1cad59a8df6"
+                "reference": "38414c8d4dc5463eede25f15202600dc4b922b6a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.psr15/zipball/54ea806faa75b4126476142a5cede1cad59a8df6",
-                "reference": "54ea806faa75b4126476142a5cede1cad59a8df6",
+                "url": "https://api.github.com/repos/univeros/polaris.psr15/zipball/38414c8d4dc5463eede25f15202600dc4b922b6a",
+                "reference": "38414c8d4dc5463eede25f15202600dc4b922b6a",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-factory": "^1.0",
                 "psr/http-message": "^1.1 || ^2.0",
@@ -2022,7 +2031,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -2043,9 +2052,9 @@
             "description": "PSR-15 request handler and middleware for Polaris for PHP",
             "support": {
                 "issues": "https://github.com/univeros/polaris.psr15/issues",
-                "source": "https://github.com/univeros/polaris.psr15/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.psr15/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "psr/cache",
@@ -3492,16 +3501,16 @@
         },
         {
             "name": "symfony/clock",
-            "version": "v7.4.8",
+            "version": "v7.4.21",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/clock.git",
-                "reference": "674fa3b98e21531dd040e613479f5f6fa8f32111"
+                "reference": "07437f612dca89c1894c1db04491002b1e798f03"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/clock/zipball/674fa3b98e21531dd040e613479f5f6fa8f32111",
-                "reference": "674fa3b98e21531dd040e613479f5f6fa8f32111",
+                "url": "https://api.github.com/repos/symfony/clock/zipball/07437f612dca89c1894c1db04491002b1e798f03",
+                "reference": "07437f612dca89c1894c1db04491002b1e798f03",
                 "shasum": ""
             },
             "require": {
@@ -3546,7 +3555,7 @@
                 "time"
             ],
             "support": {
-                "source": "https://github.com/symfony/clock/tree/v7.4.8"
+                "source": "https://github.com/symfony/clock/tree/v7.4.21"
             },
             "funding": [
                 {
@@ -3566,20 +3575,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-03-24T13:12:05+00:00"
+            "time": "2026-10-12T14:31:36+00:00"
         },
         {
             "name": "symfony/console",
-            "version": "v7.4.20",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/console.git",
-                "reference": "d7bca2fe05241dc7732d0c8b6d551b879f5d0a7d"
+                "reference": "8012f842110b414fd1cc641adb0ed8423353b0bb"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/console/zipball/d7bca2fe05241dc7732d0c8b6d551b879f5d0a7d",
-                "reference": "d7bca2fe05241dc7732d0c8b6d551b879f5d0a7d",
+                "url": "https://api.github.com/repos/symfony/console/zipball/8012f842110b414fd1cc641adb0ed8423353b0bb",
+                "reference": "8012f842110b414fd1cc641adb0ed8423353b0bb",
                 "shasum": ""
             },
             "require": {
@@ -3644,7 +3653,7 @@
                 "terminal"
             ],
             "support": {
-                "source": "https://github.com/symfony/console/tree/v7.4.20"
+                "source": "https://github.com/symfony/console/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -3664,7 +3673,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-18T15:55:00+00:00"
+            "time": "2026-10-28T11:08:27+00:00"
         },
         {
             "name": "symfony/deprecation-contracts",
@@ -3890,16 +3899,16 @@
         },
         {
             "name": "symfony/polyfill-intl-grapheme",
-            "version": "v1.43.0",
+            "version": "v1.43.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-intl-grapheme.git",
-                "reference": "5cac8f4db97208823aa353f59a01faad2da52c75"
+                "reference": "5a8f33c87aeecffce24e721b5064fab05f4becf8"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/5cac8f4db97208823aa353f59a01faad2da52c75",
-                "reference": "5cac8f4db97208823aa353f59a01faad2da52c75",
+                "url": "https://api.github.com/repos/symfony/polyfill-intl-grapheme/zipball/5a8f33c87aeecffce24e721b5064fab05f4becf8",
+                "reference": "5a8f33c87aeecffce24e721b5064fab05f4becf8",
                 "shasum": ""
             },
             "require": {
@@ -3948,7 +3957,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-intl-grapheme/tree/v1.43.0"
+                "source": "https://github.com/symfony/polyfill-intl-grapheme/tree/v1.43.3"
             },
             "funding": [
                 {
@@ -3968,7 +3977,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-25T15:46:47+00:00"
+            "time": "2026-10-15T09:18:53+00:00"
         },
         {
             "name": "symfony/polyfill-intl-normalizer",
@@ -4057,16 +4066,16 @@
         },
         {
             "name": "symfony/polyfill-mbstring",
-            "version": "v1.43.0",
+            "version": "v1.43.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/polyfill-mbstring.git",
-                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72"
+                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
-                "reference": "4d5d331bf731e0aedbc6b2f5e61135b7b7996a72",
+                "url": "https://api.github.com/repos/symfony/polyfill-mbstring/zipball/122889ed24dc000165bcbfd77ec412f15cbdfc6a",
+                "reference": "122889ed24dc000165bcbfd77ec412f15cbdfc6a",
                 "shasum": ""
             },
             "require": {
@@ -4118,7 +4127,7 @@
                 "shim"
             ],
             "support": {
-                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.0"
+                "source": "https://github.com/symfony/polyfill-mbstring/tree/v1.43.3"
             },
             "funding": [
                 {
@@ -4138,7 +4147,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-24T15:19:04+00:00"
+            "time": "2026-10-28T09:35:49+00:00"
         },
         {
             "name": "symfony/polyfill-php80",
@@ -4476,16 +4485,16 @@
         },
         {
             "name": "symfony/string",
-            "version": "v7.4.19",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/string.git",
-                "reference": "02731ce2bd26514bec9efc0baef2cd0b0cf67f46"
+                "reference": "8dff7da3a56638f1d189c5368183294102de4ced"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/string/zipball/02731ce2bd26514bec9efc0baef2cd0b0cf67f46",
-                "reference": "02731ce2bd26514bec9efc0baef2cd0b0cf67f46",
+                "url": "https://api.github.com/repos/symfony/string/zipball/8dff7da3a56638f1d189c5368183294102de4ced",
+                "reference": "8dff7da3a56638f1d189c5368183294102de4ced",
                 "shasum": ""
             },
             "require": {
@@ -4543,7 +4552,7 @@
                 "utf8"
             ],
             "support": {
-                "source": "https://github.com/symfony/string/tree/v7.4.19"
+                "source": "https://github.com/symfony/string/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -4563,7 +4572,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-11T14:46:58+00:00"
+            "time": "2026-10-23T16:51:52+00:00"
         },
         {
             "name": "symfony/translation",
@@ -4749,16 +4758,16 @@
         },
         {
             "name": "symfony/uid",
-            "version": "v7.4.20",
+            "version": "v7.4.21",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/uid.git",
-                "reference": "a96bbdb02a04ff3b5592cee6741b03edc78b56aa"
+                "reference": "3e706a245b5343ea93be9cafe84525bfb54e60fc"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/uid/zipball/a96bbdb02a04ff3b5592cee6741b03edc78b56aa",
-                "reference": "a96bbdb02a04ff3b5592cee6741b03edc78b56aa",
+                "url": "https://api.github.com/repos/symfony/uid/zipball/3e706a245b5343ea93be9cafe84525bfb54e60fc",
+                "reference": "3e706a245b5343ea93be9cafe84525bfb54e60fc",
                 "shasum": ""
             },
             "require": {
@@ -4803,7 +4812,7 @@
                 "uuid"
             ],
             "support": {
-                "source": "https://github.com/symfony/uid/tree/v7.4.20"
+                "source": "https://github.com/symfony/uid/tree/v7.4.21"
             },
             "funding": [
                 {
@@ -4823,20 +4832,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-23T16:18:28+00:00"
+            "time": "2026-10-12T14:31:36+00:00"
         },
         {
             "name": "symfony/yaml",
-            "version": "v7.4.20",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/yaml.git",
-                "reference": "0222bf4dfaa1e3ceb8fff579635d655f2950d5a7"
+                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/yaml/zipball/0222bf4dfaa1e3ceb8fff579635d655f2950d5a7",
-                "reference": "0222bf4dfaa1e3ceb8fff579635d655f2950d5a7",
+                "url": "https://api.github.com/repos/symfony/yaml/zipball/1ed6afa13d48c579c51cbf32e38f50686313497b",
+                "reference": "1ed6afa13d48c579c51cbf32e38f50686313497b",
                 "shasum": ""
             },
             "require": {
@@ -4879,7 +4888,7 @@
             "description": "Loads and dumps YAML files",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/yaml/tree/v7.4.20"
+                "source": "https://github.com/symfony/yaml/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -4899,7 +4908,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-26T06:31:10+00:00"
+            "time": "2026-10-18T14:39:27+00:00"
         },
         {
             "name": "univeros/cache",
@@ -6677,16 +6686,16 @@
         },
         {
             "name": "phpstan/phpdoc-parser",
-            "version": "2.3.6",
+            "version": "2.4.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/phpstan/phpdoc-parser.git",
-                "reference": "1427af4647235b4a73b13940b1f1258d3584f36e"
+                "reference": "e3647094ed8f0f1f67393d812b793a5143e25af3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/1427af4647235b4a73b13940b1f1258d3584f36e",
-                "reference": "1427af4647235b4a73b13940b1f1258d3584f36e",
+                "url": "https://api.github.com/repos/phpstan/phpdoc-parser/zipball/e3647094ed8f0f1f67393d812b793a5143e25af3",
+                "reference": "e3647094ed8f0f1f67393d812b793a5143e25af3",
                 "shasum": ""
             },
             "require": {
@@ -6718,9 +6727,9 @@
             "description": "PHPDoc parser with support for nullable, intersection and generic types",
             "support": {
                 "issues": "https://github.com/phpstan/phpdoc-parser/issues",
-                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.3.6"
+                "source": "https://github.com/phpstan/phpdoc-parser/tree/2.4.0"
             },
-            "time": "2026-09-27T20:07:45+00:00"
+            "time": "2026-10-28T20:28:58+00:00"
         },
         {
             "name": "phpstan/phpstan",
@@ -7223,23 +7232,23 @@
         },
         {
             "name": "polaris/admin",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.admin.git",
-                "reference": "30a704cf3f9f28dd3e9b24841311b096d2d97cb3"
+                "reference": "8abebb04073edcfff6a2684e2c3ebee2ab50fb8c"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.admin/zipball/30a704cf3f9f28dd3e9b24841311b096d2d97cb3",
-                "reference": "30a704cf3f9f28dd3e9b24841311b096d2d97cb3",
+                "url": "https://api.github.com/repos/univeros/polaris.admin/zipball/8abebb04073edcfff6a2684e2c3ebee2ab50fb8c",
+                "reference": "8abebb04073edcfff6a2684e2c3ebee2ab50fb8c",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/audit": "^0.11",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/audit": "^0.12",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-message": "^1.1 || ^2.0",
                 "psr/http-server-handler": "^1.0",
@@ -7250,7 +7259,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7271,22 +7280,22 @@
             "description": "Admin for Polaris for PHP: the operator API over users, sessions, MFA, organizations, audit drains and stats, for admin users and API keys, every action audited",
             "support": {
                 "issues": "https://github.com/univeros/polaris.admin/issues",
-                "source": "https://github.com/univeros/polaris.admin/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.admin/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/agents",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.agents.git",
-                "reference": "546270b4176d10eb8f682cacb6c088afd221cd1d"
+                "reference": "943b48536173c4ec0a7ba242a44c2066f772e7f9"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.agents/zipball/546270b4176d10eb8f682cacb6c088afd221cd1d",
-                "reference": "546270b4176d10eb8f682cacb6c088afd221cd1d",
+                "url": "https://api.github.com/repos/univeros/polaris.agents/zipball/943b48536173c4ec0a7ba242a44c2066f772e7f9",
+                "reference": "943b48536173c4ec0a7ba242a44c2066f772e7f9",
                 "shasum": ""
             },
             "require": {
@@ -7295,11 +7304,11 @@
                 "lcobucci/jwt": "^5.0",
                 "opis/json-schema": "^2.4",
                 "php": ">=8.3",
-                "polaris/admin": "^0.11",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
-                "polaris/mcp": "^0.11",
-                "polaris/oauth-provider": "^0.11",
+                "polaris/admin": "^0.12",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
+                "polaris/mcp": "^0.12",
+                "polaris/oauth-provider": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7311,7 +7320,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7347,28 +7356,28 @@
             ],
             "support": {
                 "issues": "https://github.com/univeros/polaris.agents/issues",
-                "source": "https://github.com/univeros/polaris.agents/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.agents/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/anonymous",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.anonymous.git",
-                "reference": "d4a8590321df14fc9eb5d30970320f02a35190d3"
+                "reference": "3458327caaedea6e3d77fd4cef833034f049b219"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.anonymous/zipball/d4a8590321df14fc9eb5d30970320f02a35190d3",
-                "reference": "d4a8590321df14fc9eb5d30970320f02a35190d3",
+                "url": "https://api.github.com/repos/univeros/polaris.anonymous/zipball/3458327caaedea6e3d77fd4cef833034f049b219",
+                "reference": "3458327caaedea6e3d77fd4cef833034f049b219",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "symfony/console": "^7.0 || ^8.0",
@@ -7377,7 +7386,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7398,28 +7407,28 @@
             "description": "Anonymous sign-in for Polaris for PHP: guest sessions, an explicit conversion into a real account through a host hook, pruning of the guests nobody converted",
             "support": {
                 "issues": "https://github.com/univeros/polaris.anonymous/issues",
-                "source": "https://github.com/univeros/polaris.anonymous/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.anonymous/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/api-keys",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.api-keys.git",
-                "reference": "9af65f0fff3b3496a55dccd4b31285e50736d35e"
+                "reference": "bea7fad4c9fcc4414eb7fb8fbdc89dc4b46b2e91"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.api-keys/zipball/9af65f0fff3b3496a55dccd4b31285e50736d35e",
-                "reference": "9af65f0fff3b3496a55dccd4b31285e50736d35e",
+                "url": "https://api.github.com/repos/univeros/polaris.api-keys/zipball/bea7fad4c9fcc4414eb7fb8fbdc89dc4b46b2e91",
+                "reference": "bea7fad4c9fcc4414eb7fb8fbdc89dc4b46b2e91",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7430,7 +7439,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7461,28 +7470,28 @@
             ],
             "support": {
                 "issues": "https://github.com/univeros/polaris.api-keys/issues",
-                "source": "https://github.com/univeros/polaris.api-keys/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.api-keys/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/audit",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.audit.git",
-                "reference": "c990ce69a7b48f472637e9186d14c00123940128"
+                "reference": "e509db4bb0e46e63e23a9d8dce00fb95a4764861"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.audit/zipball/c990ce69a7b48f472637e9186d14c00123940128",
-                "reference": "c990ce69a7b48f472637e9186d14c00123940128",
+                "url": "https://api.github.com/repos/univeros/polaris.audit/zipball/e509db4bb0e46e63e23a9d8dce00fb95a4764861",
+                "reference": "e509db4bb0e46e63e23a9d8dce00fb95a4764861",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7495,7 +7504,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7516,22 +7525,22 @@
             "description": "Audit for Polaris for PHP: a catalogued, redacted, append-only audit store with sinks, per-organization drains, a query API, retention and an optional hash chain",
             "support": {
                 "issues": "https://github.com/univeros/polaris.audit/issues",
-                "source": "https://github.com/univeros/polaris.audit/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.audit/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/mcp",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.mcp.git",
-                "reference": "8f935f23a2523b2015952e2cfaabb6fab93c82e3"
+                "reference": "3e360dbd7361b2d8f591fd859b506a887454228b"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.mcp/zipball/8f935f23a2523b2015952e2cfaabb6fab93c82e3",
-                "reference": "8f935f23a2523b2015952e2cfaabb6fab93c82e3",
+                "url": "https://api.github.com/repos/univeros/polaris.mcp/zipball/3e360dbd7361b2d8f591fd859b506a887454228b",
+                "reference": "3e360dbd7361b2d8f591fd859b506a887454228b",
                 "shasum": ""
             },
             "require": {
@@ -7539,9 +7548,9 @@
                 "firebase/php-jwt": "^7.0",
                 "mcp/sdk": "^0.8.1",
                 "php": ">=8.3",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
-                "polaris/psr15": "^0.11",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
+                "polaris/psr15": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7553,7 +7562,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7588,29 +7597,29 @@
             ],
             "support": {
                 "issues": "https://github.com/univeros/polaris.mcp/issues",
-                "source": "https://github.com/univeros/polaris.mcp/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.mcp/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/messaging",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.messaging.git",
-                "reference": "752c4388c7c6228ae32e0ad9076cf4ccc1e16d0b"
+                "reference": "6f4911bbd644d3d5592e6bb6fc753872603c3b45"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.messaging/zipball/752c4388c7c6228ae32e0ad9076cf4ccc1e16d0b",
-                "reference": "752c4388c7c6228ae32e0ad9076cf4ccc1e16d0b",
+                "url": "https://api.github.com/repos/univeros/polaris.messaging/zipball/6f4911bbd644d3d5592e6bb6fc753872603c3b45",
+                "reference": "6f4911bbd644d3d5592e6bb6fc753872603c3b45",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/audit": "^0.11",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/audit": "^0.12",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7626,7 +7635,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7647,27 +7656,27 @@
             "description": "Messaging for Polaris for PHP: templated, translated, rate-limited email and SMS through pluggable channels, every send audited",
             "support": {
                 "issues": "https://github.com/univeros/polaris.messaging/issues",
-                "source": "https://github.com/univeros/polaris.messaging/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.messaging/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/multi-session",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.multi-session.git",
-                "reference": "ed6b862b843f54c884e7f9d86385024f24ad6c37"
+                "reference": "1125466280170cc6edb6edb3f68775f226653fee"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.multi-session/zipball/ed6b862b843f54c884e7f9d86385024f24ad6c37",
-                "reference": "ed6b862b843f54c884e7f9d86385024f24ad6c37",
+                "url": "https://api.github.com/repos/univeros/polaris.multi-session/zipball/1125466280170cc6edb6edb3f68775f226653fee",
+                "reference": "1125466280170cc6edb6edb3f68775f226653fee",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-message": "^1.1 || ^2.0",
                 "psr/http-server-handler": "^1.0",
@@ -7677,7 +7686,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7698,22 +7707,22 @@
             "description": "Multi-session for Polaris for PHP: several signed-in accounts on one device, switching between them without signing in again, revoking one, and the last sign-in method for the client to pre-select",
             "support": {
                 "issues": "https://github.com/univeros/polaris.multi-session/issues",
-                "source": "https://github.com/univeros/polaris.multi-session/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.multi-session/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/oauth-provider",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.oauth-provider.git",
-                "reference": "6b49d59361e43d5c417a9b933ef648be927357ee"
+                "reference": "bda41b4be6c2f24cec3bcf162e9f97672f16e4a3"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.oauth-provider/zipball/6b49d59361e43d5c417a9b933ef648be927357ee",
-                "reference": "6b49d59361e43d5c417a9b933ef648be927357ee",
+                "url": "https://api.github.com/repos/univeros/polaris.oauth-provider/zipball/bda41b4be6c2f24cec3bcf162e9f97672f16e4a3",
+                "reference": "bda41b4be6c2f24cec3bcf162e9f97672f16e4a3",
                 "shasum": ""
             },
             "require": {
@@ -7721,9 +7730,9 @@
                 "firebase/php-jwt": "^7.0",
                 "lcobucci/jwt": "^5.6",
                 "php": ">=8.3",
-                "polaris/admin": "^0.11",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/admin": "^0.12",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/http-client": "^1.0",
@@ -7736,7 +7745,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7772,28 +7781,28 @@
             ],
             "support": {
                 "issues": "https://github.com/univeros/polaris.oauth-provider/issues",
-                "source": "https://github.com/univeros/polaris.oauth-provider/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.oauth-provider/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/passkey",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.passkey.git",
-                "reference": "2469e5c79b91f0a532478adf3bde7863af6d4d58"
+                "reference": "bac4a4a9bc9a2ef79e49719faf096a59e91d47d1"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.passkey/zipball/2469e5c79b91f0a532478adf3bde7863af6d4d58",
-                "reference": "2469e5c79b91f0a532478adf3bde7863af6d4d58",
+                "url": "https://api.github.com/repos/univeros/polaris.passkey/zipball/bac4a4a9bc9a2ef79e49719faf096a59e91d47d1",
+                "reference": "bac4a4a9bc9a2ef79e49719faf096a59e91d47d1",
                 "shasum": ""
             },
             "require": {
                 "ext-openssl": "*",
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/simple-cache": "^3.0",
@@ -7803,7 +7812,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7824,28 +7833,28 @@
             "description": "Passkeys for Polaris for PHP: WebAuthn registration and discoverable sign-in with conditional UI, a passkey as a core MFA factor, naming and removal",
             "support": {
                 "issues": "https://github.com/univeros/polaris.passkey/issues",
-                "source": "https://github.com/univeros/polaris.passkey/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.passkey/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/passwordless",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.passwordless.git",
-                "reference": "14f4725aa957f42ac08736aed8767749d5ffe90f"
+                "reference": "84e00ddba09cf2678d1010d6b94229762a956153"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.passwordless/zipball/14f4725aa957f42ac08736aed8767749d5ffe90f",
-                "reference": "14f4725aa957f42ac08736aed8767749d5ffe90f",
+                "url": "https://api.github.com/repos/univeros/polaris.passwordless/zipball/84e00ddba09cf2678d1010d6b94229762a956153",
+                "reference": "84e00ddba09cf2678d1010d6b94229762a956153",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
-                "polaris/messaging": "^0.11",
+                "polaris/core": "^0.12",
+                "polaris/messaging": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/simple-cache": "^3.0",
@@ -7854,7 +7863,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7875,30 +7884,30 @@
             "description": "Passwordless sign-in for Polaris for PHP: magic links, email one-time codes (sign-in, email verification, password reset), phone codes for a verified second contact, one-time tokens for session transfer",
             "support": {
                 "issues": "https://github.com/univeros/polaris.passwordless/issues",
-                "source": "https://github.com/univeros/polaris.passwordless/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.passwordless/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/scim",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.scim.git",
-                "reference": "fdc9786a86cb3f26aad0755adb7b9e615e8af559"
+                "reference": "22b505c8a0aaf7e244392b9a8799d86a7cbbea8a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.scim/zipball/fdc9786a86cb3f26aad0755adb7b9e615e8af559",
-                "reference": "fdc9786a86cb3f26aad0755adb7b9e615e8af559",
+                "url": "https://api.github.com/repos/univeros/polaris.scim/zipball/22b505c8a0aaf7e244392b9a8799d86a7cbbea8a",
+                "reference": "22b505c8a0aaf7e244392b9a8799d86a7cbbea8a",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/admin": "^0.11",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
-                "polaris/sso": "^0.11",
+                "polaris/admin": "^0.12",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
+                "polaris/sso": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-message": "^1.1 || ^2.0",
                 "psr/http-server-handler": "^1.0",
@@ -7908,7 +7917,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7929,31 +7938,31 @@
             "description": "SCIM for Polaris for PHP: a SCIM 2.0 server per organization with provisioning tokens, users and groups projected onto members and roles, organization self-service and operator routes",
             "support": {
                 "issues": "https://github.com/univeros/polaris.scim/issues",
-                "source": "https://github.com/univeros/polaris.scim/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.scim/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/sentinel",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.sentinel.git",
-                "reference": "0e4c66631319263d1a0b9a7ae01667574ab3b8e3"
+                "reference": "48a1bc8ff7f5521d85e49bf4f79b728a20a0e547"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.sentinel/zipball/0e4c66631319263d1a0b9a7ae01667574ab3b8e3",
-                "reference": "0e4c66631319263d1a0b9a7ae01667574ab3b8e3",
+                "url": "https://api.github.com/repos/univeros/polaris.sentinel/zipball/48a1bc8ff7f5521d85e49bf4f79b728a20a0e547",
+                "reference": "48a1bc8ff7f5521d85e49bf4f79b728a20a0e547",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/admin": "^0.11",
-                "polaris/audit": "^0.11",
-                "polaris/cli": "^0.11",
-                "polaris/core": "^0.11",
-                "polaris/messaging": "^0.11",
+                "polaris/admin": "^0.12",
+                "polaris/audit": "^0.12",
+                "polaris/cli": "^0.12",
+                "polaris/core": "^0.12",
+                "polaris/messaging": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -7972,7 +7981,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -7993,30 +8002,30 @@
             "description": "Sentinel for Polaris for PHP: a local risk engine on sign-up, sign-in, password reset and code sends (velocity, credential stuffing, bots, disposable domains, impossible travel, IP rules, devices, breached passwords) that observes, challenges or blocks",
             "support": {
                 "issues": "https://github.com/univeros/polaris.sentinel/issues",
-                "source": "https://github.com/univeros/polaris.sentinel/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.sentinel/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/social",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.social.git",
-                "reference": "f645599409f42c07ce1f8dc471bd0cf2e583c91d"
+                "reference": "5762431a77905e8bb84bd6af9862ca4bf0f4e85a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.social/zipball/f645599409f42c07ce1f8dc471bd0cf2e583c91d",
-                "reference": "f645599409f42c07ce1f8dc471bd0cf2e583c91d",
+                "url": "https://api.github.com/repos/univeros/polaris.social/zipball/5762431a77905e8bb84bd6af9862ca4bf0f4e85a",
+                "reference": "5762431a77905e8bb84bd6af9862ca4bf0f4e85a",
                 "shasum": ""
             },
             "require": {
                 "ext-openssl": "*",
                 "firebase/php-jwt": "^7.0",
                 "php": ">=8.3",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/event-dispatcher": "^1.0",
                 "psr/http-client": "^1.0",
@@ -8028,7 +8037,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -8049,22 +8058,22 @@
             "description": "Social sign-in for Polaris for PHP: OAuth 2.0 and OpenID Connect providers (Google, Apple, Microsoft, GitHub and sixteen more, or any OAuth 2 server), account linking, Google One Tap, provider tokens on the user's behalf, an OAuth proxy for preview origins",
             "support": {
                 "issues": "https://github.com/univeros/polaris.social/issues",
-                "source": "https://github.com/univeros/polaris.social/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.social/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/sso",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.sso.git",
-                "reference": "9a699340bce09086958029bd185db3cdb04bc411"
+                "reference": "bf0ac0d353f5d50d8c9171388422962220b899bf"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.sso/zipball/9a699340bce09086958029bd185db3cdb04bc411",
-                "reference": "9a699340bce09086958029bd185db3cdb04bc411",
+                "url": "https://api.github.com/repos/univeros/polaris.sso/zipball/bf0ac0d353f5d50d8c9171388422962220b899bf",
+                "reference": "bf0ac0d353f5d50d8c9171388422962220b899bf",
                 "shasum": ""
             },
             "require": {
@@ -8073,9 +8082,9 @@
                 "firebase/php-jwt": "^7.0",
                 "onelogin/php-saml": "^4.3",
                 "php": ">=8.3",
-                "polaris/admin": "^0.11",
-                "polaris/audit": "^0.11",
-                "polaris/core": "^0.11",
+                "polaris/admin": "^0.12",
+                "polaris/audit": "^0.12",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0",
                 "psr/http-client": "^1.0",
                 "psr/http-factory": "^1.0",
@@ -8087,7 +8096,7 @@
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -8108,32 +8117,32 @@
             "description": "SSO for Polaris for PHP: per-organization SAML 2.0 and OIDC providers, verified domains, just-in-time provisioning, single logout, organization self-service and operator routes",
             "support": {
                 "issues": "https://github.com/univeros/polaris.sso/issues",
-                "source": "https://github.com/univeros/polaris.sso/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.sso/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/testing",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.testing.git",
-                "reference": "eed4bb89cb93662553b68fb175a1686ab303952f"
+                "reference": "ebda1c305b8104b6a853e61c65452dff93a408a0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.testing/zipball/eed4bb89cb93662553b68fb175a1686ab303952f",
-                "reference": "eed4bb89cb93662553b68fb175a1686ab303952f",
+                "url": "https://api.github.com/repos/univeros/polaris.testing/zipball/ebda1c305b8104b6a853e61c65452dff93a408a0",
+                "reference": "ebda1c305b8104b6a853e61c65452dff93a408a0",
                 "shasum": ""
             },
             "require": {
                 "php": ">=8.3",
-                "polaris/core": "^0.11"
+                "polaris/core": "^0.12"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -8154,34 +8163,34 @@
             "description": "In-memory adapter, fakes and fixtures for testing applications built on Polaris for PHP",
             "support": {
                 "issues": "https://github.com/univeros/polaris.testing/issues",
-                "source": "https://github.com/univeros/polaris.testing/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.testing/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "polaris/username",
-            "version": "v0.11.0",
+            "version": "v0.12.0",
             "source": {
                 "type": "git",
                 "url": "https://github.com/univeros/polaris.username.git",
-                "reference": "7fe2226c7886ea5260fa8a01c3c77293a5311bfb"
+                "reference": "888e76e74b2496c7aa0ebf7074eada3914426dec"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/univeros/polaris.username/zipball/7fe2226c7886ea5260fa8a01c3c77293a5311bfb",
-                "reference": "7fe2226c7886ea5260fa8a01c3c77293a5311bfb",
+                "url": "https://api.github.com/repos/univeros/polaris.username/zipball/888e76e74b2496c7aa0ebf7074eada3914426dec",
+                "reference": "888e76e74b2496c7aa0ebf7074eada3914426dec",
                 "shasum": ""
             },
             "require": {
                 "ext-mbstring": "*",
                 "php": ">=8.3",
-                "polaris/core": "^0.11",
+                "polaris/core": "^0.12",
                 "psr/clock": "^1.0"
             },
             "type": "library",
             "extra": {
                 "branch-alias": {
-                    "dev-main": "0.11.x-dev"
+                    "dev-main": "0.12.x-dev"
                 }
             },
             "autoload": {
@@ -8202,9 +8211,9 @@
             "description": "Username for Polaris for PHP: sign in with a username or an email through core's password path, case-insensitive unique usernames with a display form, validation rules from configuration",
             "support": {
                 "issues": "https://github.com/univeros/polaris.username/issues",
-                "source": "https://github.com/univeros/polaris.username/tree/v0.11.0"
+                "source": "https://github.com/univeros/polaris.username/tree/v0.12.0"
             },
-            "time": "2026-10-13T21:28:58+00:00"
+            "time": "2026-10-29T10:04:02+00:00"
         },
         {
             "name": "robrichards/xmlseclibs",
@@ -9903,16 +9912,16 @@
         },
         {
             "name": "symfony/property-access",
-            "version": "v7.4.16",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/property-access.git",
-                "reference": "c3dce76a6697c6428f7d80d5cd1cf0aa5d9679f3"
+                "reference": "b45cfcfe0abdbba37350645dae148be29b94f25a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/property-access/zipball/c3dce76a6697c6428f7d80d5cd1cf0aa5d9679f3",
-                "reference": "c3dce76a6697c6428f7d80d5cd1cf0aa5d9679f3",
+                "url": "https://api.github.com/repos/symfony/property-access/zipball/b45cfcfe0abdbba37350645dae148be29b94f25a",
+                "reference": "b45cfcfe0abdbba37350645dae148be29b94f25a",
                 "shasum": ""
             },
             "require": {
@@ -9960,7 +9969,7 @@
                 "reflection"
             ],
             "support": {
-                "source": "https://github.com/symfony/property-access/tree/v7.4.16"
+                "source": "https://github.com/symfony/property-access/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -9980,20 +9989,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-07-30T12:37:26+00:00"
+            "time": "2026-10-26T21:52:50+00:00"
         },
         {
             "name": "symfony/property-info",
-            "version": "v7.4.20",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/property-info.git",
-                "reference": "d24c4c810b1285c5d8d77c6fd7b25e714479bd48"
+                "reference": "25c1b823ee4e0995e57e49bc0160c43ea199a7b5"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/property-info/zipball/d24c4c810b1285c5d8d77c6fd7b25e714479bd48",
-                "reference": "d24c4c810b1285c5d8d77c6fd7b25e714479bd48",
+                "url": "https://api.github.com/repos/symfony/property-info/zipball/25c1b823ee4e0995e57e49bc0160c43ea199a7b5",
+                "reference": "25c1b823ee4e0995e57e49bc0160c43ea199a7b5",
                 "shasum": ""
             },
             "require": {
@@ -10050,7 +10059,7 @@
                 "validator"
             ],
             "support": {
-                "source": "https://github.com/symfony/property-info/tree/v7.4.20"
+                "source": "https://github.com/symfony/property-info/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -10070,20 +10079,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-28T09:47:41+00:00"
+            "time": "2026-10-25T14:40:16+00:00"
         },
         {
             "name": "symfony/serializer",
-            "version": "v7.4.20",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/serializer.git",
-                "reference": "67c5b0b2ef39863835f43b9c34dcb3af80b892cf"
+                "reference": "e6c6739e8eb764ea7b6d9bea044bda599ec51122"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/serializer/zipball/67c5b0b2ef39863835f43b9c34dcb3af80b892cf",
-                "reference": "67c5b0b2ef39863835f43b9c34dcb3af80b892cf",
+                "url": "https://api.github.com/repos/symfony/serializer/zipball/e6c6739e8eb764ea7b6d9bea044bda599ec51122",
+                "reference": "e6c6739e8eb764ea7b6d9bea044bda599ec51122",
                 "shasum": ""
             },
             "require": {
@@ -10154,7 +10163,7 @@
             "description": "Handles serializing and deserializing data structures, including object graphs, into array structures or other formats like XML and JSON.",
             "homepage": "https://symfony.com",
             "support": {
-                "source": "https://github.com/symfony/serializer/tree/v7.4.20"
+                "source": "https://github.com/symfony/serializer/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -10174,20 +10183,20 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-28T09:39:38+00:00"
+            "time": "2026-10-25T14:40:16+00:00"
         },
         {
             "name": "symfony/type-info",
-            "version": "v7.4.20",
+            "version": "v7.4.22",
             "source": {
                 "type": "git",
                 "url": "https://github.com/symfony/type-info.git",
-                "reference": "bbaaf3366400f5c85f66800b955c77b46e8abad2"
+                "reference": "f69ab198af73e1aac485c0ff5aa066d20c14adf0"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/symfony/type-info/zipball/bbaaf3366400f5c85f66800b955c77b46e8abad2",
-                "reference": "bbaaf3366400f5c85f66800b955c77b46e8abad2",
+                "url": "https://api.github.com/repos/symfony/type-info/zipball/f69ab198af73e1aac485c0ff5aa066d20c14adf0",
+                "reference": "f69ab198af73e1aac485c0ff5aa066d20c14adf0",
                 "shasum": ""
             },
             "require": {
@@ -10237,7 +10246,7 @@
                 "type"
             ],
             "support": {
-                "source": "https://github.com/symfony/type-info/tree/v7.4.20"
+                "source": "https://github.com/symfony/type-info/tree/v7.4.22"
             },
             "funding": [
                 {
@@ -10257,7 +10266,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2026-09-28T12:19:37+00:00"
+            "time": "2026-10-24T08:22:23+00:00"
         },
         {
             "name": "theseer/tokenizer",

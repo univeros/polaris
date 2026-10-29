@@ -18,11 +18,11 @@
     "require": {
         "php": ">=8.3",
         "ext-pdo_sqlite": "*",
-        "polaris/admin": "^0.11",
-        "polaris/api-keys": "^0.11",
-        "polaris/audit": "^0.11",
-        "polaris/mcp": "^0.11",
-        "polaris/oauth-provider": "^0.11",
+        "polaris/admin": "^0.12",
+        "polaris/api-keys": "^0.12",
+        "polaris/audit": "^0.12",
+        "polaris/mcp": "^0.12",
+        "polaris/oauth-provider": "^0.12",
         "univeros/framework": "^2.6",
         "univeros/polaris": "2.0.x-dev"
     },

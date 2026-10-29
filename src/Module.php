@@ -236,7 +236,7 @@ final class Module implements
     {
         $env = self::env($container);
 
-        return ManifestSection::render(self::endpoints($container, $env), PolarisConfig::pathPrefix($env));
+        return ManifestSection::render(self::endpoints($container, $env), PolarisConfig::pathPrefix($env), PolarisConfig::auth($container, $env)->tokenDelivery);
     }
 
     /**

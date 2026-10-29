@@ -41,7 +41,7 @@ apply `CliConfiguration` over the framework's `src/Altair/*/Cli` directories,
 `add()` each of `Univeros\Polaris\Console\Commands::all($container)`, run.
 `examples/univeros/bin/altair` is the file.
 
-Plugins (any `polaris/*` plugin of Polaris for PHP 0.11: passkey, social,
+Plugins (any `polaris/*` plugin of Polaris for PHP 0.12: passkey, social,
 api-keys, oauth-provider, mcp, agents, audit, ...): bind
 `new Univeros\Polaris\Plugins(new PasskeyPlugin(...), ...)` in
 `config/container.php`, or name no-argument plugin classes in
@@ -245,6 +245,9 @@ vendor/bin/phpunit # SQLite in memory without DB_CONNECTION; the DB_* variables 
   Polaris section to `.agent/modules/univeros/polaris.md` (every route of core
   and the configured plugins with auth, step-up, permissions and error codes,
   plus the permission catalog); gate it in CI with `manifest:generate --check`.
+- Cookie token delivery: `AUTH_TOKEN_DELIVERY=cookie` (+ `AUTH_COOKIE_TRUSTED_ORIGINS`); the
+  `session: issue | refresh` routes answer the refresh token as the `__Secure-polaris_refresh` cookie, need
+  https and `X-Polaris-CSRF: 1` (`403 csrf_failed` / `insecure_transport`); access tokens stay in the body.
 - Async sends: `MessagingPlugin(outbox: new BusOutbox(fn() => $container->get(MessageBusInterface::class)))`
   with `MESSENGER_ROUTING="Univeros\Polaris\Messaging\SendMessage:<transport>"`; `bin/altair worker`
   delivers them (the module registers the handler).

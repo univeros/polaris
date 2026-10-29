@@ -94,12 +94,31 @@ final class PolarisConfig
     }
 
     /**
-     * The bound {@see AuthConfig}, else `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_ACCESS_TOKEN_DENYLIST` and
-     * `AUTH_PASSWORD_BREACH_CHECK` from the environment over core's defaults.
+     * The bound {@see AuthConfig}, else `AUTH_ISSUER`, `AUTH_AUDIENCE`, `AUTH_ACCESS_TOKEN_DENYLIST`,
+     * `AUTH_PASSWORD_BREACH_CHECK`, `AUTH_TOKEN_DELIVERY` (`body` or `cookie`) and
+     * `AUTH_COOKIE_TRUSTED_ORIGINS` (comma-separated https origins) from the environment over core's defaults.
      */
     public static function auth(Container $container, Env $env): AuthConfig
     {
-        return self::port($container, AuthConfig::class) ?? EnvironmentConfig::auth(self::environment($env));
+        return self::port($container, AuthConfig::class) ?? EnvironmentConfig::auth(self::environment($env), self::flows($env));
+    }
+
+    /**
+     * @return array{flows?: array{token_delivery?: string, cookie?: array{trusted_origins: list<string>}}}
+     */
+    private static function flows(Env $env): array
+    {
+        $flows = [];
+        $delivery = $env->get('AUTH_TOKEN_DELIVERY');
+        if (is_string($delivery) && $delivery !== '') {
+            $flows['token_delivery'] = $delivery;
+        }
+        $origins = $env->get('AUTH_COOKIE_TRUSTED_ORIGINS');
+        if (is_string($origins) && $origins !== '') {
+            $flows['cookie'] = ['trusted_origins' => array_values(array_filter(array_map(trim(...), explode(',', $origins))))];
+        }
+
+        return $flows === [] ? [] : ['flows' => $flows];
     }
 
     /**

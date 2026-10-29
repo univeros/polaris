@@ -28,7 +28,9 @@ final class ManifestSectionTest extends TestCase
         self::assertStringStartsWith("# univeros/polaris\n", $manifest);
         self::assertStringContainsString('- Path prefix: `/auth` (`POLARIS_PATH_PREFIX`).', $manifest);
         self::assertStringContainsString('- Plugins: `username`.', $manifest);
-        self::assertMatchesRegularExpression('#\| POST \| `/auth/auth/login` \| public \| [^|]* \| write \| [^|]*401[^|]* \| core \|#', $manifest);
+        self::assertMatchesRegularExpression('#\| POST \| `/auth/auth/login` \| public, session: issue \| [^|]* \| write \| [^|]*401[^|]* \| core \|#', $manifest);
+        self::assertStringContainsString('| `/auth/username/sign-in` | public, session: issue |', $manifest);
+        self::assertStringContainsString('- Token delivery: `body`', $manifest);
         self::assertStringContainsString('| `/auth/username/sign-in` |', $manifest);
         self::assertStringContainsString("\n## Permissions\n", $manifest);
         self::assertSame($manifest, $module->manifest($container), 'byte-stable for manifest:generate --check');
@@ -37,10 +39,12 @@ final class ManifestSectionTest extends TestCase
     public function testWithoutPluginsOrPrefixItListsCoresRoutesOnly(): void
     {
         $module = new Module();
-        $manifest = $module->manifest($this->container($module, [], null));
+        $manifest = $module->manifest($this->container($module, ['AUTH_TOKEN_DELIVERY' => 'cookie'], null));
 
         self::assertStringContainsString('- Path prefix: none (`POLARIS_PATH_PREFIX`).', $manifest);
         self::assertStringContainsString('- Plugins: none.', $manifest);
+        self::assertStringContainsString('- Token delivery: `cookie`', $manifest);
+        self::assertStringContainsString('`__Secure-polaris_refresh`', $manifest);
         self::assertSame(52, substr_count($manifest, ' | core |'));
         self::assertNotEmpty($module->manifestDescription());
     }
