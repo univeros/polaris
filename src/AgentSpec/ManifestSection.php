@@ -29,7 +29,7 @@ final class ManifestSection
     /**
      * @param list<EndpointSpec> $endpoints
      */
-    public static function render(array $endpoints, string $prefix): string
+    public static function render(array $endpoints, string $prefix, string $tokenDelivery = 'body'): string
     {
         usort($endpoints, static fn(EndpointSpec $a, EndpointSpec $b): int => strcmp($a->path . ' ' . $a->method, $b->path . ' ' . $b->method));
         $prefix = rtrim($prefix, '/');
@@ -42,6 +42,9 @@ final class ManifestSection
             '- These routes are served by `Univeros\\Polaris\\Http\\PolarisMiddleware` ahead of the router, not from `config/routes.php`. `bin/altair polaris:manifest --format=openapi` prints the full contract (inputs, outputs, examples).',
             sprintf('- Path prefix: %s (`POLARIS_PATH_PREFIX`).', $prefix === '' ? 'none' : '`' . $prefix . '`'),
             sprintf('- Plugins: %s.', self::plugins($endpoints)),
+            $tokenDelivery === 'cookie'
+                ? '- Token delivery: `cookie` (`AUTH_TOKEN_DELIVERY`). The routes marked `session: issue` or `refresh` answer the refresh token as the `__Secure-polaris_refresh` cookie (HttpOnly, Secure, SameSite=Strict), not in the body; they need https and the `X-Polaris-CSRF: 1` header. `session: end` clears it.'
+                : '- Token delivery: `body` (`AUTH_TOKEN_DELIVERY`). The routes marked `session: issue` or `refresh` answer `data.refresh_token`.',
             '- Protect your own routes with `Altair\\Http\\Middleware\\TokenAuthenticationMiddleware` (Polaris access tokens, `Authorization: Bearer`) or `Univeros\\Polaris\\Http\\PluginTokenAuthenticationMiddleware` (plus the plugins\' credentials); authorize with `Polaris\\Authorization\\Gate`.',
             '- Errors are Polaris JSON envelopes; the codes below are the `error` field.',
             '',
@@ -55,7 +58,7 @@ final class ManifestSection
                 '| %s | `%s` | %s | %s | %s | %s | %s |',
                 $spec->method,
                 $prefix . $spec->path,
-                $spec->auth . ($spec->stepUp ? ' + step-up' : ''),
+                $spec->auth . ($spec->stepUp ? ' + step-up' : '') . ($spec->session === null ? '' : ', session: ' . $spec->session),
                 self::cell(implode(', ', $spec->requiresPermissions)),
                 $spec->effect,
                 self::cell(self::errors($spec)),

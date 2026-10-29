@@ -71,7 +71,13 @@ return [
 
         'flows' => [
             'require_verified_email' => true,
-            'token_delivery'         => 'body',  // body | cookie
+            'token_delivery'         => 'body',  // body | cookie (the refresh token in an HttpOnly cookie)
+            'cookie'                 => [
+                // Other origins allowed to sign in and refresh in cookie mode (https only), e.g.
+                // ['https://app.example.com']. Polaris answers no CORS preflight: the host's CORS layer must
+                // allow credentials and the X-Polaris-CSRF header for exactly these origins.
+                'trusted_origins' => [],
+            ],
             'email_verification'     => [ 'style' => 'link', 'ttl' => 86400 ],
             'password_reset'         => [ 'style' => 'link', 'ttl' => 3600 ],
             'invitation'             => [ 'ttl' => 604800 ], // 7 days

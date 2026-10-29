@@ -4,6 +4,20 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+- Cookie token delivery from Polaris for PHP 0.12: with `AUTH_TOKEN_DELIVERY=cookie` (or a bound `AuthConfig`)
+  the routes marked `session: issue | refresh` answer the refresh token as an HttpOnly
+  `__Secure-polaris_refresh` cookie, guarded against CSRF and plaintext; `AUTH_COOKIE_TRUSTED_ORIGINS` lists
+  other https origins. Core's cookie-mode suite and the mcp and multi-session ones replay green through the
+  module (`test:contract` 204, `test:plugins` 57).
+- The AgentSpec section shows each route's `session` and the configured token delivery.
+
+### Changed
+- `polaris/*` move to `^0.12`. Body mode, the default, is unchanged.
+- `docs/auth/` (API reference, configuration, flows, security) follows polaris-core's cookie-mode update.
+
 ## [2.4.0] - 2026-10-14
 
 On Polaris for PHP 0.11: polaris/messaging's sends can leave the request through Univeros Messaging, and

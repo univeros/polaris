@@ -199,3 +199,9 @@ hand-off this work applies. What follows is what was decided while applying it.
   config anyway) and routes `SendMessage` with `MESSENGER_ROUTING`. The module registers the handler on
   `HandlerRegistry` by `extend()`, since the framework only discovers handlers in the host's paths. A send
   no channel delivered throws in the worker so the transport's retry and failure transport apply.
+- 2026-10-29 · 2.5 · Cookie token delivery (Polaris for PHP 0.12): the module only raises its constraints and
+  reads `AUTH_TOKEN_DELIVERY` and `AUTH_COOKIE_TRUSTED_ORIGINS`; `RefreshCookieMiddleware` comes with the
+  `Pipeline` the module already runs, and core's cookie-mode suites replay through the harness unchanged.
+  No trusted-proxy code here: the skeleton's Diactoros `fromGlobals()` already takes `X-Forwarded-Proto` from
+  private-network proxies, and a host with a public proxy passes its own filter (README). No CORS layer
+  either: Polaris sends none, and a cross-origin host adds its own.

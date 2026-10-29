@@ -60,10 +60,18 @@ to verify, are encrypted (reversible) rather than hashed.
 - **Token transport:**
   - *Default*: access + refresh returned in JSON; client stores access in memory
     and refresh in secure storage; sends `Authorization: Bearer`. No CSRF surface.
-  - *Cookie mode* (`flows.token_delivery: cookie`): refresh in
-    `HttpOnly; Secure; SameSite=Strict` cookie; the framework `CsrfMiddleware`
-    guards cookie-authenticated mutations. Mitigates XSS token theft at the cost
-    of CSRF handling.
+  - *Cookie mode* (`flows.token_delivery: cookie`): refresh in the
+    `__Secure-polaris_refresh` cookie (`HttpOnly; Secure; SameSite=Strict`, path
+    the refresh route), moved by `Polaris\Psr15\Middleware\RefreshCookieMiddleware`.
+    Every route that sets or uses it (`session: issue | refresh`) is CSRF-guarded:
+    the `X-Polaris-CSRF: 1` header (a cross-origin page cannot send it without a
+    preflight Polaris never answers) and an `Origin` equal to the request's own or
+    one of `flows.cookie.trusted_origins` (or, without `Origin`,
+    `Sec-Fetch-Site: same-origin`); otherwise `403 csrf_failed` before the
+    endpoint runs. The guard also covers the sign-in routes, so a cross-site form
+    cannot plant an attacker's session (login CSRF). Mitigates XSS token theft: an
+    injected script can use the session while the page is open but cannot take
+    the long-lived credential away.
 - **`mfa_token` / `step_up`** are single-purpose JWTs; the auth middleware
   rejects them on normal routes by checking the `purpose` claim.
 - **Optional `jti` denylist** (`security.access_token.denylist`) for hosts
@@ -166,8 +174,10 @@ include a **per-destination** key to prevent OTP-bombing a victim's phone/email.
 - **Data at rest:** secrets hashed/encrypted as above; DB-level encryption is a
   host/infra concern.
 - **Transport:** TLS assumed end-to-end; `Secure` cookies require HTTPS;
-  the module refuses to set auth cookies over plaintext (checks request scheme,
-  mirroring `BasicAuthenticationMiddleware::checkAllowance`).
+  in cookie mode every route that sets or uses the refresh cookie answers
+  `403 insecure_transport` to a request whose URI scheme is not `https`, before
+  a session is created (no `localhost` exception). Behind a TLS-terminating
+  proxy the host's trusted-proxy handling must give the request its https URI.
 - **Retention:** transient tokens pruned (see
   [data-model.md](data-model.md#3-retention--cleanup)); audit retained per host
   policy (default 1 year).
@@ -203,7 +213,7 @@ considered done (tracked in [testing.md](testing.md)):
 - [ ] No hardcoded secrets; `APP_KEY` + JWT keys from env, validated at boot.
 - [ ] All inputs validated in Input DTOs.
 - [ ] Parameterized queries only (Cycle ORM).
-- [ ] CSRF guarded in cookie mode.
+- [x] CSRF guarded in cookie mode.
 - [ ] AuthN + AuthZ verified on every non-public route.
 - [ ] Rate limiting on every unauthenticated mutating endpoint.
 - [ ] Error messages leak nothing sensitive (generic + Problem Details).

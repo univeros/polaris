@@ -169,8 +169,10 @@ lockout window lock the account for `auth.lockout.duration`. Emits
 
 ### POST /auth/token/refresh
 
-Body: `refresh_token` (required). `200` with a fresh `access_token` and (with
-rotation on, the default) a **new** `refresh_token`; the presented one is
+Body: `refresh_token` (required in body mode; in cookie mode the
+`__Secure-polaris_refresh` cookie supplies it and the body may be `{}`). `200`
+with a fresh `access_token` and (with rotation on, the default) a **new**
+`refresh_token`, in the body or, in cookie mode, the cookie; the presented one is
 consumed. Replaying a rotated token revokes the whole family and returns
 `401 invalid_grant` (reuse detection); expired or unknown tokens are also
 `401 invalid_grant`. The refreshed access token re-resolves roles/scope from
@@ -181,7 +183,8 @@ the database and preserves `mfa`/`amr`/`auth_time` from the session. Emits
 
 Empty body; the session (`sid`) or user (`sub`) comes from the token. `200`
 with `{"data":{"status":"logged_out"}}` / `{"data":{"status":"logged_out_all"}}`.
-Logout-all emits `auth.sessions_revoked` with the revoked-session count.
+Logout-all emits `auth.sessions_revoked` with the revoked-session count. In
+cookie mode a successful logout also clears the refresh cookie.
 
 ### POST /auth/switch-org
 

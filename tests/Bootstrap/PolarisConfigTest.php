@@ -93,6 +93,8 @@ final class PolarisConfigTest extends TestCase
             'AUTH_AUDIENCE' => 'https://api.example.com',
             'AUTH_ACCESS_TOKEN_DENYLIST' => '1',
             'AUTH_PASSWORD_BREACH_CHECK' => 'on',
+            'AUTH_TOKEN_DELIVERY' => 'cookie',
+            'AUTH_COOKIE_TRUSTED_ORIGINS' => 'https://app.example.com, https://admin.example.com',
         ]);
         $container = new Container();
         $container->instance(DatabaseAdapter::class, new InMemoryAdapter());
@@ -104,9 +106,19 @@ final class PolarisConfigTest extends TestCase
         self::assertSame('https://api.example.com', $config->auth->audience);
         self::assertTrue($config->auth->accessToken->denylist);
         self::assertTrue($config->auth->breachCheck);
+        self::assertSame('cookie', $config->auth->tokenDelivery);
+        self::assertSame(['https://app.example.com', 'https://admin.example.com'], $config->auth->cookieTrustedOrigins);
         self::assertNull($config->mailer);
         self::assertNull($config->cache);
         self::assertNull($config->logger);
+    }
+
+    public function testTokenDeliveryDefaultsToTheBody(): void
+    {
+        $auth = PolarisConfig::auth(new Container(), new ArrayEnv([]));
+
+        self::assertSame('body', $auth->tokenDelivery);
+        self::assertSame([], $auth->cookieTrustedOrigins);
     }
 
     public function testAHostBoundPdoIsWrappedInThePdoAdapter(): void
