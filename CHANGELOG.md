@@ -4,7 +4,10 @@ All notable changes to `univeros/polaris` are documented in this file. The
 format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 the project adheres to [Semantic Versioning](https://semver.org/).
 
-## [Unreleased]
+## [2.5.0] - 2026-10-29
+
+On Polaris for PHP 0.12: cookie token delivery, opt-in with `AUTH_TOKEN_DELIVERY=cookie`. Body mode, the
+default, is unchanged; see UPGRADE.md for the plugin constraints.
 
 ### Added
 - Cookie token delivery from Polaris for PHP 0.12: with `AUTH_TOKEN_DELIVERY=cookie` (or a bound `AuthConfig`)
@@ -249,6 +252,7 @@ endpoints).
   configuration, the token model, the permission catalog, and the tenant
   invariants.
 
+[2.5.0]: https://github.com/univeros/polaris/releases/tag/v2.5.0
 [2.4.0]: https://github.com/univeros/polaris/releases/tag/v2.4.0
 [2.3.0]: https://github.com/univeros/polaris/releases/tag/v2.3.0
 [2.2.0]: https://github.com/univeros/polaris/releases/tag/v2.2.0
